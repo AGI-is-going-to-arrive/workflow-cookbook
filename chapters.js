@@ -1757,6 +1757,18 @@ const COMPLEX_SCHEMA = {
 }
 \`\`\`
 
+<div class="test-result">
+<div class="test-header">
+<span class="status pass">PASS</span>
+<span class="test-name">schema-validation</span>
+</div>
+<div class="test-output">
+Schema: 3-level nested object + enum + numeric range + array
+Validation: passed on first attempt, no retries
+Agent count: 1 | Total tokens: 59,412 | Duration: 76.3s
+</div>
+</div>
+
 <div class="callout tip">
 <div class="callout-title">实测结论</div>
 复杂嵌套 Schema（3 层嵌套 + enum + 数组 + 数值范围约束）在实测中一次通过验证，无需重试。模型对 JSON Schema 的理解非常可靠。
@@ -1849,7 +1861,21 @@ const result = await agent('Analyze this code', { schema: SCHEMA })
 
 ## Complex Nested Schema
 
-We tested a complex Schema with nested objects, enum constraints, and arrays — it passed validation on the first try with no retries needed.
+We tested a complex Schema with nested objects, enum constraints, and arrays:
+
+<div class="test-result">
+<div class="test-header">
+<span class="status pass">PASS</span>
+<span class="test-name">schema-validation</span>
+</div>
+<div class="test-output">
+Schema: 3-level nested object + enum + numeric range + array
+Validation: passed on first attempt, no retries
+Agent count: 1 | Total tokens: 59,412 | Duration: 76.3s
+</div>
+</div>
+
+It passed validation on the first try with no retries needed. The model's understanding of JSON Schema is remarkably reliable.
 
 ## Cross-Stage Data Flow
 
@@ -1968,7 +1994,6 @@ if (!critique.passesReview) {
 Agent count: 2 (generator + critic)
 Total tokens: 54,216
 Duration: 32.8s
-\`\`\`
 </div>
 </div>
 
@@ -2282,22 +2307,67 @@ Dispatch a subagent.
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | \`prompt\` | string | — | Task description (must be self-contained) |
+| \`opts.label\` | string | — | Display label in progress tree |
+| \`opts.phase\` | string | — | Assign to a progress group (use inside pipeline/parallel) |
 | \`opts.schema\` | object | — | JSON Schema for structured output |
 | \`opts.model\` | string | inherited | 'sonnet' / 'opus' / 'haiku' |
-| \`opts.isolation\` | 'worktree' | — | git worktree isolation |
-| \`opts.agentType\` | string | — | custom agent type |
+| \`opts.isolation\` | 'worktree' | — | Run in a fresh git worktree (~200-500ms overhead) |
+| \`opts.agentType\` | string | — | Custom agent type (e.g. 'Explore', 'code-reviewer') |
 
-## parallel(thunks) / pipeline(items, ...stages)
+**Return value**: no schema → string; with schema → validated object; user skips → null
 
-See chapters 06 for detailed usage and decision tree.
+## parallel(thunks)
+
+Run all thunks concurrently, wait for all to complete (barrier).
+
+| Param | Type | Description |
+|-------|------|-------------|
+| \`thunks\` | Array<() => Promise> | Array of functions |
+
+**Return value**: \`any[]\` (thunks that throw resolve to null at their position)
+
+## pipeline(items, ...stages)
+
+Each item flows through all stages independently, NO barrier between stages.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| \`items\` | Array | Input items array |
+| \`stage1\` | (prevResult, originalItem, index) => Promise | First stage |
+| \`stage2...\` | (prevResult, originalItem, index) => Promise | Subsequent stages |
+
+**Return value**: \`any[]\` (items that throw resolve to null at their position)
+
+## phase(title)
+
+Start a new phase. Subsequent agent() calls are grouped under this title in the progress display.
+
+## log(message)
+
+Emit a progress message to the user (shown as a narrator line above the progress tree).
 
 ## budget
 
 | Property | Type | Description |
 |----------|------|-------------|
-| \`budget.total\` | number \\| null | User-set token target |
-| \`budget.spent()\` | number | Output tokens consumed |
-| \`budget.remaining()\` | number | Remaining (Infinity if no target) |
+| \`budget.total\` | number \\| null | User-set token target (null if not set) |
+| \`budget.spent()\` | number | Output tokens consumed across main loop + all workflows |
+| \`budget.remaining()\` | number | \`max(0, total - spent())\`, or Infinity if no target |
+
+## workflow(nameOrRef, args?)
+
+Run another workflow inline as a sub-step.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| \`nameOrRef\` | string \\| {scriptPath} | Name or script path |
+| \`args\` | any | Arguments passed to child workflow |
+
+Child shares parent's concurrency cap, agent counter, abort signal, and token budget. Nesting is one level only.
+
+## args
+
+The value passed as Workflow tool's \`args\` input. Use to parameterize named workflows.
 
 ## Concurrency Limits
 
@@ -2876,7 +2946,56 @@ Deploy multi-dimensional specialist reviewers for each PR, each covering their d
 
 ## Design Approach
 
-Traditional PR review is done by one person (or agent) with a single perspective. Multi-role review has different experts review from different dimensions in parallel.
+Traditional PR review is done by one person (or agent) with a single perspective. Multi-role review has different experts review from different dimensions in parallel:
+
+\`\`\`
+PR → ┌─ Security specialist  ──→ Security findings
+     ├─ Performance specialist ─→ Performance findings  → Unified report
+     └─ Architecture specialist ─→ Architecture findings
+\`\`\`
+
+## Complete Workflow Script
+
+\`\`\`javascript
+export const meta = {
+  name: 'multi-role-review',
+  description: 'Multi-role PR review: security + performance + architecture',
+  phases: [
+    { title: 'Review', detail: 'Three specialist reviews in parallel' },
+    { title: 'Synthesize', detail: 'Merge into unified report' },
+  ],
+}
+
+const REVIEW_SCHEMA = {
+  type: 'object',
+  properties: {
+    role: { type: 'string' },
+    findings: { type: 'array', items: {
+      type: 'object',
+      properties: {
+        issue: { type: 'string' },
+        severity: { type: 'string', enum: ['info','low','medium','high','critical'] },
+        suggestion: { type: 'string' },
+      },
+      required: ['issue', 'severity'],
+    }},
+    overallScore: { type: 'number', minimum: 1, maximum: 10 },
+  },
+  required: ['role', 'findings', 'overallScore'],
+}
+
+phase('Review')
+const reviews = await parallel([
+  () => agent('You are a SECURITY specialist. Review the codebase for security issues.', { schema: REVIEW_SCHEMA, label: 'security' }),
+  () => agent('You are a PERFORMANCE specialist. Review for performance issues.', { schema: REVIEW_SCHEMA, label: 'performance' }),
+  () => agent('You are an ARCHITECTURE specialist. Review for architectural issues.', { schema: REVIEW_SCHEMA, label: 'architecture' }),
+])
+
+phase('Synthesize')
+const valid = reviews.filter(Boolean)
+const avgScore = valid.reduce((s, r) => s + r.overallScore, 0) / valid.length
+return { reviewers: valid.map(r => ({ role: r.role, score: r.overallScore })), avgScore }
+\`\`\`
 
 ## Real Execution Results
 
@@ -2887,10 +3006,13 @@ Traditional PR review is done by one person (or agent) with a single perspective
 </div>
 <div class="test-output">
 Reviewers: security (6/10), performance (5/10), architecture (6/10)
-Average: 5.67/10 | Findings: 21 (4 critical/high)
-Agents: 3 | Tokens: 159,601 | Duration: 74.4s
+Average score: 5.67/10
+Total findings: 21 (4 critical/high)
+Agent count: 3 | Total tokens: 159,601 | Duration: 74.4s
 </div>
 </div>
+
+**Key finding**: The security specialist found 6 issues (including missing SRI), the performance specialist found 8 issues (including render-blocking scripts), and the architecture specialist found 7 issues (including data source redundancy). The three dimensions did not overlap, proving the value of multi-role review.
 
 ## Chapter Summary
 
@@ -2937,7 +3059,7 @@ Topic → ┌─ Searcher A (角度 1) ─→ Claims
 <div class="test-output">
 Topic: JavaScript event loop phases
 Searchers: 2 (event-loop-phases + micro-vs-macro)
-Total claims: 6, Verified: 4, Confirmed: 3
+Total claims: 6, Confirmed: 3
 Agent count: 6 | Total tokens: 225,821 | Duration: 220.7s
 </div>
 </div>
@@ -2957,6 +3079,27 @@ Agent count: 6 | Total tokens: 225,821 | Duration: 220.7s
 en: `
 Multiple agents search from different angles in parallel, cross-verify each claim, then synthesize into a trustworthy report.
 
+## How the Pattern Works
+
+\`\`\`
+Topic → ┌─ Searcher A (angle 1) ─→ Claims
+        └─ Searcher B (angle 2) ─→ Claims
+                                    ↓
+                         Merge + Dedup Claims
+                                    ↓
+                    ┌─ Verifier 1 ─→ Verified?
+                    ├─ Verifier 2 ─→ Verified?
+                    └─ Verifier N ─→ Verified?
+                                    ↓
+                             Final Report
+\`\`\`
+
+## Key Design
+
+1. **Multi-angle search**: search the same topic from different angles to avoid blind spots of a single perspective
+2. **Cross-verification**: independent agents verify each claim, filtering out incorrect information
+3. **Structured claims**: each claim carries a confidence score
+
 ## Real Execution Results
 
 <div class="test-result">
@@ -2966,10 +3109,16 @@ Multiple agents search from different angles in parallel, cross-verify each clai
 </div>
 <div class="test-output">
 Topic: JavaScript event loop phases
-Searchers: 2 | Claims: 6 → Verified: 4 → Confirmed: 3
-Agents: 6 | Tokens: 225,821 | Duration: 220.7s
+Searchers: 2 (event-loop-phases + micro-vs-macro)
+Total claims: 6, Confirmed: 3
+Agent count: 6 | Total tokens: 225,821 | Duration: 220.7s
 </div>
 </div>
+
+**Examples of verified claims**:
+- setImmediate() runs in the check phase, after the poll phase
+- Microtasks are fully drained after each macrotask
+- process.nextTick() has higher priority than Promise microtasks
 
 ## Chapter Summary
 
@@ -3046,6 +3195,32 @@ Total tokens: 358,936 | Duration: 139.7s
 en: `
 Orchestrate A/B testing with Workflow — generate multiple independent solutions, score with a judge panel, pick the best.
 
+## Judge Panel Pattern
+
+\`\`\`javascript
+// 3 independent generators produce solutions from different angles
+const solutions = await parallel(
+  ANGLES.map(angle => () =>
+    agent('Implement from ' + angle + ' perspective', { schema: SOLUTION_SCHEMA })
+  )
+)
+
+// Each solution is scored by 3 independent judges
+const scored = await pipeline(solutions.filter(Boolean),
+  (sol) => parallel(
+    Array.from({ length: 3 }, () => () =>
+      agent('Score this: ' + sol.approach, { schema: SCORE_SCHEMA })
+    )
+  ).then(judges => ({
+    ...sol,
+    avgScore: judges.filter(Boolean).reduce((s, j) => s + j.score, 0) / judges.filter(Boolean).length
+  }))
+)
+
+// Pick the highest score
+const winner = scored.reduce((best, cur) => cur.avgScore > best.avgScore ? cur : best)
+\`\`\`
+
 ## Real Execution Results
 
 <div class="test-result">
@@ -3055,10 +3230,21 @@ Orchestrate A/B testing with Workflow — generate multiple independent solution
 </div>
 <div class="test-output">
 Task: Rate limiter implementation
-Winner: MVP-first (7.67/10) over Performance-first (7.00) and Safety-first (6.33)
-Agents: 12 (3 gen + 9 judges) | Tokens: 358,936 | Duration: 139.7s
+Approaches: MVP-first (7.67), Performance-first (7.00), Safety-first (6.33)
+Winner: MVP-first with avg score 7.67/10
+Agent count: 12 (3 generators + 9 judges)
+Total tokens: 358,936 | Duration: 139.7s
 </div>
 </div>
+
+**Key finding**: MVP-first (the simplest viable solution) won at 7.67, with Performance-first at 7.00 and Safety-first at 6.33. Judges favored the clean, clear implementation.
+
+## When to Use
+
+- Evaluate the output quality of different prompts
+- Compare the effectiveness of different agent configurations
+- A/B test different solutions
+- Select the best among multiple design options
 
 ## Chapter Summary
 
@@ -3100,7 +3286,7 @@ while (dryStreak < MAX_DRY) {
     'Find bugs NOT already in this list: ' + bugs.map(b => b.title).join(', '),
     { schema: BUGS_SCHEMA }
   )
-  if (result.bugs.length === 0) {
+  if (!result || result.bugs.length === 0) {
     dryStreak++
     log('Dry streak: ' + dryStreak + '/' + MAX_DRY)
   } else {
@@ -3154,15 +3340,64 @@ Agent count: 3 | Total tokens: 100,357 | Duration: 70.1s
 - 实测：3 agents 正确反驳错误声明，confidence 0.97+
 `,
 en: `
-Continuously find bugs until dry, then adversarially verify to filter false positives.
+Continuously find bugs until dry, then adversarially verify to filter false positives — the core pattern of the bughunt workflow.
 
-## Key Patterns
+## How the Pattern Works
 
-### Loop-Until-Dry: Keep finding until N consecutive rounds return nothing new.
+\`\`\`
+Round 1: Finder → [bugs]
+Round 2: Finder → [more bugs]
+Round 3: Finder → [0 new bugs] ← dry streak
+         ↓
+All bugs → Adversarial Verify (5 votes each)
+         ↓
+Confirmed bugs only
+\`\`\`
 
-### 5-Vote Adversarial Verify: Each finding gets 5 independent skeptics trying to refute it. Majority vote decides.
+## Key Design
+
+### Loop-Until-Dry Pattern
+
+\`\`\`javascript
+const bugs = []
+let dryStreak = 0
+const MAX_DRY = 2
+
+while (dryStreak < MAX_DRY) {
+  const result = await agent(
+    'Find bugs NOT already in this list: ' + bugs.map(b => b.title).join(', '),
+    { schema: BUGS_SCHEMA }
+  )
+  if (!result || result.bugs.length === 0) {
+    dryStreak++
+    log('Dry streak: ' + dryStreak + '/' + MAX_DRY)
+  } else {
+    dryStreak = 0
+    bugs.push(...result.bugs)
+    log('Found ' + result.bugs.length + ' new bugs (total: ' + bugs.length + ')')
+  }
+}
+\`\`\`
+
+### 5-Vote Adversarial Verify
+
+\`\`\`javascript
+const verified = await pipeline(bugs,
+  (bug) => parallel(
+    Array.from({ length: 5 }, () => () =>
+      agent('Try to REFUTE: ' + bug.title, { schema: VERDICT_SCHEMA })
+    )
+  ).then(votes => {
+    const refuted = votes.filter(Boolean).filter(v => v.refuted).length
+    return { ...bug, confirmed: refuted < 3 }
+  })
+)
+const confirmedBugs = verified.filter(Boolean).filter(b => b.confirmed)
+\`\`\`
 
 ## Real Adversarial Verification Results
+
+Our adversarial-verify test validates this pattern:
 
 <div class="test-result">
 <div class="test-header">
@@ -3171,10 +3406,13 @@ Continuously find bugs until dry, then adversarially verify to filter false posi
 </div>
 <div class="test-output">
 Claim: "setTimeout(0) guarantees running before I/O callbacks"
-Votes: 3/3 REFUTED (confidence: 0.97-0.98) → REJECTED (correctly)
-Agents: 3 | Tokens: 100,357 | Duration: 70.1s
+Votes: 3/3 REFUTED (confidence: 0.97-0.98)
+Verdict: REJECTED (correctly — the claim is false)
+Agent count: 3 | Total tokens: 100,357 | Duration: 70.1s
 </div>
 </div>
+
+**Key finding**: All 3 independent skeptics correctly refuted the false claim, with confidence as high as 0.97-0.98. Adversarial verification is highly effective at filtering out incorrect information.
 
 ## Chapter Summary
 
@@ -3244,13 +3482,45 @@ en: `
 
 ## How It Works
 
-First run completes agents A and B, then interrupts at C. Resume with the same runId: A and B return cached results instantly, C and onwards re-execute.
+\`\`\`
+First run:
+  agent A → done (cached)
+  agent B → done (cached)
+  agent C → interrupted!
+
+Resume run (resumeFromRunId):
+  agent A → cache hit ✓ (instant return)
+  agent B → cache hit ✓ (instant return)
+  agent C → re-execute (continue from interruption)
+  agent D → execute normally
+\`\`\`
+
+## Usage
+
+\`\`\`javascript
+// First run returns a runId
+Workflow({ script: '...', /* or scriptPath */ })
+// Returns: { runId: 'wf_abc123-456' }
+
+// Resume after interruption
+Workflow({
+  scriptPath: '/path/to/script.js',
+  resumeFromRunId: 'wf_abc123-456'
+})
+\`\`\`
 
 ## Cache Hit Conditions
+
+A cache hit requires **both the prompt and opts to be exactly identical**:
 
 - Same script + same args → 100% cache hit
 - Modified agent prompt → that agent and all after re-execute
 - Inserted new agent → insertion point and after re-execute
+
+<div class="callout warning">
+<div class="callout-title">Limitation</div>
+<code>Date.now()</code>, <code>Math.random()</code>, and a no-arg <code>new Date()</code> are unavailable in scripts — they break resume determinism. If you need a timestamp, pass it in via <code>args</code>.
+</div>
 
 ## Chapter Summary
 
@@ -3305,11 +3575,38 @@ Worktree 隔离开销不小。只在多个 agent 需要<strong>并行写入文�
 - 只在需要并行写入文件时使用
 `,
 en: `
-\`isolation: 'worktree'\` lets multiple agents modify files in parallel using isolated git worktrees.
+\`isolation: 'worktree'\` lets multiple agents modify files in parallel by creating isolated git worktrees, avoiding working directory conflicts.
 
-## When to Use
+## Why Isolation Is Needed
 
-Only when multiple agents need to **write files in parallel**. Read-only agents don't need isolation.
+By default, all agents share the same working directory. If two agents modify the same file at the same time, conflicts arise. Worktree isolation creates an independent filesystem copy for each agent.
+
+## Usage
+
+\`\`\`javascript
+const results = await parallel([
+  () => agent('Refactor the auth module', {
+    isolation: 'worktree',
+    label: 'auth-refactor',
+  }),
+  () => agent('Refactor the database module', {
+    isolation: 'worktree',
+    label: 'db-refactor',
+  }),
+])
+// The two agents work in independent worktrees without interfering
+\`\`\`
+
+## Overhead and Cleanup
+
+- Creating a worktree has ~200-500ms overhead + disk usage
+- If an agent makes no changes, the worktree is cleaned up automatically
+- If there are changes, the returned result includes the worktree path and branch name
+
+<div class="callout warning">
+<div class="callout-title">Use only when necessary</div>
+Worktree isolation has non-trivial overhead. Use it only when multiple agents need to <strong>write files in parallel</strong>. If agents only read files or only return analysis results, isolation is not needed.
+</div>
 
 ## Chapter Summary
 
@@ -3363,14 +3660,33 @@ const result = await workflow({ scriptPath: '/path/to/review.js' }, { depth: 'th
 en: `
 \`workflow()\` lets you call another workflow inside a workflow for modular orchestration.
 
+## Usage
+
+\`\`\`javascript
+// Call a named workflow
+const result = await workflow('sharded-review', { target: 'src/' })
+
+// Call a script file
+const result = await workflow({ scriptPath: '/path/to/review.js' }, { depth: 'thorough' })
+\`\`\`
+
 ## Shared Resources
 
-Child workflows share concurrency cap, agent counter, token budget, and abort signal with the parent.
+Child workflows share with the parent:
+- **Concurrency cap** — the same min(16, CPU-2) pool
+- **Agent counter** — counts toward the same 1000 limit
+- **Token budget** — budget.spent() is a shared pool
+- **Abort signal** — when the parent workflow aborts, child workflows abort too
 
 ## Limitations
 
 - Nesting is one level only — workflow() inside a child throws
 - Child agents appear as indented subgroups in /workflows
+
+<div class="callout info">
+<div class="callout-title">Passing args</div>
+The second argument of <code>workflow()</code> becomes the <code>args</code> global variable inside the child workflow. Use it to parameterize reusable workflows.
+</div>
 
 ## Chapter Summary
 
@@ -3414,9 +3730,11 @@ const survives = votes.filter(Boolean).filter(v => !v.refuted).length >= 2
 \`\`\`javascript
 let dryStreak = 0
 while (dryStreak < K) {
-  const found = await agent('Find more issues not in: ' + existing)
-  if (found.length === 0) dryStreak++
-  else { dryStreak = 0; results.push(...found) }
+  const found = await agent('Find more issues not in: ' + existing, {
+    schema: { type: 'object', properties: { issues: { type: 'array', items: { type: 'string' } } }, required: ['issues'] }
+  })
+  if (!found || found.issues.length === 0) dryStreak++
+  else { dryStreak = 0; results.push(...found.issues) }
 }
 \`\`\`
 
@@ -3470,21 +3788,71 @@ en: `
 Five proven quality patterns — combine as needed to improve workflow output reliability.
 
 ## 1. Adversarial Verify
-Spawn N skeptics to try to REFUTE each finding. Only survivors are kept.
-**Tested**: 3 skeptics correctly refuted a false claim with 0.97+ confidence.
+Spawn N independent skeptics to try to **REFUTE** each finding. Only those that cannot be refuted are kept.
+
+\`\`\`javascript
+const votes = await parallel(
+  Array.from({ length: 3 }, () => () =>
+    agent('Try to REFUTE: ' + claim, { schema: VERDICT_SCHEMA })
+  )
+)
+const survives = votes.filter(Boolean).filter(v => !v.refuted).length >= 2
+\`\`\`
+
+**Tested**: in our adversarial-verify test, 3 skeptics correctly refuted a false claim with 0.97+ confidence.
 
 ## 2. Judge Panel
-Generate N solutions, score with parallel judges, pick the best.
-**Tested**: 12 agents, MVP-first won at 7.67/10.
+Generate N independent solutions, score with parallel judges, pick the best.
+
+**Tested**: in the judge-panel test, 12 agents (3 generators + 9 judges) finished in 140s, with the MVP solution winning at 7.67.
 
 ## 3. Loop Until Dry
 Keep finding until K consecutive rounds return nothing new.
 
+\`\`\`javascript
+let dryStreak = 0
+while (dryStreak < K) {
+  const found = await agent('Find more issues not in: ' + existing, {
+    schema: { type: 'object', properties: { issues: { type: 'array', items: { type: 'string' } } }, required: ['issues'] }
+  })
+  if (!found || found.issues.length === 0) dryStreak++
+  else { dryStreak = 0; results.push(...found.issues) }
+}
+\`\`\`
+
 ## 4. Multi-Modal Sweep
-Multiple agents each use different search strategies to cover blind spots.
+Multiple agents each use different search strategies to cover different blind spots.
+
+\`\`\`javascript
+const results = await parallel([
+  () => agent('Search by file structure'),    // by file structure
+  () => agent('Search by data flow'),         // by data flow
+  () => agent('Search by error patterns'),    // by error patterns
+])
+\`\`\`
 
 ## 5. Completeness Critic
-A final agent asks "what's missing?" to identify uncovered dimensions.
+A final agent asks "what's missing?" — uncovered dimensions, unverified claims, unread sources.
+
+\`\`\`javascript
+const critic = await agent(
+  'What is MISSING from this analysis? What modality was not run, ' +
+  'what claim is unverified, what source was not read?',
+  { schema: GAPS_SCHEMA }
+)
+// critic.gaps becomes the input for the next round of work
+\`\`\`
+
+## Combining Patterns
+
+These patterns can be combined freely:
+
+\`\`\`
+Discovery phase:    Multi-Modal Sweep + Loop Until Dry
+Verification phase: Adversarial Verify (3-5 votes)
+Selection phase:    Judge Panel
+Wrap-up phase:      Completeness Critic
+\`\`\`
 
 ## Chapter Summary
 
@@ -3622,10 +3990,19 @@ Checklist for production-ready Workflows.
 - [ ] Use agent \`phase\` option inside parallel (not global)
 - [ ] Handle null returns: \`.filter(Boolean)\`
 
+## Budget
+- [ ] Check \`budget.total\` before loops (remaining is Infinity when null)
+- [ ] Reserve enough headroom (\`remaining() > 50_000\`)
+
 ## Quality
 - [ ] Adversarial verify for critical findings
 - [ ] GCF loops have max round limits
 - [ ] Critics have explicit pass/fail criteria
+
+## Reuse
+- [ ] Put scripts in \`.claude/workflows/\`
+- [ ] Parameterize via \`args\`
+- [ ] Extract Schema definitions into shared modules
 `
 };
 
