@@ -37,7 +37,7 @@
   --font-mono:'JetBrains Mono','Fira Code',monospace;
   --shadow:0 2px 8px rgba(26,26,46,0.06);
   --shadow-lg:0 8px 32px rgba(26,26,46,0.1);
-  --radius:6px;
+  --radius:12px;
   --transition:.25s ease;
 }
 
@@ -350,45 +350,49 @@ a:hover{color:var(--accent-hover)}
 }
 .pullquote .attribution::before{content:'— '}
 
-/* ═══ Code blocks — refined editorial exhibit ═══ */
+/* ═══ Code blocks — Neverless-inspired editorial exhibit ═══ */
 .article-body pre{
   margin:32px 0;overflow-x:auto;position:relative;
-  background:#FAFAF6;
-  border:1px solid #DDD9CE;
-  border-radius:8px;
-  box-shadow:0 1px 4px rgba(0,0,0,.04);
+  background:#F8F5EE;
+  border:none;
+  border-radius:16px;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.03);
+  padding:0;
 }
 
 .article-body pre .lang-badge{
-  position:absolute;top:0;right:0;
-  font-size:.6rem;font-weight:700;font-family:var(--font-mono);
-  text-transform:uppercase;letter-spacing:.1em;
-  padding:4px 14px;
-  border-radius:0 8px 0 8px;
-  background:var(--accent);color:#fff;
+  position:absolute;top:14px;right:16px;
+  font-size:.58rem;font-weight:700;font-family:var(--font-mono);
+  text-transform:uppercase;letter-spacing:.12em;
+  padding:3px 10px;
+  border-radius:20px;
+  background:rgba(200,149,46,.12);color:var(--accent);
   line-height:1;
 }
 
 .article-body pre .copy-btn{
-  position:absolute;bottom:10px;right:12px;
-  font-size:.65rem;font-family:var(--font-mono);
-  padding:4px 12px;border-radius:4px;
-  background:rgba(255,255,255,.8);border:1px solid #ccc;
-  color:var(--text-muted);cursor:pointer;
-  opacity:0;transition:all .2s;
-  backdrop-filter:blur(4px);
+  position:absolute;top:12px;right:auto;left:auto;
+  font-size:.62rem;font-family:var(--font-mono);
+  padding:4px 14px;border-radius:20px;
+  background:rgba(200,149,46,.08);border:none;
+  color:var(--accent);cursor:pointer;
+  transition:all .2s ease-out;
+  letter-spacing:.04em;font-weight:600;
 }
-.article-body pre:hover .copy-btn{opacity:1}
+.article-body pre .copy-btn{right:16px}
+.article-body pre .lang-badge ~ .copy-btn{right:auto;left:16px}
+
 .article-body pre .copy-btn:hover{
-  background:var(--accent);border-color:var(--accent);color:#fff;
+  background:var(--accent);color:#fff;
 }
 
 .article-body pre code{
   display:block;
-  padding:20px 24px;
-  font-size:13px;
-  line-height:1.65;
-  color:#37352F;
+  padding:44px 28px 24px;
+  font-size:13.5px;
+  line-height:1.75;
+  letter-spacing:-.01em;
+  color:#3D3930;
   font-family:var(--font-mono);
   background:transparent;
   tab-size:2;
@@ -396,29 +400,48 @@ a:hover{color:var(--accent-hover)}
   -moz-osx-font-smoothing:auto;
 }
 
+/* Short code blocks (no lang badge) get less top padding */
+.article-body pre:not(:has(.lang-badge)) code{padding-top:24px}
+
 /* Inline code */
 .article-body code{
   font-family:var(--font-mono);font-size:.84em;
-  background:#F0EDE5;color:#6B4C1E;
-  padding:2px 7px;border-radius:4px;
+  background:#EDE9DF;color:#5C4920;
+  padding:2px 8px;border-radius:6px;
   font-weight:500;
   -webkit-font-smoothing:auto;
 }
 
 .article-body pre code{
   background:transparent;color:inherit;padding:0;font-weight:400;
+  border-radius:0;
 }
+
+/* Syntax highlighting overrides for warm background */
+.article-body pre .hljs-keyword{color:#8B5CF6}
+.article-body pre .hljs-string{color:#16803C}
+.article-body pre .hljs-number{color:#B45309}
+.article-body pre .hljs-comment{color:#9CA3AF;font-style:italic}
+.article-body pre .hljs-function .hljs-title,.article-body pre .hljs-title.function_{color:#2563EB}
+.article-body pre .hljs-built_in{color:#D97706}
+.article-body pre .hljs-property{color:#3D3930}
+.article-body pre .hljs-attr{color:#9333EA}
+.article-body pre .hljs-literal{color:#DC2626}
+.article-body pre .hljs-type{color:#0891B2}
 
 /* Dark mode */
 [data-theme="dark"] .article-body pre{
-  background:#1A1A22;border-color:#2E2E3A;
-  box-shadow:0 1px 4px rgba(0,0,0,.2);
+  background:#1C1B24;border:1px solid #2A2A35;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.15), 0 1px 3px rgba(0,0,0,.1);
 }
 [data-theme="dark"] .article-body pre code{color:#D0D0DA}
-[data-theme="dark"] .article-body pre .copy-btn{
-  background:rgba(30,30,40,.8);border-color:#444;color:#999;
-}
+[data-theme="dark"] .article-body pre .lang-badge{background:rgba(212,165,74,.15);color:var(--accent)}
+[data-theme="dark"] .article-body pre .copy-btn{background:rgba(212,165,74,.1);color:var(--accent)}
 [data-theme="dark"] .article-body code{background:#28273A;color:#D4A54A}
+[data-theme="dark"] .article-body pre .hljs-keyword{color:#A78BFA}
+[data-theme="dark"] .article-body pre .hljs-string{color:#34D399}
+[data-theme="dark"] .article-body pre .hljs-number{color:#FBBF24}
+[data-theme="dark"] .article-body pre .hljs-comment{color:#6B7280}
 
 /* Tables */
 .article-body table{
@@ -684,7 +707,7 @@ a:hover{color:var(--accent-hover)}
 </main>
 
 <!-- ═══ Scripts ═══ -->
-<script src="chapters.js?v=8"></script>
+<script src="chapters.js?v=10"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
@@ -909,12 +932,15 @@ function showChapter(id) {
       const copyBtn = document.createElement('button');
       copyBtn.className = 'copy-btn';
       copyBtn.textContent = 'Copy';
-      copyBtn.onclick = () => {
-        navigator.clipboard.writeText(block.textContent);
-        copyBtn.textContent = 'Copied!';
-        setTimeout(() => copyBtn.textContent = 'Copy', 1500);
+      copyBtn.type = 'button';
+      copyBtn.onclick = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(block.textContent).then(() => {
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => copyBtn.textContent = 'Copy', 1500);
+        });
       };
-      if (lang) pre.appendChild(copyBtn);
+      pre.appendChild(copyBtn);
     });
   } else {
     body.innerHTML = '<div class="callout info"><div class="callout-title">' +
