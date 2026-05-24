@@ -1,0 +1,12 @@
+# Debug artifacts
+.playwright-mcp/
+site-*.png
+nul
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
