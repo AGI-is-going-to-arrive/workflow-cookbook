@@ -35,11 +35,38 @@ Workflow：用户 → JavaScript 脚本决定做什么 → 模型执行（确定
 
 ## 如何启用
 
-Workflow 功能通过 \`Workflow\` 工具暴露。在 Claude Code 中，你可以通过 \`ultrawork\` 关键词或直接调用 Workflow 工具来使用它。
+Workflow 是 Claude Code 的**隐藏/实验性功能**，需要通过环境变量 \`CLAUDE_CODE_WORKFLOWS=1\` 显式开启（自 v2.1.148 起支持）。
 
-<div class="callout tip">
-<div class="callout-title">实测发现</div>
-在当前版本的 Claude Code 中，Workflow 功能已经默认可用，无需设置环境变量。输入 "ultrawork" 关键词即可触发。
+**方式 1：在 settings.json 中配置**（推荐，永久生效）
+
+在 \`~/.claude/settings.json\` 的 \`env\` 部分添加：
+
+\`\`\`json
+{
+  "env": {
+    "CLAUDE_CODE_WORKFLOWS": "1"
+  }
+}
+\`\`\`
+
+**方式 2：启动时设置环境变量**
+
+\`\`\`bash
+CLAUDE_CODE_WORKFLOWS=1 claude
+\`\`\`
+
+或：
+
+\`\`\`bash
+export CLAUDE_CODE_WORKFLOWS=1
+claude
+\`\`\`
+
+开启后，在对话中输入 \`ultrawork\` 关键词即可触发 Workflow 工具。
+
+<div class="callout warning">
+<div class="callout-title">版本要求</div>
+Workflow 功能需要 Claude Code <strong>v2.1.148 或更高版本</strong>（2026年5月发布）。如果你的版本较低，请先更新：<code>claude update</code>。
 </div>
 
 ## 一个最小的 Workflow 长什么样
@@ -103,11 +130,17 @@ Workflow:    User → JS script decides what to do → Model executes (determini
 
 ## How to Enable
 
-The Workflow feature is exposed through the \`Workflow\` tool. In Claude Code, you can use it via the \`ultrawork\` keyword or by directly calling the Workflow tool.
+Workflow is a **hidden/experimental feature** that requires the \`CLAUDE_CODE_WORKFLOWS=1\` environment variable (since v2.1.148, May 2026).
 
-<div class="callout tip">
-<div class="callout-title">Real Test Finding</div>
-In the current version of Claude Code, the Workflow feature is available by default — no environment variable needed. Type the "ultrawork" keyword to trigger it.
+**Method 1: settings.json** (recommended) — add \`"CLAUDE_CODE_WORKFLOWS": "1"\` to the \`env\` section in \`~/.claude/settings.json\`.
+
+**Method 2: Launch command** — \`CLAUDE_CODE_WORKFLOWS=1 claude\`
+
+Once enabled, type \`ultrawork\` in conversation to trigger the Workflow tool.
+
+<div class="callout warning">
+<div class="callout-title">Version Requirement</div>
+Requires Claude Code <strong>v2.1.148+</strong> (May 2026). Update with: <code>claude update</code>.
 </div>
 
 ## What a Minimal Workflow Looks Like
@@ -558,7 +591,7 @@ zh: `
 
 <div class="callout tip">
 <div class="callout-title">实测发现</div>
-在当前版本（2025年5月）中，Workflow 功能默认可用。你可以在对话中输入 "ultrawork" 关键词触发，或让 Claude 直接使用 Workflow 工具。
+Workflow 功能需要显式开启（自 Claude Code v2.1.148 起支持）。开启方式有两种：
 </div>
 
 ## 第一个 Workflow：Smoke Test
@@ -670,7 +703,7 @@ Workflow({ scriptPath: '/path/to/smoke-test.js' })
 
 ## 本章小结
 
-- Workflow 默认可用，无需特殊配置
+- Workflow 需通过 \`CLAUDE_CODE_WORKFLOWS=1\` 显式启用（v2.1.148+）
 - 最小 Workflow 只需 meta + phase + agent
 - Schema 约束确保 agent 输出结构化 JSON
 - 单 agent workflow 约 6.7 秒 / 26K tokens
@@ -686,7 +719,7 @@ This chapter walks you through from zero: configure your environment, write and 
 
 <div class="callout tip">
 <div class="callout-title">Real Test Finding</div>
-In the current version (May 2025), the Workflow feature is available by default. You can trigger it by typing "ultrawork" in conversation, or have Claude directly use the Workflow tool.
+Workflow requires explicit activation since Claude Code v2.1.148 (May 2026). Set <code>"CLAUDE_CODE_WORKFLOWS": "1"</code> in <code>~/.claude/settings.json</code> under <code>env</code>, or launch with <code>CLAUDE_CODE_WORKFLOWS=1 claude</code>.
 </div>
 
 ## First Workflow: Smoke Test
@@ -798,7 +831,7 @@ For workflows that need to be run repeatedly, use the scriptPath approach. Scrip
 
 ## Chapter Summary
 
-- Workflow is available by default, no special configuration needed
+- Workflow requires \`CLAUDE_CODE_WORKFLOWS=1\` to enable (v2.1.148+)
 - Minimal Workflow only needs meta + phase + agent
 - Schema constraints ensure agent outputs structured JSON
 - Single-agent workflow: ~6.7 seconds / ~26K tokens
