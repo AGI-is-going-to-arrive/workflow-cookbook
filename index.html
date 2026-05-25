@@ -80,12 +80,14 @@ img{max-width:100%}
 .shell{margin-left:var(--side-w);min-height:100vh;display:flex;justify-content:center}
 .col{width:100%;max-width:calc(var(--measure) + var(--toc-w) + 96px);display:flex;gap:48px;padding:0 48px}
 .main{flex:1;min-width:0;max-width:var(--measure);padding:64px 0 140px;margin:0 auto}
-.topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0 13px;margin-bottom:30px;background:linear-gradient(var(--paper) 78%,rgba(251,250,245,0))}
-.crumb{font-family:var(--f-ui);font-size:.72rem;letter-spacing:.04em;color:var(--ink-mute);text-transform:uppercase}
+.topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0 13px;margin-bottom:30px;background:linear-gradient(var(--paper) 78%,rgba(251,250,245,0));min-width:0}
+.crumb{font-family:var(--f-ui);font-size:.72rem;letter-spacing:.04em;color:var(--ink-mute);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .crumb b{color:var(--ink);font-weight:600}
 .tools{display:flex;align-items:center;gap:8px}
-.lang-toggle{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--card)}
+.lang-toggle{display:inline-flex;border:1px solid var(--line);border-radius:999px;background:var(--card)}
 .lang-toggle button{font-family:var(--f-ui);font-size:.72rem;font-weight:600;padding:5px 13px;color:var(--ink-mute);transition:all var(--t) var(--ease)}
+.lang-toggle button:first-child{border-radius:999px 0 0 999px}
+.lang-toggle button:last-child{border-radius:0 999px 999px 0}
 .lang-toggle button.on{background:var(--ink);color:var(--paper)}
 .lang-toggle button:not(.on):hover{color:var(--accent-text);background:var(--paper-2)}
 .ghbtn{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-ui);font-size:.72rem;font-weight:600;color:var(--ink-mute);border:1px solid var(--line);border-radius:999px;padding:5px 12px;transition:all var(--t) var(--ease)}
@@ -114,6 +116,7 @@ img{max-width:100%}
 html[lang="en"] .main>p:first-of-type::first-letter,html[lang="en"] .main .dropcap::first-letter{font-family:var(--f-display);font-weight:900;float:left;font-size:3.5rem;line-height:.82;padding:.06em .12em 0 0;color:var(--accent)}
 .main blockquote{margin:1.6em 0;padding:.2em 0 .2em 1.4em;border-left:3px solid var(--accent);font-style:italic;color:var(--ink-soft);font-size:1.08rem}
 .main blockquote p:last-child{margin-bottom:0}
+html[lang="zh-CN"] .main blockquote{font-style:normal}
 .main table{width:100%;border-collapse:collapse;margin:1.6em 0;font-family:var(--f-ui);font-size:.86rem}
 .main thead th{text-align:left;font-weight:700;color:var(--ink);border-bottom:2px solid var(--rule);padding:.6em .7em}
 .main tbody td{padding:.55em .7em;border-bottom:1px solid var(--line);color:var(--ink-soft);vertical-align:top}
@@ -133,6 +136,7 @@ html[lang="en"] .main>p:first-of-type::first-letter,html[lang="en"] .main .dropc
 .code-lang{font-family:var(--f-ui);font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-mute);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .code-copy{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;font-family:var(--f-ui);font-size:.7rem;font-weight:600;color:var(--ink-mute);padding:3px 9px;border:1px solid var(--code-border);border-radius:6px;background:var(--card);transition:all var(--t) var(--ease)}
 .code-copy:hover{color:var(--accent-text);border-color:var(--accent)}
+.code-copy:active{transform:scale(.96)}
 .code-copy.done{color:#1a7f37;border-color:#1a7f37}
 .code-copy.fail{color:#c0392b;border-color:#c0392b}
 .code-copy svg{width:12px;height:12px}
@@ -389,7 +393,7 @@ function buildNav(){
 function bindEvents(){
   $$('#langToggle button').forEach(b=> b.onclick = ()=>switchLang(b.dataset.lang));
   $('#menuBtn').onclick = ()=>toggleNav();
-  $('#scrim').onclick = ()=>toggleNav(false);
+  $('#scrim').onclick = ()=>{ toggleNav(false); $('#menuBtn').focus(); };
   document.addEventListener('keydown', e=>{
     if(!document.body.classList.contains('nav-open')) return;
     if(e.key==='Escape'){ toggleNav(false); $('#menuBtn').focus(); }
