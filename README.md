@@ -10,9 +10,10 @@
 <br>
 
 [![在线阅读](https://img.shields.io/badge/在线阅读-织经-F05C00?style=for-the-badge&logo=bookstack&logoColor=white)](https://agi-is-going-to-arrive.github.io/workflow-cookbook/)
-[![中文](https://img.shields.io/badge/语言-中文-E74C3C?style=flat-square)](docs/zh/00-preface.md)
-[![English](https://img.shields.io/badge/Language-English-3498DB?style=flat-square)](docs/en/00-preface.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+
+[![README 中文](https://img.shields.io/badge/README-中文-E74C3C?style=flat-square)](README.md) [![README English](https://img.shields.io/badge/README-English-3498DB?style=flat-square)](README.en.md) [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+
+**📖 [在线阅读全书](https://agi-is-going-to-arrive.github.io/workflow-cookbook/)** ｜ 从封面开始：[中文](docs/zh/00-preface.md) · [English](docs/en/00-preface.md) ｜ English README → **[README.en.md](README.en.md)**
 
 </div>
 
@@ -32,7 +33,7 @@
 
 Claude Code 的 **Workflow** 特性（功能标志 `CLAUDE_CODE_WORKFLOWS`，社区昵称 *ultrawork*）是一个用 JavaScript 脚本**确定性编排多 Agent** 的引擎。它不是 MCP，不是 Skills，不是 Subagents，也不是 Agent Teams——而是一种全新的、**可复用、可测试、可分享**的工程流水线。
 
-本书从零到一带你：理解它的本质定位 → 掌握 `agent()`/`parallel()`/`pipeline()`/`schema` 全部 API → 实战 7 个真实运行的配方 → 解锁对抗验证 / 循环到干 / 预算 / 续传等进阶模式 → 横评四大社区系统并提取精华 → 构建属于你自己的 Workflow 库。
+本书从零到一带你：理解它的本质定位 → 掌握 `agent()`/`parallel()`/`pipeline()`/`schema` 全部 API → 实战 7 个真实运行的配方 → 解锁对抗验证 / 循环到干 / 预算 / 续传等进阶模式 → 横评四大社区系统并提取精华 → 构建属于你自己的 Workflow 库 → 掌握从意图到上线的创作、校验与调试全流程。
 
 > **这不是 API 文档，是一本实战 Cookbook。深入浅出，每个配方都在 Claude Code 中真实跑过。**
 
@@ -41,9 +42,9 @@ Claude Code 的 **Workflow** 特性（功能标志 `CLAUDE_CODE_WORKFLOWS`，社
 
 | 指标 | 数量 |
 |------|------|
-| 正文章节 | 26 章 + 5 篇附录 |
-| 全书字数 | 约 26 万字（中文）｜ 完整英文镜像 |
-| 真实 Workflow 运行 | 10 完成 / 9 唯一 ID（含 1 次续传缓存命中；记录见 [`assets/transcripts/`](assets/transcripts)） |
+| 正文章节 | **29 章 + 6 篇附录**（六部 · 认知/基础/食谱/进阶/生态/创作 + 附录 A–F） |
+| 全书篇幅 | 中文正文 14 万+ 汉字 ｜ `docs/zh` ↔ `docs/en` **36 篇逐篇对照** |
+| 真实 Workflow 运行 | **20 个唯一 Run ID**（R4 基线 17 + R5 应用级 3；原始记录见 [`assets/transcripts/`](assets/transcripts)） |
 | 实测环境 | Claude Code **v2.1.150**，`CLAUDE_CODE_WORKFLOWS=1`，Opus 4.7 (1M) |
 | 双语 | 中英完全对照，一键切换 |
 
@@ -143,6 +144,14 @@ return r
 | 25 | [构建你自己的 Workflow 库](docs/zh/p5-25-your-library.md) | 具名工作流 / 版本 / 分享 |
 | 26 | [反模式与陷阱](docs/zh/p5-26-anti-patterns.md) | 真实反模式清单 |
 
+### 第六部 · 创作篇 — 从意图到上线
+
+| # | 章节 | 关键词 |
+|:-:|------|--------|
+| 27 | [工作流创作流程](docs/zh/p6-27-authoring.md) | 意图 → meta → 原语 → 校验 → 真跑 |
+| 28 | [校验与调试](docs/zh/p6-28-validator-debug.md) | validate-workflow / journal 排错 |
+| 29 | [示例画廊](docs/zh/p6-29-gallery.md) | 3 个应用级工作流真跑实录 |
+
 ### 附录 Reference
 
 | | 内容 |
@@ -152,6 +161,7 @@ return r
 | [C](docs/zh/app-c-best-practices.md) | **最佳实践清单** |
 | [D](docs/zh/app-d-glossary.md) | **术语表**（中英对照） |
 | [E](docs/zh/app-e-sources.md) | **信源索引** |
+| [F](docs/zh/app-f-patterns.md) | **模式目录与场景速查** |
 
 ---
 
@@ -162,7 +172,7 @@ workflow-cookbook/
 ├─ docs/zh/          # 中文书（纯 Markdown，可在 GitHub 直接阅读）
 ├─ docs/en/          # 完整英文镜像
 ├─ assets/
-│  └─ transcripts/   # 10 次完成记录（9 个唯一 Run ID，含 1 次续传缓存命中）的原始记录
+│  └─ transcripts/   # 20 个唯一 Run ID 的原始运行记录（R4 基线 17 + R5 应用级 3）
 ├─ index.html        # 配套静态站点（明亮报纸编辑风，客户端渲染 Markdown）
 └─ manifest.json     # 站点目录与中英映射
 ```
@@ -188,6 +198,6 @@ MIT
 <div align="center">
 <br>
 
-**[English Version](docs/en/00-preface.md)** ｜ *织经 · 经纬交织，方成流水线*
+**[English README](README.en.md)** ｜ **[在线阅读](https://agi-is-going-to-arrive.github.io/workflow-cookbook/)** ｜ *织经 · 经纬交织，方成流水线*
 
 </div>
