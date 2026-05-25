@@ -137,7 +137,7 @@ The three stages, line by line:
 |---|---|---|
 | Research | `parallel([…])` fans out N angles concurrently, barrier waits for all | Treats **single perspective** — multi-angle coverage of blind spots |
 | Verify | A single **independent** `agent()`, prompt forces "go back to primary sources" | Treats **no self-check** — independently verifies "confidently wrong" |
-| Synthesize | `agent()` + `schema.sources` set to `required` | Treats **unsourced** — forces every conclusion to hang off a source |
+| Synthesize | `agent()` + `schema.sources` set to `required` | Treats **unsourced** — the schema only guarantees a `sources` field is returned (field presence); the mapping of each claim to its source, and whether the source is trustworthy, still rely on prompt + adversarial verification (the Verify stage) checked item by item |
 
 <div class="callout tip">
 

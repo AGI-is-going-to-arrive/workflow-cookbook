@@ -127,14 +127,18 @@ It's right: `*`/`/` coerce strings into numbers; only `+` concatenates. So `appl
 
 The minimal shape in 15.2 has only **one** finder. When the target grows from a 40-line synthetic file to dozens of files across an entire branch, a single finder can't keep up — its attention is diluted and it will inevitably miss things. That's when you need a **finder pool**: multiple hunters scanning concurrently, **streaming** their findings into the same refutation pipeline.
 
-Claude Code ships two named workflows, `bughunt` and `bughunt-lite` (registered in this environment — see `_grounding.md` A2, whose named-workflow list includes `bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`). Their orchestration skeletons, described below, map precisely onto the two pool shapes "fixed" and "self-respawning":
+Claude Code ships two named workflows, `bughunt` and `bughunt-lite` (**confirmed registered in this environment** — see `_grounding.md` A2, Run `wf_2b04881f-6a9` real run: calling an unknown named workflow throws and lists the registered set `bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`). The table below dissects their orchestration skeletons into the two pool shapes "fixed" and "self-respawning":
 
 | Workflow | Finder pool | Verification | Close-out |
 |---|---|---|---|
 | `bughunt-lite` | **Fixed**: 3 rapid + 2 deep, stop when done | 5-vote adversarial refutation (pigeonhole early-exit) | synthesis |
 | `bughunt` | **Self-respawning**: 3 rapid + deep hunters keep getting dispatched until **dry-streak** | 5-vote adversarial refutation (pigeonhole early-exit) | synthesis |
 
-> Source: `bughunt`'s registered description verbatim — "Self-respawning finder pool (3 rapid + deep-until-dry-streak) streams into 5-vote adversarial verification with pigeonhole early-exit, then synthesis"; `bughunt-lite` — "fixed 3-rapid+2-deep finders stream into 5-vote adversarial verification (pigeonhole early-exit), then synthesis. Simpler than bughunt: no self-respawning, no dry-streak." These are **the official architecture descriptions of two registered named workflows** (not third-party claims).
+<div class="callout warn">
+
+**This "pool structure" layer is NOT an official/verified truth in `_grounding.md` — read it as conjecture.** The "3 rapid / 2 deep / 5 votes / pigeonhole / dry-streak" wording above comes from the **one-line registered blurb** these two workflows carry in the skills listing (`bughunt`: "Self-respawning finder pool (3 rapid + deep-until-dry-streak) streams into 5-vote adversarial verification with pigeonhole early-exit, then synthesis"; `bughunt-lite`: "fixed 3-rapid+2-deep finders stream into 5-vote adversarial verification (pigeonhole early-exit), then synthesis. Simpler than bughunt: no self-respawning, no dry-streak"). Per this book's grounding tiers (`_grounding.md` A2), **the only thing verified by a real run is that these named workflows exist**; their **internal architecture has no official tool definition and has not been reproduced by a real run here**. So the pool breakdown and the skeleton code below — derived from that blurb plus common patterns — are **this book's conjectural, illustrative implementation, not the official architecture**: use them to build intuition, but don't treat the numbers and flow as verified facts.
+
+</div>
 
 The two pools differ on exactly one axis: **whether the finder count is fixed.**
 
@@ -193,7 +197,7 @@ log(`finder pool merged ${pooled.length} findings, ${candidates.length} after de
 
 The refutation in 15.2 is "run all N refuters for each bug, then tally." When N is large (`bughunt` uses **5 votes**), there's an obvious waste: **if a bug has already been vetoed by a majority of refuters, the remaining votes can't change the outcome** — the conclusion is decided.
 
-This is **pigeonhole early-exit**: treat "majority" as a threshold that can be reached early, and the moment one side's vote count locks in the win, **stop the remaining refuters immediately** and don't burn tokens on a verdict that's already settled.
+This is **pigeonhole early-exit**: treat "majority" as a threshold that can be reached early, and the moment one side's vote count locks in the win, you can decide **logically** ahead of time (stop waiting for the remaining votes' results). But note — per 15.6 below, **the agents already dispatched usually still finish (their results ignored)**; to **physically** dispatch fewer agents, you must **vote in batches**: send the majority-line votes first, and only add the rest when it's a tie or close.
 
 Taking 5 votes with "keep only if a majority confirms" (≥3 confirm) as an example, the pigeonhole principle gives two early-exit points:
 
@@ -219,7 +223,7 @@ In implementation, `parallel` is a **barrier** (it waits for all thunks) and inh
 // Note: parallel is a barrier and doesn't support stopping midway; this uses a Promise race to demonstrate the "settle once a majority locks in" logic.
 async function verifyWithPigeonhole(bug, voters = 5) {
   const majority = Math.floor(voters / 2) + 1   // 5 votes → 3
-  let confirms = 0, refutes = 0, settled = false
+  let confirms = 0, refutes = 0, done = 0, settled = false
   let resolve
   const decided = new Promise(r => { resolve = r })
 
@@ -230,14 +234,17 @@ async function verifyWithPigeonhole(bug, voters = 5) {
       { label: `refute:${bug.fn}:${i}`, phase: 'Verify',
         schema: { type: 'object', properties: { refuted: { type: 'boolean' }, reason: { type: 'string' } }, required: ['refuted','reason'] } }
     ).then(v => {
-      if (settled || !v) return
-      v.refuted ? refutes++ : confirms++
+      if (settled) return
+      done++                       // count votes that have RETURNED (including a skipped null)
+      if (v) (v.refuted ? refutes++ : confirms++)   // a skipped/failed null vote counts toward neither side
       // Pigeonhole: either side hits the majority, the outcome is decided, settle immediately
       if (confirms >= majority) { settled = true; resolve({ ...bug, confirmed: true,  confirmVotes: confirms, refuteVotes: refutes }) }
       else if (refutes >= majority) { settled = true; resolve({ ...bug, confirmed: false, confirmVotes: confirms, refuteVotes: refutes }) }
+      // Fallback: all voters have returned but still no majority (too many skipped nulls) → settle as uncertain so the promise never hangs
+      else if (done >= voters) { settled = true; resolve({ ...bug, confirmed: false, uncertain: true, confirmVotes: confirms, refuteVotes: refutes }) }
     })
   }
-  return decided   // returns the moment a majority locks in; the remaining votes' results are ignored (in-flight agents still finish)
+  return decided   // returns the moment a majority locks in; if all return with no majority it falls back to uncertain. Remaining votes' results are ignored (in-flight agents still finish)
 }
 ```
 

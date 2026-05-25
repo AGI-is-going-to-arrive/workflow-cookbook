@@ -88,7 +88,7 @@ return { issuesFound: crit.issues, finalCode: fixed.code, changelog: fixed.chang
 
 **`meta.phases` 三阶段。** 三个 `phase()` 对应进度树上的三个分组（第 05 章）。GCF 的阶段名天然就是 `Generate`/`Critique`/`Fix`，读者在 `/workflows` 实时进度里一眼就能看出「现在跑到哪一步」。
 
-**Generate 用最小 schema。** 第一版只要 `{ code }`——不必结构化太多，因为它的产物马上要交给 Critique 去拆。schema 在这里的作用是**保证拿到的是纯代码字符串**，而不是「这是一个 slugify 函数，它……」这样夹叙夹议的散文（schema 的强制作用见第 07 章）。
+**Generate 用最小 schema。** 第一版只要 `{ code }`——不必结构化太多，因为它的产物马上要交给 Critique 去拆。schema 在这里的作用是**保证有 `code` 字段且为 string 类型**；至于内容是否为**纯代码**（而非「这是一个 slugify 函数，它……」这样夹叙夹议的散文），schema 管不到，仍要靠 prompt 约束 + 后续验证来保证（schema 的强制作用见第 07 章）。
 
 **Critique 用 `issues: array` 而非自由文本。** 这是 GCF 的命脉。如果 Critique 返回一段散文，Fix 阶段就只能「凭感觉」去改；而 `issues` 是一个**字符串数组**，每条是一个独立、可逐条对账的缺陷。schema 逼 Critique 把「批评」拆成离散的、可枚举的条目——这直接决定了 Fix 能不能「逐条修」。
 

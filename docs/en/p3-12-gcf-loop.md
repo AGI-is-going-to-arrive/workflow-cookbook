@@ -88,7 +88,7 @@ Reading through the intent behind **every design choice** in this script:
 
 **`meta.phases` three stages.** The three `phase()` calls correspond to three groups on the progress tree (Chapter 05). GCF's stage names are naturally `Generate`/`Critique`/`Fix`; in the `/workflows` live progress, a reader can see at a glance "which step it's on now."
 
-**Generate uses a minimal schema.** The first draft only needs `{ code }` — no need to over-structure, because its output is immediately handed to Critique to be torn apart. The schema's role here is to **guarantee you get a pure code string**, not narrating prose like "this is a slugify function, it..." (the schema's enforcement is in Chapter 07).
+**Generate uses a minimal schema.** The first draft only needs `{ code }` — no need to over-structure, because its output is immediately handed to Critique to be torn apart. The schema's role here is to **guarantee a `code` field exists and is of string type**; whether the content is **pure code** (rather than narrating prose like "this is a slugify function, it...") is beyond the schema's reach and still relies on prompt constraints + downstream verification (the schema's enforcement is in Chapter 07).
 
 **Critique uses `issues: array` rather than free text.** This is GCF's lifeline. If Critique returns prose, the Fix stage can only revise "by feel"; whereas `issues` is a **string array**, each entry an independent, item-by-item reconcilable defect. The schema forces Critique to split "the critique" into discrete, enumerable items — which directly determines whether Fix can "fix item by item."
 

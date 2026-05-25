@@ -137,7 +137,7 @@ return { findings: valid, crossCheck: verify, answer: ans.answer, sources: ans.s
 |---|---|---|
 | Research | `parallel([…])` 把 N 个角度并发派出，屏障等齐 | 治**单视角**——多角度覆盖盲区 |
 | Verify | 单个**独立** `agent()`，prompt 强制「回一手源核对」 | 治**不自查**——独立核实「言之凿凿地错」 |
-| Synthesize | `agent()` + `schema.sources` 设 `required` | 治**不溯源**——强制每条结论挂出处 |
+| Synthesize | `agent()` + `schema.sources` 设 `required` | 治**不溯源**——schema 仅保证返回 `sources` 字段（字段存在）；每条 claim 与来源的对应、来源是否可信，仍靠 prompt + 对抗验证（Verify 阶段）逐条核实 |
 
 <div class="callout tip">
 

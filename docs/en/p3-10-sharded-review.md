@@ -58,12 +58,16 @@ const reviewed = await pipeline(
   shards,
   (shard) => agent(`Review ${shard} for bugs, security, and clarity. Read the file.`,
     { label: `review:${shard}`, phase: 'Review', schema: FINDING }),
-  (review, shard) => parallel((review.findings || []).map(f => () =>
-    agent(`Adversarially verify this finding in ${shard}: "${f.title}". Refute if not real.`,
-      { label: `verify:${shard}`, phase: 'Verify',
-        schema: { type: 'object', properties: { real: { type: 'boolean' } }, required: ['real'] } })
-      .then(v => ({ ...f, shard, real: v && v.real }))
-  )).then(rs => rs.filter(Boolean).filter(x => x.real))
+  (review, shard) => {
+    // review may be null: when this shard's review stage throws/is skipped, pipeline sets the item to null (see §10.3)
+    if (!review) { log(`skipped shard: ${shard}`); return [] }
+    return parallel((review?.findings ?? []).map(f => () =>
+      agent(`Adversarially verify this finding in ${shard}: "${f.title}". Refute if not real.`,
+        { label: `verify:${shard}`, phase: 'Verify',
+          schema: { type: 'object', properties: { real: { type: 'boolean' } }, required: ['real'] } })
+        .then(v => ({ ...f, shard, real: v && v.real }))
+    )).then(rs => rs.filter(Boolean).filter(x => x.real))
+  }
 )
 
 // ④ Synthesize —— cross-shard dedup and ranking (needs all results, so the barrier here is correct)
@@ -169,7 +173,7 @@ We didn't run a dedicated N-shard pipeline for sharded review, but Chapter 08's 
 
 > **Real run**: Run ID `wf_bf086b98-6ec`, 3 items × 2 stages, `agent_count=6`, `total_tokens=158982`, `duration_ms=26743`. The stage callback signature is empirically `(prevResult, originalItem, index)` (in the second stage's `(found, kind)`, `found` is the previous stage's return value, `kind` is the original item). See `assets/transcripts/primitives.md`.
 
-`agent_count=6` precisely confirms "3 items × 2 stages = 6 agents"; and each item flowing through both stages independently with no barrier between them is exactly what you get by scaling this chapter's skeleton up to N shards verbatim. Raise the shard count from 3 to 20 and the agent count rises linearly to 40, but **wall-clock won't** rise linearly — the concurrency cap (`min(16, cores−2)`, see Chapter 08 §8.6) keeps roughly 10 agents running at any instant with the rest queued, and pipeline keeps early-finishing shards from idling.
+`agent_count=6` precisely confirms "3 items × 2 stages = 6 agents"; and each item flowing through both stages independently with no barrier between them is exactly what you get by scaling this chapter's skeleton up to N shards verbatim. Raise the shard count from 3 to 20 and the agent count rises linearly to 40, but **wall-clock won't** rise linearly — the concurrency cap is `min(16, cores−2)` (the authoritative official figure, see Chapter 08 §8.6): at most that many agents run at any instant, with the rest queued and filled in as slots free up. And pipeline keeps early-finishing shards from idling.
 
 ### When Should You Use a Barrier Instead? (The Synthesize Step)
 

@@ -58,12 +58,16 @@ const reviewed = await pipeline(
   shards,
   (shard) => agent(`Review ${shard} for bugs, security, and clarity. Read the file.`,
     { label: `review:${shard}`, phase: 'Review', schema: FINDING }),
-  (review, shard) => parallel((review.findings || []).map(f => () =>
-    agent(`Adversarially verify this finding in ${shard}: "${f.title}". Refute if not real.`,
-      { label: `verify:${shard}`, phase: 'Verify',
-        schema: { type: 'object', properties: { real: { type: 'boolean' } }, required: ['real'] } })
-      .then(v => ({ ...f, shard, real: v && v.real }))
-  )).then(rs => rs.filter(Boolean).filter(x => x.real))
+  (review, shard) => {
+    // review 可能为 null：该片的 review 阶段抛错/被跳过时，pipeline 把这一项置 null（见 §10.3）
+    if (!review) { log(`skipped shard: ${shard}`); return [] }
+    return parallel((review?.findings ?? []).map(f => () =>
+      agent(`Adversarially verify this finding in ${shard}: "${f.title}". Refute if not real.`,
+        { label: `verify:${shard}`, phase: 'Verify',
+          schema: { type: 'object', properties: { real: { type: 'boolean' } }, required: ['real'] } })
+        .then(v => ({ ...f, shard, real: v && v.real }))
+    )).then(rs => rs.filter(Boolean).filter(x => x.real))
+  }
 )
 
 // ④ Synthesize —— 跨分片去重排序（需要全部结果，这里用屏障是正确的）
@@ -169,7 +173,7 @@ flowchart LR
 
 > **真实运行**：Run ID `wf_bf086b98-6ec`，3 项 × 2 阶段，`agent_count=6`、`total_tokens=158982`、`duration_ms=26743`。stage 回调签名实测为 `(prevResult, originalItem, index)`（第二阶段 `(found, kind)` 里 `found` 是上阶段返回值、`kind` 是原始 item）。详见 `assets/transcripts/primitives.md`。
 
-`agent_count=6` 精确印证「3 项 × 2 阶段 = 6 agent」；而每项独立流过两阶段、阶段间无屏障，正是把它原样放大到 N 个分片就得到本章骨架。把分片数从 3 提到 20，agent 数线性涨到 40，但**墙钟不会**线性涨——并发上限（`min(16, 核心−2)`，见第 08 章 §8.6）会让任意时刻约 10 个 agent 在跑、其余排队，而 pipeline 让早完成的分片不空等。
+`agent_count=6` 精确印证「3 项 × 2 阶段 = 6 agent」；而每项独立流过两阶段、阶段间无屏障，正是把它原样放大到 N 个分片就得到本章骨架。把分片数从 3 提到 20，agent 数线性涨到 40，但**墙钟不会**线性涨——并发上限是 `min(16, 核心−2)`（官方权威口径，见第 08 章 §8.6）：任意时刻最多这么多 agent 在跑，超出的排队、按槽位释放补上。而 pipeline 让早完成的分片不空等。
 
 ### 什么时候反而该用屏障？（Synthesize 这一步）
 
