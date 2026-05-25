@@ -79,7 +79,7 @@ The table below is this book's **first batch** of real runs — **10 completed r
 
 <div class="callout tip">
 
-**Two dogfooding runs deserve special mention**: run #6 (frontend-review) genuinely used Workflow to review the book's own `index.html` and fixed 16 items accordingly; run #7 (gcf-slugify)'s resulting `slugify` experience was used precisely to improve the book's frontend heading-ID generation. These two aren't demos; they're real sources of improvement to the book's frontend.
+**Three dogfooding runs deserve special mention**: run #6 (frontend-review) genuinely used Workflow to review the book's own `index.html` and fixed 16 items accordingly; run #7 (gcf-slugify)'s resulting `slugify` experience was used precisely to improve the book's frontend heading-ID generation; run #10 (deep-research) independently verified that "marked v12 does not sanitize, so you should use `DOMPurify.sanitize(marked.parse(input))`", which conversely **confirmed that the XSS fix landed after frontend-review was correct**. None of these three are demos; they're real sources of improvement to and verification of the book's frontend.
 
 **Run #8's unexpected gain**: the 3 judges noted in their scoring rationale that they **actually read `docs/en/p2-08` and `assets/_grounding.md` to cross-check the numbers**, verifying item by item before ruling "zero factual errors" — effectively verifying the accuracy of the real data in this book's Chapter p2-08 along the way.
 

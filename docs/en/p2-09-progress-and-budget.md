@@ -281,6 +281,6 @@ Practice checklist:
 - **Budget**: `budget.total/spent()/remaining()` is an official hard cap, and `spent()` is this turn's output tokens in a pool shared by the main loop + all workflows. Measured: with no target, `total === null` (Run `wf_59bf3654-183`); per the official definition `remaining()` is then `Infinity`, so **always guard dynamic loops with `budget.total &&`**, or `Infinity > N` being forever true charges to the official 1000-agent cap.
 - Treat observability as first-class: descriptive labels, milestone logs, explicit phases, and speak up about lossy trade-offs.
 
-**Foundations ends here** — you now command all the core of `meta`/`phase`/`agent`/`schema`/`parallel`/`pipeline`/`log`/`resume`/`budget`. Starting in Part III, we assemble these into genuinely usable recipes, each one **actually run** in Claude Code.
+**Foundations ends here** — you now command all the core of `meta`/`phase`/`agent`/`schema`/`parallel`/`pipeline`/`log`/`resume`/`budget`. Starting in Part III, we assemble these into genuinely usable recipes, aiming at real runs: **recipes that were actually run carry their Run ID and real usage (see [`assets/transcripts/`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/tree/main/assets/transcripts)), and illustrative scripts that were not run are clearly marked.**
 
 > Continue reading: [Chapter 10 · Sharded Code Review](#/en/p3-10)

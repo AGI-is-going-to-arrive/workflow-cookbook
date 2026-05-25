@@ -371,7 +371,7 @@ flowchart TD
 
 **心法三：对抗验证 / 扇出是 token 大头。** `review-spa` 的 22 个 agent 里有 19 个是 verifier——对抗验证「每条发现派一个验证 agent」的扇出，是它逼近百万 token 的主因。这是个**值得的代价**：多花的 token 换来了「降级 #1/#2 为 latent、揪出 #2 假子主张」这种校准价值（见 §29.1 教学点）。但你要心里有数——**给每条发现都配一个验证 agent，token 会随发现数线性增长**。发现多时，可以考虑只对 high severity 的发现做对抗验证，给 token 设个边界（配合第 21 章的 `budget`）。
 
-**心法四：脚本可复跑，数字可溯源。** 这三个脚本都可以用 `Workflow({ scriptPath: 'assets/examples/<脚本>.js' })` 重新跑（异步返回，完成时由 `<task-notification>` 回传 `usage`/`result`）。本章每一个 Run ID、agent 数、token、墙钟，都记录在 `assets/transcripts/examples-r5.md`，可逐条核对。
+**心法四：脚本可复跑，数字可溯源。** 这三个脚本都可以用 `Workflow({ scriptPath: 'assets/examples/<脚本>.js' })` 重新跑（异步返回，完成时由 `<task-notification>` 回传 `usage`/`result`）。本章每一个 Run ID、agent 数、token、墙钟，都记录在 `assets/transcripts/examples-r5.md`，可逐条核对。本书后续确实把这三个脚本**原样复跑了一次**（`wf_ca7aa11f-6fb` / `wf_ccda2a68-fab` / `wf_0771c834-a9f`，记录在 `assets/transcripts/examples-r6.md`）——结果恰好印证心法四：**agent 数与编排形态稳定复现**（dead-code 仍是 2 agent / 2 轮干净、feedback 仍是 20 agent），而**发现数/主题数随目标演进与聚类粒度小幅波动**（review-spa 18→14 条，因 `index.html` 已按首次发现打磨过；feedback 8→6 主题，聚类粒度差异）。要逐位复现请用续传（第 22 章）。
 
 <div class="callout info">
 

@@ -149,6 +149,21 @@
 > 经验法则：token ≈ agent 数 × 每 agent 上下文（约 2.5–3 万/agent）；墙钟取决于关键路径，并发把 N 个压到「最慢的一个」。
 > **更多真实运行**会陆续追加到 `assets/transcripts/`，写实战章节前先读对应记录。
 
+### C2. R5/R6 应用级真跑（并入规范源，使 §C 自洽）
+
+> 以下 6 条为 R5、R6 两轮对三个应用级工作流（review-spa / dead-code-scan / feedback-themes）的真实运行；此前仅记录在 `assets/transcripts/examples-r5.md` / `examples-r6.md`，现并入本表。两轮同脚本、机制一致。
+
+| 轮 | 脚本 | Run ID | agent | total_token | duration_ms | 要点 |
+|---|---|---|---|---|---|---|
+| R5 | review-spa | `wf_97b81e86-a0b` | 22 | 991,554 | 395,166 | pipeline + 对抗验证，18 条确认 |
+| R5 | dead-code-scan | `wf_2283ab37-710` | 2 | 116,344 | 246,496 | loop-until-dry，2 轮干净 |
+| R5 | feedback-themes | `wf_b3febb70-ad9` | 20 | 607,307 | 122,391 | parallel 屏障，18→8 主题 |
+| R6 | review-spa | `wf_ca7aa11f-6fb` | 18 | 789,482 | 244,897 | 同脚本；14 条确认（SPA 经 R5 修过，可报项更少） |
+| R6 | dead-code-scan | `wf_ccda2a68-fab` | 2 | 118,280 | 111,770 | 2 轮干净，0 死代码 |
+| R6 | feedback-themes | `wf_0771c834-a9f` | 20 | 613,112 | 59,250 | 18→6 主题（聚类粒度的 run 间差异） |
+
+> 并入后，全书唯一 Run ID 由 20（R4 基线主表 17 + R5 3）增至 **23**（+R6 3）。**成本真相**：本会话 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 覆盖脚本里的 `model:'haiku'`，故 R5/R6 六跑均按 Opus 计费（R5 三跑≈171.5 万、R6 三跑≈152.1 万 token）。逐项见 `examples-r5.md` / `examples-r6.md`。
+
 ## D. 四大社区系统精华（来自对各仓库源码的真实阅读，第五部用）
 
 - **ccg-workflow**（Claude+Codex+Gemini 多模型协作）：精华＝**磁盘状态 `task.json` + 每轮 Hook 注入面包屑**对抗上下文压缩；Ralph Loop 干净上下文迭代；文件归属+Layer 分层并行；Spec Evolution；死循环检测。它是「提示词状态机 + JS Hook + Go 二进制桥接异构 CLI」模拟编排。

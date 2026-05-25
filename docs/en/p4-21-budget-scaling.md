@@ -219,7 +219,7 @@ const results = (await parallel(
 
 ## 21.5 The Hard Boundaries of Scaling: The Concurrency Limit and the 1000 Fallback
 
-No matter how clever dynamic fan-out is, it runs within two **runtime hard boundaries.** Scaling must keep them in mind (`_grounding.md` section B / A.9):
+No matter how clever dynamic fan-out is, it runs within two **runtime hard boundaries.** Scaling must keep them in mind (`_grounding.md` section B / A2 "official hard constraints"):
 
 | Boundary | Value | Meaning |
 |---|---|---|

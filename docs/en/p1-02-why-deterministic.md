@@ -153,7 +153,7 @@ This is not theory. This book's tested `parallel-demo` is a pure barrier:
 Reading these two rows yields two facts:
 
 1. **Concurrency is real.** Three agents run serially would be ≈ 3×5.5 = 16.5s; the measured time is only **8.4s** — concurrency compressed the three agents down to ≈ "the slowest one." That's the value of `parallel()`.
-2. **But the barrier is real too.** Within those 8.4s, the agent that finished fastest (maybe done in 6s) waited about 2.4s for nothing, stalled at the barrier for its slowest peer. If a second and third barrier follow, this "wait for the slowest" **accumulates stage by stage.**
+2. **But the barrier is real too.** Those 8.4s of total wall clock equal "the slowest agent's duration" — agents that finished earlier must stop at the barrier and wait for their slowest peer. (Note: the per-agent breakdown was not separately recorded for this run; this serves only as a mechanism illustration, while the 8.4s total wall clock is measured.) If a second and third barrier follow, this "wait for the slowest" **accumulates stage by stage.**
 
 ### How Workflow cures it: `pipeline` lets each item "move forward on its own"
 
