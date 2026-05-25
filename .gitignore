@@ -9,6 +9,9 @@ nul
 # Dev iteration archive (screenshots + round-1 snapshots) — not for publication
 legacy/
 
+# Session handoff / internal working notes — not for publication
+SESSION-*-HANDOFF.md
+
 # OS
 .DS_Store
 Thumbs.db
