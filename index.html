@@ -440,8 +440,8 @@ function renderHome(){
   $('#crumb').innerHTML = isZh?'<b>封面</b>':'<b>Cover</b>';
   $('#toc').innerHTML=''; tocLinks=[]; headEls=[];
   const stats = isZh
-    ? [['29','章 + 6 附录'],['10+','真实运行存证'],['v2.1.150','实测版本'],['ZH/EN','双语对照']]
-    : [['29','Chapters +6 App.'],['10+','Real Run Logs'],['v2.1.150','Tested On'],['ZH/EN','Bilingual']];
+    ? [['29','章 + 6 附录'],['20+','真实运行存证'],['v2.1.150','实测版本'],['ZH/EN','双语对照']]
+    : [['29','Chapters +6 App.'],['20+','Real Run Logs'],['v2.1.150','Tested On'],['ZH/EN','Bilingual']];
   let html = '<div class="front">';
   html += '<div class="masthead"><div class="kicker">'+(isZh?'Claude Code · CLAUDE_CODE_WORKFLOWS 特性详解':'The CLAUDE_CODE_WORKFLOWS Feature, Decoded')+'</div>';
   html += '<h1>'+(isZh?'织<span class="dot">·</span>经':'Loom<span class="dot">.</span>')+'</h1>';

@@ -35,7 +35,7 @@ Claude Code's **Workflow** feature (feature flag `CLAUDE_CODE_WORKFLOWS`, commun
 
 This book takes you from zero to one: understand its essential positioning → master the full `agent()`/`parallel()`/`pipeline()`/`schema` API → work through 7 really-run recipes → unlock advanced patterns like adversarial verification / loop-until-dry / budget / resume → benchmark the four major community systems and extract their essence → build your own Workflow library → and master the full author → validate → debug flow from intent to ship.
 
-> **This is not API documentation — it's a hands-on Cookbook. Approachable, and every recipe has really been run in Claude Code.**
+> **This is not API documentation — it's a hands-on Cookbook. Approachable, and grounded in real runs: recipes that were actually run carry their Run ID and usage; scripts shown only for illustration are clearly marked.**
 
 <details>
 <summary><b>The book at a glance</b></summary>
@@ -44,7 +44,7 @@ This book takes you from zero to one: understand its essential positioning → m
 |------|------|
 | Chapters | **29 chapters + 6 appendices** (six parts · Understanding / Foundations / Recipes / Advanced / Ecosystem / Authoring + Appendices A–F) |
 | Volume | Chinese source 140k+ Han characters ｜ `docs/zh` ↔ `docs/en` **36 files mirrored one-to-one** |
-| Real Workflow runs | **20 unique Run IDs** (R4 baseline 17 + R5 application-level 3; raw logs in [`assets/transcripts/`](assets/transcripts)) |
+| Real Workflow runs | **23 unique Run IDs** (R4 baseline 17 + R5 application-level 3 + R6 application-level 3; raw logs in [`assets/transcripts/`](assets/transcripts)) |
 | Tested on | Claude Code **v2.1.150**, `CLAUDE_CODE_WORKFLOWS=1`, Opus 4.7 (1M) |
 | Bilingual | Full zh/en parity, one-click switch |
 
@@ -172,7 +172,7 @@ workflow-cookbook/
 ├─ docs/zh/          # Chinese book (plain Markdown, readable directly on GitHub)
 ├─ docs/en/          # full English mirror
 ├─ assets/
-│  └─ transcripts/   # raw logs for 20 unique Run IDs (R4 baseline 17 + R5 application-level 3)
+│  └─ transcripts/   # raw logs for 23 unique Run IDs (R4 baseline 17 + R5 application-level 3 + R6 application-level 3)
 ├─ index.html        # companion static site (Bright Editorial / Newspaper theme, client-side Markdown)
 └─ manifest.json     # site table of contents and zh/en mapping
 ```

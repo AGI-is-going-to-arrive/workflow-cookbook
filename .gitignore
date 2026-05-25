@@ -14,6 +14,7 @@ SESSION-*-HANDOFF.md
 # …except the cross-session handoffs, which are committed on purpose (per user request)
 !SESSION-R4-HANDOFF.md
 !SESSION-R5-HANDOFF.md
+!SESSION-R6-HANDOFF.md
 
 # OS
 .DS_Store

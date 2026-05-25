@@ -35,7 +35,7 @@ Claude Code 的 **Workflow** 特性（功能标志 `CLAUDE_CODE_WORKFLOWS`，社
 
 本书从零到一带你：理解它的本质定位 → 掌握 `agent()`/`parallel()`/`pipeline()`/`schema` 全部 API → 实战 7 个真实运行的配方 → 解锁对抗验证 / 循环到干 / 预算 / 续传等进阶模式 → 横评四大社区系统并提取精华 → 构建属于你自己的 Workflow 库 → 掌握从意图到上线的创作、校验与调试全流程。
 
-> **这不是 API 文档，是一本实战 Cookbook。深入浅出，每个配方都在 Claude Code 中真实跑过。**
+> **这不是 API 文档，是一本实战 Cookbook。深入浅出——配方以真实运行为骨：已实跑的附 Run ID 与用量，仅作示意的脚本明确标注。**
 
 <details>
 <summary><b>本书数据一览</b></summary>
@@ -44,7 +44,7 @@ Claude Code 的 **Workflow** 特性（功能标志 `CLAUDE_CODE_WORKFLOWS`，社
 |------|------|
 | 正文章节 | **29 章 + 6 篇附录**（六部 · 认知/基础/食谱/进阶/生态/创作 + 附录 A–F） |
 | 全书篇幅 | 中文正文 14 万+ 汉字 ｜ `docs/zh` ↔ `docs/en` **36 篇逐篇对照** |
-| 真实 Workflow 运行 | **20 个唯一 Run ID**（R4 基线 17 + R5 应用级 3；原始记录见 [`assets/transcripts/`](assets/transcripts)） |
+| 真实 Workflow 运行 | **23 个唯一 Run ID**（R4 基线 17 + R5 应用级 3 + R6 应用级 3；原始记录见 [`assets/transcripts/`](assets/transcripts)） |
 | 实测环境 | Claude Code **v2.1.150**，`CLAUDE_CODE_WORKFLOWS=1`，Opus 4.7 (1M) |
 | 双语 | 中英完全对照，一键切换 |
 
@@ -172,7 +172,7 @@ workflow-cookbook/
 ├─ docs/zh/          # 中文书（纯 Markdown，可在 GitHub 直接阅读）
 ├─ docs/en/          # 完整英文镜像
 ├─ assets/
-│  └─ transcripts/   # 20 个唯一 Run ID 的原始运行记录（R4 基线 17 + R5 应用级 3）
+│  └─ transcripts/   # 23 个唯一 Run ID 的原始运行记录（R4 基线 17 + R5 应用级 3 + R6 应用级 3）
 ├─ index.html        # 配套静态站点（明亮报纸编辑风，客户端渲染 Markdown）
 └─ manifest.json     # 站点目录与中英映射
 ```
