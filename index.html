@@ -286,7 +286,7 @@ html[lang="en"] .main>p:first-of-type::first-letter,html[lang="en"] .main .dropc
           </a>
         </div>
       </div>
-      <div id="content" tabindex="-1" aria-live="polite" aria-busy="false"><div class="loading"><span class="spin" aria-hidden="true"></span>加载中…</div></div>
+      <div id="content" tabindex="-1" aria-busy="false"><div class="loading"><span class="spin" aria-hidden="true"></span>加载中…</div></div>
     </main>
     <nav class="toc" id="toc" aria-label="本页目录 / On this page"></nav>
   </div>
@@ -340,7 +340,8 @@ async function boot(){
     if(!res.ok) throw new Error(res.status);
     S.manifest = await res.json();
   }catch(e){
-    $('#content').innerHTML = '<div class="callout warn">'+I18N.zh.loaderr+'</div>';
+    const ui = (getSavedLang()==='en') ? I18N.en : I18N.zh;
+    $('#content').innerHTML = '<div class="callout warn">'+ui.loaderr+'</div>';
     return;
   }
   S.flat = S.manifest.parts.flatMap(p=>p.chapters.map(c=>({...c, part:p})));
@@ -398,6 +399,7 @@ function toggleNav(force){
   const open = force===undefined ? !document.body.classList.contains('nav-open') : force;
   document.body.classList.toggle('nav-open', open);
   $('#menuBtn').setAttribute('aria-expanded', open?'true':'false');
+  const shell=$('.shell'); if(shell){ if(open){ shell.setAttribute('inert',''); shell.setAttribute('aria-hidden','true'); } else { shell.removeAttribute('inert'); shell.removeAttribute('aria-hidden'); } }
   if(open){ const first=$('#sideNav .np-item'); if(first) first.focus(); }
 }
 
@@ -408,12 +410,12 @@ function route(){
   const m = location.hash.match(/^#\/(zh|en)\/([^/]+)$/);
   let lang = S.lang, id = 'home';
   if(m){ lang=m[1]; id=m[2]; }
-  if(lang!==S.lang){ S.lang=lang; saveLang(lang); applyLangChrome(); buildNav(); }
+  if(lang!==S.lang){ S.lang=lang; applyLangChrome(); buildNav(); } // follow URL lang but DON'T persist — only explicit switchLang() saves, so a deep link can't clobber a saved preference
   S.id = id;
   const my = ++routeSeq;
   toggleNav(false);
   if(id==='home'){ renderHome(); } else { renderChapter(id, my); }
-  $$('#sideNav .np-item').forEach(a=>a.classList.toggle('active', a.dataset.id===id));
+  $$('#sideNav .np-item').forEach(a=>{ const on=a.dataset.id===id; a.classList.toggle('active', on); if(on){ a.setAttribute('aria-current','true'); } else { a.removeAttribute('aria-current'); } });
   window.scrollTo(0,0);
 }
 
@@ -445,6 +447,7 @@ function renderHome(){
   });
   html += '</div></div>';
   $('#content').innerHTML = html;
+  const h1 = $('#content .masthead h1'); if(h1){ h1.setAttribute('tabindex','-1'); h1.focus({preventScroll:true}); }
 }
 
 /* ───────────────────────── Chapter ───────────────────────── */
@@ -518,7 +521,7 @@ function enhance(){
       });
     }
   });
-  const seen={};
+  const seen=Object.create(null);
   $$('h2, h3', root).forEach((h,i)=>{
     h.dataset.title = h.textContent.trim();
     h.id = slugify(h.dataset.title, seen) || ('section-'+i);
@@ -539,7 +542,7 @@ function enhance(){
     ensureMermaid().then(mm=>{
       mblocks.forEach(code=>{
         const pre = code.parentElement;
-        const fig = document.createElement('figure'); fig.className='mermaid-fig';
+        const fig = document.createElement('figure'); fig.className='mermaid-fig'; fig.setAttribute('role','img'); fig.setAttribute('aria-label', S.lang==='zh'?'流程图示（含义见正文描述）':'Diagram (see the surrounding text for its meaning)');
         const src = code.textContent;
         pre.parentNode.replaceChild(fig, pre);
         mm.render('mmd-'+(mmdSeq++), src).then(({svg})=>{ fig.innerHTML = svg; }).catch(()=>{ fig.innerHTML = '<pre style="white-space:pre-wrap">'+esc(src)+'</pre>'; });
@@ -554,6 +557,7 @@ function enhance(){
     code.dataset.hl='1';
     try{ if(window.hljs && hljs.getLanguage(lang)){ code.innerHTML = hljs.highlight(code.textContent,{language:lang,ignoreIllegals:true}).value; } }catch(e){}
     const pre = code.parentElement;
+    pre.setAttribute('tabindex','0'); pre.setAttribute('aria-label', lang+(S.lang==='zh'?' 代码（可横向滚动）':' code (scroll horizontally)'));
     const card=document.createElement('div'); card.className='code-card';
     const head=document.createElement('div'); head.className='code-head';
     const ls=document.createElement('span'); ls.className='code-lang'; ls.textContent=lang; head.appendChild(ls);
@@ -607,7 +611,7 @@ function onScroll(){
   if(!tocLinks.length) return;
   let cur=null;
   for(const hd of headEls){ if(hd.getBoundingClientRect().top<140) cur=hd.id; }
-  tocLinks.forEach(a=>a.classList.toggle('active', a.dataset.id===cur));
+  tocLinks.forEach(a=>{ const on=a.dataset.id===cur; a.classList.toggle('active', on); if(on){ a.setAttribute('aria-current','true'); } else { a.removeAttribute('aria-current'); } });
 }
 
 window.addEventListener('DOMContentLoaded', boot);
