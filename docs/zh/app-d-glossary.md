@@ -17,6 +17,7 @@
 | **主循环 / main loop** | 你正在对话的这个 Claude 会话；它发起 Workflow 工具调用，并与所有工作流**共享 token 预算池**。 | [第 9 章](#/zh/p2-09) |
 | **CLAUDE_CODE_WORKFLOWS** | 门控环境变量；置 `1` 才启用 Workflow 特性。 | [附录 A · A.10](#/zh/app-a) |
 | **CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS** | 关联的实验性标志（Agent Teams）；与 Workflow 同属实验能力族。 | [接地事实表](#/zh/p1-01) |
+| **CLAUDE_CODE_SUBAGENT_MODEL** | 用户/CI 级环境变量；一旦设置，**覆盖一切 per-call `model`**（脚本里的 `opts.model`/`phases[].model` 被静默忽略）。实测本会话设为 `claude-opus-4-7[1m]`，5 个带不同 model 选项的 agent 全跑 Opus（Run `wf_9c94951d-58c`）。 | [附录 E · R4 模型解析记录](#/zh/app-e) |
 
 ---
 
@@ -74,13 +75,15 @@
 
 | 术语（中 / 英） | 定义 | 定位 |
 |---|---|---|
-| **schema / StructuredOutput** | JSON Schema，强制 subagent 调 `StructuredOutput` 工具并在**工具调用层**校验，返回已验证对象；不匹配则模型重试。 | [第 7 章](#/zh/p2-07) |
+| **schema / 模式** | JSON Schema，传给 `agent()` 的 `opts.schema`；它强制 subagent 走结构化输出通道并在**工具调用层**校验，返回已验证对象；不匹配则模型重试。 | [第 7 章](#/zh/p2-07) |
+| **StructuredOutput 工具** | subagent 侧的**内置工具**：有 `schema` 时，subagent 被强制调用它来提交输出，运行时在该工具调用层用 schema 校验、不匹配即重试。故 `agent()` 拿到的是**已验证对象**，无需再 `JSON.parse`。 | [第 7 章](#/zh/p2-07) |
 | **结构化输出 / structured output** | 受 `schema` 约束、形状已验证的返回对象（区别于自由文本）。 | [第 7 章](#/zh/p2-07) |
 | **label / 标签** | `opts.label`，覆盖 `/workflows` 与 transcript 中的显示名；描述性 label 利于定位与搜索。 | [第 6 章](#/zh/p2-06) |
 | **opts.phase** | 显式把该 agent 归入某进度组；**在 parallel/pipeline 内部必用**（避免竞争全局 `phase()`）。 | [第 6 章](#/zh/p2-06) / [附录 B · B.12](#/zh/app-b) |
 | **model（opts）** | 覆盖该 agent 模型；省略则继承主循环模型；简单任务可用 `'haiku'`。 | [第 6 章](#/zh/p2-06) |
 | **isolation: 'worktree'** | 让该 agent 在独立 git worktree 运行；**昂贵**，仅当并行改文件会冲突时用；无改动自动清理。 | [第 19 章](#/zh/p4-19) |
-| **agentType** | 用自定义 subagent 类型（如 `'Explore'`、`'code-reviewer'`），与 Agent 工具同一注册表解析；可与 `schema` 组合。 | [第 6 章](#/zh/p2-06) |
+| **agentType** | 用自定义 subagent 类型（如 `'Explore'`、`'code-reviewer'`），与 Agent 工具同一注册表解析；可与 `schema` 组合。**有校验**：未知值在生成模型前（0 token）即抛错并列出可用 agent（Run `wf_a222f20f-0f5`）——与无校验的 `model` 形成对比。 | [第 6 章](#/zh/p2-06) / [附录 B · B.21](#/zh/app-b) |
+| **workflow-subagent** | `agent()` 不指定 `agentType` 时的**默认 subagent 类型**；继承会话的 file/shell/Skill/ToolSearch 工具（延迟环境下默认 0 个 `mcp__` 工具、可经 ToolSearch 按需加载）。每个 agent 的 sidecar `agent-<id>.meta.json` 记录此类型（Run `wf_1d4c6a71-56a`）。 | [附录 E · R4 MCP 记录](#/zh/app-e) |
 
 ---
 
@@ -94,6 +97,10 @@
 | **预算守卫 / budget guard** | 动态循环里用 `budget.total && budget.remaining() < 阈值` 主动提前退出的写法。 | [第 21 章](#/zh/p4-21) / [附录 B · B.6](#/zh/app-b) |
 | **并发上限 / concurrency limit** | 单工作流同时运行 agent 数上限：`min(16, CPU核心数 − 2)`，超出排队。 | [第 21 章](#/zh/p4-21) |
 | **agent 总数上限 / agent cap** | 单工作流生命周期 agent 总数硬上限 **1000**（失控循环兜底）。 | [附录 A · A.9](#/zh/app-a) |
+| **脚本体积上限 / script size cap** | 单脚本上限 **524288 字节（512KB）**（工具 input-schema 的 `script.maxLength`）。 | [附录 A · A.9](#/zh/app-a) |
+| **VM 同步超时 / sync timeout** | 脚本**同步**执行的硬上限 **30000ms**——长同步循环（如 `for(;;){}`）会被中止、workflow `failed`（原文 `Script execution timed out after 30000ms`，实测耗时 30222ms，Run `wf_e3b2b123-5f4`）。**只约束同步段**：含 `await agent()` 的异步工作流可正常跑数分钟。 | [附录 E · R4 沙箱记录](#/zh/app-e) |
+| **WorkflowAgentCapError / WorkflowBudgetExceededError** | 达 1000 agent 上限 / 预算耗尽时的错误**类名**。官方只描述行为、**未给类名**——类名属**社区第三方资料声称，本书未独立实测**（未触发这两个上限）。 | [附录 E · 参考解读](#/zh/app-e) |
+| **stallMs / 停滞重试** | 据**社区第三方资料声称**：agent 停滞默认阈值 180000ms、重试 ≤5 次。**本书未核实**（未触发）。 | [附录 E · 参考解读](#/zh/app-e) |
 
 ---
 
@@ -115,8 +122,10 @@
 | **agent_count** | 完成通知里的用量字段：本次运行实际派发的 agent 总数（嵌套子流程的 agent 也计入父流程）。 | [primitives 运行记录](#/zh/p2-08) |
 | **tool_uses** | 用量字段：本次运行的工具调用次数；续传缓存命中时为 0。 | [第 22 章](#/zh/p4-22) |
 | **total_tokens / duration_ms** | 用量字段：总 token / 墙钟毫秒。经验：token ≈ agent 数 × 每 agent 上下文（约 2.5–3 万）。 | [primitives 运行记录](#/zh/p2-08) |
-| **缓存命中 / cache hit** | 续传时未改动的 `agent()` 调用直接复用结果（零 token、零工具、约 8ms）。 | [第 22 章](#/zh/p4-22) |
+| **缓存命中 / cache hit** | 续传时未改动的 `agent()` 调用直接复用结果（零 token、零工具、约 8ms）。实测同脚本+同 args 重跑 = 100% 命中、0 token（Run `wf_9c94951d-58c` 续传）。 | [第 22 章](#/zh/p4-22) |
+| **resume 缓存键 / resume cache key** | 判定某 `agent()` 调用能否命中缓存的依据。本书**实测确认**「同脚本+同 args → 100% 命中」；据**社区第三方资料声称**键由 agent 的 `schema/model/isolation/agentType` 构成、`label`/`phase` 不入键（改它们不失效）——后者**未逐键独立核实**，按「第三方声称」采信。 | [第 22 章](#/zh/p4-22) |
 | **可重放性 / replayability** | 「同脚本+同输入→同执行路径」的性质；续传的前提，故禁用 `Date.now()`/`Math.random()`/无参 `new Date()`。 | [第 22 章](#/zh/p4-22) |
+| **确定性双层防护 / determinism dual-layer ban** | 禁用不确定调用的两道闸：①**字面量**在**提交时**被源码静态扫描拒绝（脚本不运行）；②**别名形式**（`const D=Date;D.now()`）骗过扫描后在**运行时**被陷阱抛错。`try/catch` 拦不住任何一层（Run `wf_59bf3654-183`）。 | [第 22 章](#/zh/p4-22) / [附录 B · B.19](#/zh/app-b) |
 | **对抗验证 / adversarial verification** | 用独立 agent 专门「挑刺」来暴露第一版盲区的模式（如 Generate-Critique-Fix）。 | [第 17 章](#/zh/p4-17) |
 | **评委面板 / judge panel** | 多个独立评委按 rubric 打分并计票定胜负的 A/B 评估模式。 | [第 14 章](#/zh/p3-14) |
 | **循环到干 / loop-until-dry** | 反复迭代直到「再榨不出新增产出」为止的模式，需收敛条件 + 轮次/预算守卫。 | [第 18 章](#/zh/p4-18) |
@@ -131,8 +140,8 @@
 
 - **A**：`agent()`（[D.4](#d4-核心原语agent-parallel-pipeline)）、`agentType`（[D.5](#d5-agent-选项opts)）、`agent_count`（[D.8](#d8-用量模式与生态)）、adversarial verification（[D.8](#d8-用量模式与生态)）、`args`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`async_launched`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
 - **B**：barrier / 屏障（[D.4](#d4-核心原语agent-parallel-pipeline)）、`budget`（[D.6](#d6-预算与规模)）
-- **C**：cache hit（[D.8](#d8-用量模式与生态)）、concurrency limit（[D.6](#d6-预算与规模)）、`CLAUDE_CODE_WORKFLOWS`（[D.1](#d1-顶层概念)）
-- **D**：deterministic orchestration（[D.1](#d1-顶层概念)）、dogfooding（[D.8](#d8-用量模式与生态)）、`duration_ms`（[D.8](#d8-用量模式与生态)）
+- **C**：cache hit（[D.8](#d8-用量模式与生态)）、concurrency limit（[D.6](#d6-预算与规模)）、`CLAUDE_CODE_WORKFLOWS`（[D.1](#d1-顶层概念)）、`CLAUDE_CODE_SUBAGENT_MODEL`（[D.1](#d1-顶层概念)）
+- **D**：deterministic orchestration（[D.1](#d1-顶层概念)）、determinism dual-layer ban / 确定性双层防护（[D.8](#d8-用量模式与生态)）、dogfooding（[D.8](#d8-用量模式与生态)）、`duration_ms`（[D.8](#d8-用量模式与生态)）
 - **E**：`error`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
 - **I**：`isolation`（[D.7](#d7-嵌套与隔离)）
 - **J**：judge panel（[D.8](#d8-用量模式与生态)）
@@ -140,11 +149,12 @@
 - **M**：`meta`（[D.3](#d3-脚本元数据与阶段)）、`model`（[D.5](#d5-agent-选项opts)）、main loop（[D.1](#d1-顶层概念)）
 - **N**：`name`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、nesting（[D.7](#d7-嵌套与隔离)）
 - **P**：`parallel()`（[D.4](#d4-核心原语agent-parallel-pipeline)）、`pipeline()`（[D.4](#d4-核心原语agent-parallel-pipeline)）、`phase`（[D.3](#d3-脚本元数据与阶段)）、`prevResult`（[D.4](#d4-核心原语agent-parallel-pipeline)）、pure literal（[D.3](#d3-脚本元数据与阶段)）
-- **R**：`resumeFromRunId`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`runId`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、replayability（[D.8](#d8-用量模式与生态)）、`remote_launched`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、rubric（[D.8](#d8-用量模式与生态)）
-- **S**：`schema` / StructuredOutput（[D.5](#d5-agent-选项opts)）、`script` / `scriptPath`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、stage（[D.4](#d4-核心原语agent-parallel-pipeline)）、`status`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、subagent（[D.1](#d1-顶层概念)）、`sessionUrl`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
+- **R**：`resumeFromRunId`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、resume 缓存键 / resume cache key（[D.8](#d8-用量模式与生态)）、`runId`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、replayability（[D.8](#d8-用量模式与生态)）、`remote_launched`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、rubric（[D.8](#d8-用量模式与生态)）
+- **S**：`schema`（[D.5](#d5-agent-选项opts)）、StructuredOutput 工具（[D.5](#d5-agent-选项opts)）、`script` / `scriptPath`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、script size cap / 脚本体积上限（[D.6](#d6-预算与规模)）、stage（[D.4](#d4-核心原语agent-parallel-pipeline)）、`stallMs`（[D.6](#d6-预算与规模)）、`status`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、subagent（[D.1](#d1-顶层概念)）、`sessionUrl`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、sync timeout / VM 同步超时（[D.6](#d6-预算与规模)）
 - **T**：`taskId`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`<task-notification>`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、thunk（[D.4](#d4-核心原语agent-parallel-pipeline)）、`tool_uses` / `total_tokens`（[D.8](#d8-用量模式与生态)）、`transcriptDir`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
 - **U**：ultrawork（[D.1](#d1-顶层概念)）
-- **W**：Workflow（[D.1](#d1-顶层概念)）、`workflow()`（[D.7](#d7-嵌套与隔离)）、`WorkflowInput` / `WorkflowOutput`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`whenToUse`（[D.3](#d3-脚本元数据与阶段)）、worktree（[D.7](#d7-嵌套与隔离)）、warning（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
+- **V**：VM 同步超时 / sync timeout（[D.6](#d6-预算与规模)）
+- **W**：Workflow（[D.1](#d1-顶层概念)）、`workflow()`（[D.7](#d7-嵌套与隔离)）、workflow-subagent（[D.5](#d5-agent-选项opts)）、`WorkflowInput` / `WorkflowOutput`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`WorkflowAgentCapError` / `WorkflowBudgetExceededError`（[D.6](#d6-预算与规模)）、`whenToUse`（[D.3](#d3-脚本元数据与阶段)）、worktree（[D.7](#d7-嵌套与隔离)）、warning（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
 
 > 配套阅读：字段语义查 [附录 A · API 完整参考](#/zh/app-a)；坑与排错查 [附录 B · 陷阱与排错](#/zh/app-b)；正向清单查 [附录 C · 最佳实践清单](#/zh/app-c)。
 

@@ -55,6 +55,17 @@ flowchart TD
 
 </div>
 
+<div class="callout warn">
+
+**`isolation` 的取值校验，实测只特判两个值——别误以为「只接受 `'worktree'`、其余报错」。** 本书专门跑了一次探针验证 `isolation` 的取值行为（Run `wf_dace2fc6-966`，3 agent / 52,014 token / 5,253ms）：
+
+- `isolation: 'remote'` → **抛错**，原文 `agent({isolation:'remote'}) is not available in this build`——证实 `'remote'` 这个值存在、但在当前 build 被禁用。
+- `isolation: 'totally-bogus'`（一个根本不存在的值）→ **不抛错**，agent 照常跑完返回 `"OK"`。
+
+也就是说，运行时只对两个值做特判：`'worktree'`（执行隔离）与 `'remote'`（拒绝）；**其它任何未知值都被静默忽略**（按「不隔离」处理），并不会报错。某些第三方资料声称「`isolation` 只接受 `'worktree'`、其余一律报错」——本书实测**不成立**，特此纠正。实践含义：拼错 `isolation`（如写成 `'worktre'`）**不会**得到任何提示，agent 会悄悄地在共享工作区里跑——所以这个字段要拼对，运行时不替你兜底。
+
+</div>
+
 ---
 
 ## 19.3 何时该用、何时不该用

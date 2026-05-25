@@ -28,6 +28,8 @@ budget.remaining()  // number：还剩多少；= max(0, total - spent())
 
 **头号陷阱：用户没设目标时，`total` 是 `null`，`remaining()` 是 `Infinity`。** 这不是「0」也不是「没有限制等于很小」——而是**无穷大**。任何「余量够不够」的判断，都必须先用 `budget.total` 区分「用户到底设没设目标」这两种世界，否则你的自适应逻辑在「未设预算」时会全部失效（拿 `Infinity` 去比较，所有阈值判断恒为真）。后面 21.3 会反复用到这个守卫。
 
+**`total === null` 不是推测，是实测。** 本书的沙箱自省探针（Run `wf_59bf3654-183`，0 agent / 0 token / 4ms）在未设预算目标的会话里直接读出 `budget` 已注入（`typeof budget === 'object'`）、且 `budget.total === null`。所以「未设目标 → `total` 为 `null`」是本机实测确认的行为，不是从类型签名脑补的。
+
 </div>
 
 ### `budget.spent()`：是个函数，且是**共享池**
@@ -54,6 +56,12 @@ flowchart LR
     style Throw fill:#ffcdd2,stroke:#e53935
     style Run fill:#c8e6c9,stroke:#388e3c
 ```
+
+<div class="callout info">
+
+**「会抛错」是官方明确的行为；但「抛的是哪个异常类、在途 agent 如何处置」本书未实测。** 「`spent()` 达 `total` 后再调 `agent()` 抛错」来自官方工具定义，可放心采信。至于这个错误的**具体类名**（社区第三方资料称作 `WorkflowBudgetExceededError`）、以及「预算耗尽时已在途的 agent 是否跑完、结果是否保留、是否只是不再启新 agent」这类**精细处置语义**——均属社区第三方资料声称、本书未独立触发复现。本章不依赖它们：所有模式都建立在「**主动量入为出、根本别撞到这个上限**」之上，而不是去 `catch` 某个特定异常类。所以写代码时**别假设**能捕获到某个具名异常，也别假设撞墙后在途结果一定保留——把预算守卫做在前面，比事后接异常可靠得多。
+
+</div>
 
 <div class="callout tip">
 

@@ -69,6 +69,21 @@ const result = await workflow(
 
 参数 `args` 的传递规则与顶层调用一致：据 `_grounding.md`，它成为子工作流脚本体内的全局 `args`。所以子工作流读 `args.claims`，就拿到了你传进去的值——**这正是父子工作流之间的数据接口**。
 
+<div class="callout info">
+
+**「args 透传」与「未知具名工作流抛错」都已实测**（Run `wf_2b04881f-6a9`）。这次探针里：
+
+- **scriptPath 子调用 + args 透传**：父工作流以 `workflow({ scriptPath }, { n: 21 })` 调一个子脚本，子脚本里 `args.n` 读到 `21`、返回 `doubled: 42`——args **原样传进子工作流**，没有被字符串化或丢字段。
+- **未知具名抛错**：调一个不存在的名字时，运行时抛错并**列出当前所有已注册的具名工作流**，原文：
+
+  ```text
+  workflow('definitely-no-such-workflow-xyz'): no workflow with that name. Available: bughunt, bughunt-lite, deep-research, plan-hunter, review-branch
+  ```
+
+  这与第 16 章 `agentType` 未知值抛错并列出可用 agent 是**同一种「校验 + 列清单」**的友好设计——拼错名字时，运行时直接告诉你有哪些可选。（你机器上的「可用具名工作流」清单可能不同，取决于内置与 `.claude/workflows/` 里安装了什么。）
+
+</div>
+
 ```mermaid
 flowchart TD
     P["父工作流"] -->|"workflow('name', { claims })"| C["子工作流脚本"]
@@ -108,6 +123,18 @@ flowchart TD
 <div class="callout warn">
 
 **别试图用嵌套搭多层流水线。** 一个常见的错误念头是「我把大任务拆成 A→B→C 三个工作流，让 A 调 B、B 调 C」——这第二跳（B 调 C）会直接抛错。正确做法是：**在主工作流里用普通 JS 顺序调用** `await workflow('B')` 再 `await workflow('C')`，或者把 B、C 的逻辑用 `pipeline` 的多个 stage 表达。嵌套不是用来做「深度管道」的，它是用来做「主流程复用一个独立子能力」的。
+
+</div>
+
+<div class="callout info">
+
+**这条铁律的报错原文，本书实测拿到了**（Run `wf_2b04881f-6a9`，0 agent / 0 token / 29ms——纯编排探针，不烧模型）。脚本里让一个子工作流再去调 `workflow()`，运行时抛出的原文是：
+
+```text
+workflow() cannot be called from within a child workflow — nesting is limited to one level. Inline the inner script or call its agents directly.
+```
+
+注意报错本身就给了你两条出路，与本节的「正确做法」完全一致：**Inline the inner script**（把内层脚本内联进来）或 **call its agents directly**（直接调它的 agent）。同一次运行还顺带验证了另外两件事，见 20.2 与 20.9。
 
 </div>
 
@@ -255,7 +282,7 @@ const results = await pipeline(
 
 <div class="callout info">
 
-**这个形态的「一层嵌套 + 共享池」两条性质，已被本章引用的真实运行 `wf_85e22b38-126` 实测验证。** 据 `_grounding.md` C 节，该次 nested workflow() 运行证实了两件事：①子工作流的 agent **计入父**（`agent_count=1` 归到父的计数里）；②**嵌套仅一层**的约束真实存在。本节这段「pipeline-of-nested」组合**本身未单独实跑**（故标「（示意，未实跑）」），但它只是把已验证的 `workflow()`（`wf_85e22b38-126`）放进同样已验证的 `pipeline`（`wf_bf086b98-6ec`，见第 08 章）里——两块都是实测过的积木，组合方式是标准 JS。
+**这个形态依赖的两条性质，都有真实运行背书。** ①**子工作流的 agent 计入父**：据 `_grounding.md` C 节，nested workflow() 运行 `wf_85e22b38-126` 证实子工作流的 `agent_count=1` 归到父的计数里。②**嵌套仅一层**：本书又用 `wf_2b04881f-6a9` 直接拿到了越界报错原文（见 20.3）——子工作流里再调 `workflow()` 抛 `nesting is limited to one level`。本节这段「pipeline-of-nested」组合**本身未单独实跑**（故标「（示意，未实跑）」），但它只是把已验证的 `workflow()`（`wf_85e22b38-126` / `wf_2b04881f-6a9`）放进同样已验证的 `pipeline`（`wf_bf086b98-6ec`，见第 08 章）里——两块都是实测过的积木，组合方式是标准 JS。
 
 </div>
 

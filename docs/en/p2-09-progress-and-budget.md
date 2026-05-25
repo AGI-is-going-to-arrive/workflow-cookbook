@@ -100,6 +100,12 @@ log(`${bugs.length}/10 found, remaining budget ${Math.round(budget.remaining() /
 
 Think of `log()` as "the workflow's narration." A good narration line answers three questions: **how much fanned out** (`Scanned N shards`), **converged to how many** (`Verified M`), and **how much budget is left** (`remaining Xk`). The budget loop in the next section, which `log()`s a progress line every iteration, is the model for this usage.
 
+<div class="callout info">
+
+**`console.log` is also available, but plays a different role.** This book's sandbox-introspection run (Run `wf_59bf3654-183`) measured and confirmed: in the script, `console` is an injected object, `console.log` is callable, and its output goes into the **workflow log.** The distinction: `log()` is user-facing progress narration (shown above the progress tree), while `console.log` is more like dev-time diagnostic output (lands in the log). To let an onlooker keep up with progress, use `log()`; to leave a debugging trail, use `console.log`.
+
+</div>
+
 ### `/workflows` — the live progress tree
 
 The slash command `/workflows` opens a live tree: one group box per phase, with each agent's label (from `label`) and status inside. The `title` written in `meta.phases` determines the group boxes; the `label` of `agent()` determines the leaf-node names — so **a descriptive label aids both search and observation.**
@@ -120,6 +126,12 @@ Two rules of thumb:
 
 - **token ≈ agent count × per-agent context** (about 25k–30k / agent, floating with the prompt and output).
 - **Wall clock depends on the critical path**, not the total agent count — concurrency compresses N agents' time down to about "the slowest one."
+
+<div class="callout info">
+
+**Orchestration itself has zero model cost.** The "token ≈ agent count × …" rule has a clean boundary: **a pure-orchestration workflow with no `agent()` calls costs 0 tokens.** This book measured two examples that confirm it — the sandbox-introspection run (`wf_59bf3654-183`) and the nested-workflow run (`wf_2b04881f-6a9`) are both **0 agents / 0 tokens** (finishing in 4 ms and 29 ms respectively). In other words, the orchestration skeleton — `phase()`/`log()`/`pipeline()`/`parallel()` — burns no tokens on its own; **tokens arise only when `agent()` actually dispatches a subagent.** This is also why keeping control logic in the script (the orchestration layer) and throwing only the "model-needing work" into `agent()` is the fundamental money-saving posture.
+
+</div>
 
 ---
 
@@ -163,24 +175,30 @@ budget.spent()      // number: output tokens spent this turn (pool shared by mai
 budget.remaining()  // number: max(0, total - spent()); Infinity when no target is set
 ```
 
-It is a **hard cap**: once `spent()` reaches `total`, calling `agent()` again **throws.**
+Per the official tool definition, it is a **hard cap**: once `spent()` reaches `total`, calling `agent()` again **throws.** This "stop when the budget runs out" design exists to keep a workflow from burning tokens uncontrollably.
 
-### 9.5.1 Measured: what `budget` looks like when no target is set
+<div class="callout info">
 
-The key to understanding `budget` is to first see its real values in the most common case: **no target set**. This book ran a **budget probe** (Run `wf_fd09a6ed-38a`) that reads `budget`'s three values from inside the script and observes them as agents progress:
+**`spent()` counts "this turn's output tokens," and it is a pool shared by the main loop + all workflows** (official). That is: the output you consume in the main conversation, plus the consumption of `agent()` in any workflow this turn, all count toward the same `spent()`. So `budget` constrains "this entire turn's" total spend, not a single workflow.
 
-| Moment | `budget.total` | `budget.remaining()` | `budget.spent()` |
-|---|---|---|---|
-| Before dispatching 1 agent | `null` | `Infinity` | `0` |
-| After dispatching 1 agent | `null` | `Infinity` | **~26,211** (rises with the agent) |
+</div>
 
-Three empirical conclusions:
+### 9.5.1 Measured: with no target set, `budget.total === null`
 
-- **No target set → `budget.total === null`** (not `0`, not some default number).
-- **In that case `budget.remaining()` returns `Infinity`** — a value that bites; section 9.5.3 below is devoted to it.
-- **`budget.spent()` rises with agent progress as usual** (1 agent costs about 26k tokens, consistent with the Chapter 04 hello baseline) — `spent()` is **independent** of whether `total` is null; it always reflects real expenditure.
+The key to understanding `budget` is to first see its real values in the most common case: **no target set**. This book's sandbox-introspection run (Run `wf_59bf3654-183`, 0 agents / 0 tokens / 4 ms) read `budget` directly from inside the script: in the returned object, `typeof budget === 'object'` and **`budget.total === null`**.
 
-In other words: `total` is the switch for "did the user set a target," and `spent()` is the counter for "how much was actually spent" — the two are independent. This distinction is the foundation for every usage below.
+This nails down the first key fact:
+
+- **No target set → `budget.total === null`** (measured, `wf_59bf3654-183`) — not `0`, not some default number.
+
+Two more come from the official API definition (`_grounding.md` section B), interlocking with `total`'s value:
+
+- **When `total` is null, `budget.remaining()` returns `Infinity`** (`remaining()` is defined as `max(0, total - spent())`; with `total` null, there is no cap) — a value that bites; section 9.5.3 below is devoted to it.
+- **`budget.spent()` is independent of whether `total` is null**: it always reflects the real output tokens spent this turn. By this book's baseline, one agent's round-trip is about 26k tokens (hello, `wf_dacbd480-d5d`), and `spent()` accumulates with each `agent()`.
+
+**One probe nails all three at once.** This book ran another budget probe carrying one real agent (Run `wf_fd09a6ed-38a`, 1 agent / 26,211 tokens / 6,933 ms), reading everything in one shot in a session with no target set: `budget.total === null`; `budget.remaining()` **measured `Infinity` both before and after** the agent ran (`remainingBefore` / `remainingAfter` were both `"Infinity"` — really read, not "inferred from the definition"); and in that same run `budget.spent()` did **rise** (`spentIncreased: true`, from near 0 up to that ~26k tokens). This tightens the three facts above from "each holds separately" to "all hold in one run," and confirms the next sentence: the switch (`total`) stays `null`, the balance (`remaining()`) stays `Infinity`, yet the counter (`spent()`) climbs regardless.
+
+In other words: `total` is the switch for "did the user set a target" (null if not), and `spent()` is the counter for "how much was actually spent" — the two are independent. This distinction is the foundation for every usage below.
 
 ### 9.5.2 Two typical usages
 
@@ -214,20 +232,26 @@ log(`Fanning out ${FLEET} agents`)
 
 Both patterns **use `budget.total` to test "is there a target"**: the dynamic loop uses it as a `while` guard, the static scaling uses it as the condition of a ternary. This is no coincidence — the next section explains why you **must** write it this way.
 
-### 9.5.3 Empirical warning: an unguarded `while` runs forever
+### 9.5.3 Warning: an unguarded `while` runs forever
 
-The same probe verified the flip side. A loop that deliberately **tests only `remaining()`, not `total`** —
+The anti-pattern is a loop that deliberately **tests only `remaining()`, not `total`** —
 
 ```javascript
 // ✗ Anti-example: missing the budget.total guard
 while (budget.remaining() > 50_000) { /* ... dispatch agent ... */ }
 ```
 
-whereas the **correct** loop in the probe, `while (budget.total && budget.remaining() > N)`, ran **zero rounds** (0 rounds) because `budget.total` is `null` (falsy) and **short-circuits** to false. This precisely proves the guard is necessary:
+Chain together the two facts from 9.5.1 and its fate follows: with no target, `budget.total === null` (measured, `wf_59bf3654-183`), and per the official definition `remaining()` then returns `Infinity` — so this anti-example's test `Infinity > 50_000` is **always true.** There's also a **positive measurement** for this: the guarded `while (budget.total && …)` **ran zero rounds** with no target set — that's exactly `wf_fd09a6ed-38a`'s `guardRounds: 0`, the guard killing the loop at round 0, never given a chance to run away.
 
 <div class="callout warn">
 
-**When no target is set, an unguarded `while (budget.remaining() > N)` becomes an infinite loop.** Because `remaining()` returns `Infinity`, and `Infinity > N` is always true — the loop keeps dispatching agents until it hits the **global fallback cap of 1000 agents per workflow** (`_grounding.md` hard constraints). In this book's probe (Run `wf_fd09a6ed-38a`), the correct form `while (budget.total && ...)` short-circuited on the null `total` and **ran 0 rounds**; that is the reverse evidence — strip out the `budget.total &&` and it would charge all the way to the 1000-agent cap. **Mnemonic: the first term of a dynamic loop's condition is always `budget.total &&`.**
+**When no target is set, an unguarded `while (budget.remaining() > N)` becomes an infinite loop.** Because `remaining()` returns `Infinity` and `Infinity > N` is forever true, the loop keeps dispatching agents until it hits the **global fallback cap of 1000 agents per workflow** (official hard constraint, `_grounding.md`). Conversely, the correct form `while (budget.total && budget.remaining() > N)` short-circuits to false on the null `budget.total` when no target is set, running zero rounds — which is exactly why a dynamic loop **must** carry this guard. **Mnemonic: the first term of a dynamic loop's condition is always `budget.total &&`.**
+
+</div>
+
+<div class="callout info">
+
+**On "what error budget exhaustion throws" and the sync timeout**: the official definition describes only the **behavior** — calling `agent()` after the budget is exhausted errors, and hitting the 1000-agent cap errors — but **gives no error class name.** Community third-party material (a YouTuber's repo, not official) claims these two errors are named `WorkflowBudgetExceededError` and `WorkflowAgentCapError` respectively — those **class names remain third-party claims, unverified by this book**, so don't `catch` a named exception in your code. But one claim that used to sit alongside them as "unverified" this book has now **verified**: the script VM's **30000 ms sync timeout** is real (Run `wf_e3b2b123-5f4`: a long synchronous loop with no `await` was terminated at 30,222 ms, with the verbatim error `Script execution timed out after 30000ms`). Note it bounds only **synchronous** execution (to catch infinite loops) — it is **not** a wall-clock cap; workflows with `await agent()` routinely run for minutes.
 
 </div>
 
@@ -254,7 +278,7 @@ Practice checklist:
 - **Progress**: `phase()` to group, `log()` to narrate, `/workflows` to watch the live tree; inside concurrency use `opts.phase` rather than the global `phase()`.
 - **Usage**: the completion notification carries `agent_count`/`tool_uses`/`total_tokens`/`duration_ms`; token ≈ agent count × per-agent context, wall clock follows the critical path.
 - **Resume**: `resumeFromRunId` makes an unchanged prefix hit the cache in seconds — measured at **0 tokens / 0 tool calls / 8 ms** (Run `wf_dacbd480-d5d`); the replayability requirement is why `Date.now`/`Math.random` are forbidden.
-- **Budget**: `budget.total/spent()/remaining()` is a hard cap. Measured (Run `wf_fd09a6ed-38a`): with no target, `total === null`, `remaining()` is `Infinity`, while `spent()` rises as usual; **always guard dynamic loops with `budget.total &&`**, or `Infinity > N` being forever true charges to the 1000-agent cap.
+- **Budget**: `budget.total/spent()/remaining()` is an official hard cap, and `spent()` is this turn's output tokens in a pool shared by the main loop + all workflows. Measured: with no target, `total === null` (Run `wf_59bf3654-183`); per the official definition `remaining()` is then `Infinity`, so **always guard dynamic loops with `budget.total &&`**, or `Infinity > N` being forever true charges to the official 1000-agent cap.
 - Treat observability as first-class: descriptive labels, milestone logs, explicit phases, and speak up about lossy trade-offs.
 
 **Foundations ends here** — you now command all the core of `meta`/`phase`/`agent`/`schema`/`parallel`/`pipeline`/`log`/`resume`/`budget`. Starting in Part III, we assemble these into genuinely usable recipes, each one **actually run** in Claude Code.

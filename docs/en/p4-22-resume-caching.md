@@ -146,14 +146,14 @@ sequenceDiagram
 
 <div class="callout tip">
 
-**Real-run confirmation (cache hit = 0 tokens / 8 ms)**: this book re-ran the `hello-workflow` from Chapter 4 (Run `wf_dacbd480-d5d`) with the **unchanged script** + `resumeFromRunId`. The two runs' usage compared (same Run ID) —
+**Real-run confirmation (a 5-agent pipeline, resume = 0 tokens / 3 ms)**: this book ran a 5-agent model-resolution workflow (Run `wf_9c94951d-58c`), executing it live first; then re-ran it as-is with the **completely unchanged script** + `{ scriptPath, resumeFromRunId: 'wf_9c94951d-58c' }`. The two runs' usage compared (same Run ID) —
 
-| Run | tool_uses | total_tokens | duration_ms |
+| Run | Agents | total_tokens | duration_ms |
 |---|---|---|---|
-| First (real execution) | 1 | **26,338** | **5,506** |
-| Resume (cache hit) | **0** | **0** | **8** |
+| First (real execution) | 5 | **133,691** | **32,959** |
+| Resume (100% cache hit) | 5 (all cached) | **0** | **3** |
 
-The return value is identical. **A cache-hit `agent()` call returns in zero tokens, zero tool calls, 8 milliseconds** — it directly reuses the result, without re-dispatching the subagent. This also empirically answers the previous section's "do cache hits count tokens": **they don't.** The raw record is in `assets/transcripts/advanced.md`.
+The 5 results returned on resume are **identical** to the first run. **The work of 5 agents, all cache-hit on resume — 0 new tokens, returning in 3 milliseconds** (the first run was 133k tokens, 33 seconds). The runtime replays each `agent()`'s result directly from the journal, without re-dispatching any subagent. This turns "same script + same args → 100% hit" from a promise into hard numbers, and empirically answers the next section's "do cache hits count tokens": **they don't.** The raw record is in `assets/transcripts/api-facts-r4.md` (there's also an earlier single-agent resume `wf_dacbd480-d5d`, 0 tokens / 8 ms, with the same conclusion, in `assets/transcripts/advanced.md`).
 
 </div>
 
@@ -163,13 +163,21 @@ The return value is identical. **A cache-hit `agent()` call returns in zero toke
 
 </div>
 
+<div class="callout info">
+
+**"What counts as a change" — which fields make an `agent()` lose its cache?** The boundary this book tested is coarse-grained: **same script + same args = 100% hit** (`wf_9c94951d-58c`), and in that run the `label` / `phase` added to agents were **cosmetic only — not part of the cache judgment** (changing them does not invalidate the cache). So the steadiest mental model is: **change the `prompt` fed to an agent (or the upstream data it depends on) and you lose the cache; change only display labels like `label`/`phase` and you don't.**
+
+As for "exactly which fields compose the cache key" — third-party community material claims it's precisely the agent's `prompt` plus `schema / model / isolation / agentType` from `opts` (with `label`/`phase` excluded). **This book only tested "same script + same args = 100% hit" and "label/phase are not in the key," and did not verify this precise composition list field by field**, so this "exact field list" is marked **claimed by third-party community material, not independently tested by this book.** In practice you don't need to memorize the exact list — following the coarse rule "only changing prompt/upstream data invalidates" lets you iterate safely.
+
+</div>
+
 ---
 
 ## 22.5 Resume's Interaction with budget and Nesting
 
 Resume isn't an isolated feature; it has subtle interactions with the mechanisms of the earlier chapters, and clarifying them avoids potholes.
 
-**Relationship with budget (Chapter 21): do cache hits still count tokens?** Resume's value lies precisely in "hit calls don't re-execute" — since they don't execute, they naturally don't consume model-reasoning tokens. This book's real resume run has confirmed this: the cache-hit re-run had `total_tokens=0` (see the "real-run confirmation" above and `assets/transcripts/advanced.md`). So resume **genuinely saves tokens** — **the marginal cost of iteration comes only from the part you changed**, and the earlier hit stages are nearly free.
+**Relationship with budget (Chapter 21): do cache hits still count tokens?** Resume's value lies precisely in "hit calls don't re-execute" — since they don't execute, they naturally don't consume model-reasoning tokens. This book's real resume run has confirmed this: the 5-agent pipeline's cache-hit re-run had `total_tokens=0` (see the "real-run confirmation" above, Run `wf_9c94951d-58c`, raw record `assets/transcripts/api-facts-r4.md`). So resume **genuinely saves tokens** — **the marginal cost of iteration comes only from the part you changed**, and the earlier hit stages are nearly free.
 
 **Relationship with nested `workflow()` (Chapter 20).** Resume's "unchanged `agent()` hits the cache" targets the `agent()` calls in the current workflow script. When the script has a `workflow()` sub-call, how resume interacts with the sub-workflow's cache isn't expanded by the sources; it's "(to be verified)" — when actually iterating a workflow with nesting, confirm by observing the real cache-hit behavior via `/workflows`.
 

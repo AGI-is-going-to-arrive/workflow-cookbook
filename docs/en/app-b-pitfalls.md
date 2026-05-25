@@ -28,6 +28,11 @@ Scan it first. Each row links to the detailed section below.
 | 14 | An item in `pipeline` "vanishes" midway, the final count drops | A stage throwing makes that item `null` and skips the rest | [B.15](#b15-a-single-pipeline-item-silently-drops-out) |
 | 15 | Wanted the file system/`fetch`/`require`, the runtime errors or it's undefined | The script body has no file system / Node API | [B.16](#b16-wanting-to-use-node-apis-in-the-script-body) |
 | 16 | The workflow fails for no clear reason, `0 tokens` instant bailout, agents barely ran | A **synchronous throw in the body** of a `parallel()` thunk (≠ async reject) | [B.17](#b17-a-synchronous-throw-in-a-parallel-thunk-body-crashes) |
+| 17 | Unconditional `JSON.parse(args)` throws, or an object gets re-parsed | `args` is **passed through unchanged**: an object stays an object, not a JSON string | [B.18](#b18-the-misconception-of-unconditional-jsonparseargs) |
+| 18 | You wrapped `Date.now()` in `try/catch` but it didn't catch — the script never ran, or an aliased form threw at runtime | A literal is rejected statically at **submit** time; an aliased form is trapped at **runtime** | [B.19](#b19-trycatch-cant-catch-datenow) |
+| 19 | `isolation` mistyped (e.g. `'worktreee'`) didn't error, yet the agent wasn't isolated | An unknown `isolation` value is **silently ignored**; only `'worktree'`/`'remote'` are special-cased | [B.20](#b20-a-mistyped-isolation-is-silently-ignored) |
+| 20 | A mistyped `model` string wasn't rejected at submit time, so you assumed it was valid | `model` has **no submit-time validation** (unlike `agentType`, which does) | [B.21](#b21-a-mistyped-model-isnt-rejected-at-submit-time) |
+| 21 | A "loop-until-dry" missing `budget.total &&` runs all the way to the 1000-agent cap | With no target set, `total===null` and `remaining()===Infinity`, so a bare `remaining()` guard never fires | [B.22](#b22-a-budget-guard-missing-the-total-short-circuit) |
 
 ---
 
@@ -457,7 +462,167 @@ await parallel([
 
 ---
 
-## B.18 Troubleshooting Mantra (Closing)
+## B.18 The Misconception of Unconditional `JSON.parse(args)`
+
+<div class="callout warn">
+
+**Symptom**: you write `const cfg = JSON.parse(args)` in the script, and it either throws `Unexpected token o in JSON` (because `args` is already an object, gets `String()`-ed into `"[object Object]"`, then fails to parse) or "parses wrong" an already-nested object. You assumed `args` is a chunk of JSON text, when it's actually an **already-deserialized object.**
+
+</div>
+
+**Cause**: `args` is the **verbatim** value of the Workflow input `args` — **an object stays an object, an array stays an array**; the runtime does **not** stringify it. Tested by passing in `{ hello:'world', n:5, nested:{ deep:true } }`, the script saw `typeof args === 'object'`, the fields reflected unchanged, and `Array.isArray(args) === false` (Run `wf_59bf3654-183`, see [Appendix E · R4 sandbox record](#/en/app-e)). Calling `JSON.parse` on a value that's already an object means an implicit `String(object)` to `"[object Object]"` first, then a parse — which inevitably fails.
+
+**Fix**: **normalize first, then read fields.** Only `JSON.parse` (with `try/catch`) when `typeof args === 'string'`; otherwise use it as an object directly. Never `JSON.parse(args)` unconditionally.
+
+```javascript
+// ✗ Unconditional parse: throws outright when args is an object
+const cfg = JSON.parse(args)
+
+// ✓ The normalization idiom: parse only a string, treat the rest as an object as-is
+function readArgs(a) {
+  if (a == null) return {}
+  if (typeof a === 'string') {
+    try { return JSON.parse(a) } catch { return {} }   // tolerant: empty object on parse failure
+  }
+  return a                                              // already object/array: return as-is
+}
+
+const cfg = readArgs(args)
+const target = cfg.target ?? 'src'
+```
+
+> Companion: when `args` isn't passed it's `undefined`, and a misplaced field reads `undefined`, see [B.13](#b13-args-not-passed-or-field-misplaced); the emphasis here is on **type** — it's an object, not a string.
+
+---
+
+## B.19 try/catch Can't Catch `Date.now()`
+
+<div class="callout warn">
+
+**Symptom**: "to be safe" you wrap `const ts = Date.now()` in a `try/catch`, expecting the fallback branch on failure — and instead **the whole workflow never launches** (the receipt is just an `error` field), and your `catch` never executes. A different form (`const D = Date; D.now()`) does run, but throws at runtime.
+
+</div>
+
+**Cause**: the determinism ban is **two layers**, neither of which your `try/catch` can intercept:
+
+1. **A literal is rejected statically at submit time**: the **literal forms** of `Date.now()` / `Math.random()` / arg-less `new Date()` are caught by a **source static scan** *before* the script is parsed/run — the script doesn't execute at all, and the tool returns an error directly (verbatim: `Workflow scripts must be deterministic: Date.now()/Math.random()/new Date() are unavailable (breaks resume)…`, see `sandbox-r4.md`). The script never ran, so there's nothing for `try/catch` to do.
+2. **An aliased form is a runtime trap**: "hiding" the call (`const D = Date; D.now()`) fools the static scan and passes submission, but the runtime-injected trap **throws** — `Date.now() / new Date() are unavailable in workflow scripts (breaks resume)…`; the `Math.random()` one even suggests the fix: `…For N independent samples, include the index in the agent label or prompt.` (both layers tested, Run `wf_59bf3654-183`).
+
+**Fix**: don't try to "bypass" or "catch" it — avoid it at the root per [B.5](#b5-datenow-mathrandom-throw): pass timestamps via `args` or stamp afterward, and vary the prompt by agent index for randomness.
+
+```javascript
+// ✗ Literal: rejected statically at submit, the script doesn't run, the catch is a no-op
+try { const ts = Date.now() } catch { /* never reaches here */ }
+
+// ✗ Aliased: fools the static scan, but throws at runtime
+const D = Date; const ts = D.now()      // throws at runtime
+
+// ✓ Avoid at the source (see B.5)
+const ts = args.runStamp                // passed in from outside, replayable
+```
+
+> Why so strict? Because resume requires "same script + same input → same execution path," and any nondeterministic source breaks alignment. The two-layer ban exists precisely to make it **impossible** to smuggle nondeterminism into a replayable script.
+
+---
+
+## B.20 A Mistyped `isolation` Is Silently Ignored
+
+<div class="callout warn">
+
+**Symptom**: you want an agent that edits files to run in an isolated git worktree, and write `isolation: 'worktreee'` (one extra e). **No error of any kind**, the agent returns normally — but it was actually **not isolated**, sharing the same working directory as other agents, and collides on parallel file edits just the same. This is an insidious pothole: the mistake is masked by the appearance of "success."
+
+</div>
+
+**Cause**: the runtime special-cases only **two values** of `isolation` — `'worktree'` (execution isolation) and `'remote'` (disabled in this build, throws `agent({isolation:'remote'}) is not available in this build`); **any other unknown value is silently ignored**, and the agent runs normally with the default (no isolation). Tested, `isolation: 'totally-bogus'` **did not throw and returned OK**; only `'remote'` threw (Run `wf_dace2fc6-966`, see [Appendix E · R4 opts-validation record](#/en/app-e)). So a mistyped `'worktreee'` is equivalent to "no isolation written."
+
+**Fix**: when writing `isolation`, **verify letter-for-letter** that it's exactly `'worktree'`; don't rely on a runtime error to catch the typo. For when isolation is warranted, see [Chapter 19](#/en/p4-19) (use it only when parallel file edits would collide; it's expensive).
+
+```javascript
+// ✗ Mistyped, silently ignored: the agent isn't isolated, parallel edits still collide, and no error
+await agent('refactor src/auth.ts', { isolation: 'worktreee' })
+
+// ✓ Spelled letter-for-letter
+await agent('refactor src/auth.ts', { isolation: 'worktree' })
+```
+
+> Contrast: a mistyped `agentType` **throws immediately** (see the end of [B.21](#b21-a-mistyped-model-isnt-rejected-at-submit-time)), yet a mistyped `isolation` is swallowed — both are opts fields, but their validation strictness differs, so remember which ones "error vs stay silent."
+
+---
+
+## B.21 A Mistyped `model` Isn't Rejected at Submit Time
+
+<div class="callout warn">
+
+**Symptom**: you mistype `model: 'opus'` as `model: 'oputs'`, expecting it to be blocked at submission — instead the script submits fine, the agent runs normally, and you wrongly assume this model name is valid.
+
+</div>
+
+**Cause**: a `model` string has **no submit/parse-time validation.** Tested, an obviously nonexistent `model: 'totally-not-a-real-model-xyz'` was neither rejected at submit nor stopped the agent from returning OK (Run `wf_dace2fc6-966`).
+
+<div class="callout info">
+
+**The honest limit of the test**: in this session `CLAUDE_CODE_SUBAGENT_MODEL` overrode every per-call `model` (everything ran Opus), so that bogus string was **never actually sent to an API** — the step "a typo fails at the API call" **could not be observed** in this session (a community third-party source claims this; this book did not independently verify it). All we can confirm is: **no error at submit time.**
+
+</div>
+
+**Contrast `agentType` (which is validated)**: an unknown `agentType` throws *before any model is spawned* (0 tokens / 4 ms) and lists every available agent — verbatim `agent({agentType}): agent type '…' not found. Available agents: claude, claude-code-guide, codex:codex-rescue, Explore, general-purpose, …` (Run `wf_a222f20f-0f5`). This asymmetry — "`agentType` strictly validated, `model` not" — is a real, teachable difference.
+
+```javascript
+// ✗ Mistyped model: no error at submit, you get no early feedback
+await agent('do x', { model: 'oputs' })          // passes silently
+
+// ✗ Mistyped agentType: throws immediately and lists available agents (0 tokens)
+await agent('do x', { agentType: 'code-reviewr' })   // throws
+
+// ✓ Verify both letter-for-letter; model especially has no "typo safety net"
+await agent('do x', { model: 'opus', agentType: 'Explore' })
+```
+
+> Practical implication: a mistyped `model`'s cost is **deferred** (worst case it surfaces only at the API layer), so lean on code review / the validator (see [Appendix E · validator-r4](#/en/app-e)) to catch it before submission; don't expect the runtime to cover for you.
+
+---
+
+## B.22 A `budget` Guard Missing the `total` Short-Circuit
+
+<div class="callout warn">
+
+**Symptom**: a "loop-until-dry / retry-until-pass" dynamic loop meant to stop early via a budget guard, but written as `if (budget.remaining() < 30000) break`. When the **user set no token target**, this guard **never fires**, and the loop runs all the way to the runtime's **1000-agent official fallback cap** before being forced to stop, burning a large amount of tokens.
+
+</div>
+
+**Cause**: with no target set, `budget.total === null` and `budget.remaining()` returns **`Infinity`** (tested `total===null` in Run `wf_59bf3654-183`; the budget probe `wf_fd09a6ed-38a` measured a return of `{ totalIsNull:true, remainingBefore/After:"Infinity", guardRounds:0 }`, see `r3-reverification.md`). So `Infinity < 30000` is always `false`, the guard is as good as absent; and if you treat the guard as the **sole** loop exit, the loop is left with only the business condition as backstop — once the business doesn't converge, it runs straight into the 1000 cap.
+
+This is in fact the **precise version** of [B.6](#b6-an-infinite-loop-without-a-budget-guard): B.6 says "have a budget guard," while this entry says the guard **must** use a `budget.total &&` short-circuit, or it simply doesn't work in the most common case of "no target set."
+
+**Fix**: **always** write the guard as `budget.total && budget.remaining() < threshold` — let it take effect only when the user genuinely set a target (`total` non-null); and **always** pair it with an independent `MAX_ROUNDS` hard cap as the backstop for "no target set."
+
+```javascript
+// ✗ Missing the total short-circuit: with no target, remaining()===Infinity, the guard never fires, runs to the 1000 cap
+while (!done) {
+  if (budget.remaining() < 30_000) break      // Infinity < 30000 → always false
+  const r = await agent(`round ${round++} ...`, { schema: S })
+  done = r.converged
+}
+
+// ✓ The total short-circuit + an independent round hard cap (neither gate depends on the other)
+let round = 0
+const MAX_ROUNDS = 5
+while (!done && round < MAX_ROUNDS) {          // ① the backstop when no target is set
+  if (budget.total && budget.remaining() < 30_000) {   // ② effective only when a target is set
+    log(`budget guard: ${budget.remaining()} left, stopping`)
+    break
+  }
+  const r = await agent(`round ${round} ...`, { schema: S })
+  done = r.converged
+  round++
+}
+```
+
+> The division of labor of the dual guardrails: `MAX_ROUNDS` (proactive, effective even with "no target set") + the `budget.total &&` guard (precise close-out for "a target is set") + the runtime's 1000-agent fallback (passive, anti-runaway). Production scripts should close out via the first two, and **never** treat 1000 as a normal exit point. See [Chapter 21 · Dynamic Budget & Scaling](#/en/p4-21).
+
+---
+
+## B.23 Troubleshooting Mantra (Closing)
 
 Distill the above potholes into three transferable judgments:
 

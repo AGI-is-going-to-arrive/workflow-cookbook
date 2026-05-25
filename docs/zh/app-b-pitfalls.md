@@ -28,6 +28,11 @@
 | 14 | `pipeline` 某项中途「消失」，最终条数变少 | 某 stage 抛错使该 item 变 `null` 并跳过其余 stage | [B.15](#b15-pipeline-单项静默掉队) |
 | 15 | 想用文件系统/`fetch`/`require`，运行时报错或未定义 | 脚本体无文件系统 / Node API | [B.16](#b16-想在脚本体里用-node-api) |
 | 16 | workflow 莫名失败、`0 token` 秒退，agent 几乎没跑 | `parallel()` 的 thunk **函数体内同步 throw**（≠ 异步 reject） | [B.17](#b17-parallel-thunk-体内同步-throw-崩溃) |
+| 17 | 无条件 `JSON.parse(args)` 抛错，或对象被二次解析 | `args` **原样透传**：对象保持对象、不是 JSON 字符串 | [B.18](#b18-无条件-jsonparseargs-的误解) |
+| 18 | 给 `Date.now()` 套了 `try/catch` 却没接住——脚本根本没跑，或别名形式运行时抛 | 字面量在**提交时**静态拒绝；别名形式**运行时**陷阱抛错 | [B.19](#b19-trycatch-接不住-datenow) |
+| 19 | `isolation` 拼错（如 `'worktreee'`）没报错，agent 却没被隔离 | 未知 `isolation` 值被**静默忽略**，只特判 `'worktree'`/`'remote'` | [B.20](#b20-isolation-拼错被静默忽略) |
+| 20 | 拼错的 `model` 字符串没在提交期报错，以为它合法 | `model` **无提交期校验**（与 `agentType` 有校验相反） | [B.21](#b21-model-拼错不在提交期报错) |
+| 21 | 「循环到干」漏写 `budget.total &&`，一路跑到 1000 agent 上限 | 未设目标时 `total===null`、`remaining()===Infinity`，裸 `remaining()` 守卫永不触发 | [B.22](#b22-budget-守卫漏-total-短路) |
 
 ---
 
@@ -457,7 +462,167 @@ await parallel([
 
 ---
 
-## B.18 排错心法（收尾）
+## B.18 无条件 `JSON.parse(args)` 的误解
+
+<div class="callout warn">
+
+**症状**：脚本里写 `const cfg = JSON.parse(args)`，结果要么直接抛 `Unexpected token o in JSON`（因为 `args` 已经是对象、被 `String()` 成 `"[object Object]"` 再解析失败），要么把本就嵌套的对象「解析坏」。你以为 `args` 是一段 JSON 文本，其实它是**已经反序列化好的对象**。
+
+</div>
+
+**原因**：`args` 是 Workflow 入参 `args` 的**原样**值——**对象保持对象、数组保持数组**，运行时**不会**把它字符串化。实测把 `{ hello:'world', n:5, nested:{ deep:true } }` 传进去，脚本里看到的就是 `typeof args === 'object'`、字段原样可见、`Array.isArray(args) === false`（Run `wf_59bf3654-183`，见 [附录 E · R4 沙箱记录](#/zh/app-e)）。对一个本就是对象的值再 `JSON.parse`，等于先隐式 `String(对象)` 得到 `"[object Object]"`、再去解析——必然失败。
+
+**解法**：**先归一化、再读字段**。只有当 `typeof args === 'string'` 时才（带 `try/catch` 地）`JSON.parse`；否则直接当对象用。绝不无条件 `JSON.parse(args)`。
+
+```javascript
+// ✗ 无条件 parse：args 是对象时直接抛错
+const cfg = JSON.parse(args)
+
+// ✓ 归一化 idiom：字符串才 parse，其余原样当对象
+function readArgs(a) {
+  if (a == null) return {}
+  if (typeof a === 'string') {
+    try { return JSON.parse(a) } catch { return {} }   // 容错：解析失败给空对象
+  }
+  return a                                              // 已是对象/数组：原样返回
+}
+
+const cfg = readArgs(args)
+const target = cfg.target ?? 'src'
+```
+
+> 配套：`args` 没传时是 `undefined`、字段错位会读到 `undefined`，见 [B.13](#b13-args-未传或字段错位)；这里强调的是**类型**——它是对象不是字符串。
+
+---
+
+## B.19 try/catch 接不住 `Date.now()`
+
+<div class="callout warn">
+
+**症状**：你「保险起见」给 `const ts = Date.now()` 套了 `try/catch`，期望失败时走兜底分支——结果**整个工作流根本没启动**（回执里直接是 `error` 字段），你的 `catch` 一次都没执行。换一种写法（`const D = Date; D.now()`）倒是跑起来了，却在运行时抛错。
+
+</div>
+
+**原因**：确定性禁用是**双层防护**，两层都不是你的 `try/catch` 能拦的：
+
+1. **字面量在提交时被静态拒绝**：`Date.now()` / `Math.random()` / 无参 `new Date()` 的**字面写法**会被一次**源码静态扫描**在脚本**解析/运行之前**拦下——脚本压根不执行，工具直接返回错误（原文：`Workflow scripts must be deterministic: Date.now()/Math.random()/new Date() are unavailable (breaks resume)…`，见 `sandbox-r4.md`）。脚本没运行，`try/catch` 自然无从谈起。
+2. **别名形式是运行时陷阱**：把调用「藏」起来（`const D = Date; D.now()`）能骗过静态扫描、提交通过，但运行时被注入的陷阱**抛错**——`Date.now() / new Date() are unavailable in workflow scripts (breaks resume)…`；`Math.random()` 那条还顺带提示解法：`…For N independent samples, include the index in the agent label or prompt.`（两层均实测，Run `wf_59bf3654-183`）。
+
+**解法**：别试图「绕过」或「接住」——按 [B.5](#b5-datenow-mathrandom-抛错) 的方式从根上避开：时间戳用 `args` 传入或事后盖戳，随机性用 agent 下标变化提示词。
+
+```javascript
+// ✗ 字面量：提交期静态拒绝，脚本不运行，catch 形同虚设
+try { const ts = Date.now() } catch { /* 永远到不了这里 */ }
+
+// ✗ 别名：骗过静态扫描，但运行时抛错
+const D = Date; const ts = D.now()      // 运行时 throw
+
+// ✓ 从源头避开（见 B.5）
+const ts = args.runStamp                // 外部传入，可重放
+```
+
+> 为什么这么严？因为续传要求「同脚本+同输入→同执行路径」，任何不确定来源都会破坏对齐。双层防护正是为了让你**不可能**把不确定性偷渡进可重放的脚本。
+
+---
+
+## B.20 `isolation` 拼错被静默忽略
+
+<div class="callout warn">
+
+**症状**：你想让某个会改文件的 agent 跑在隔离的 git worktree 里，写了 `isolation: 'worktreee'`（多打一个 e）。**没有任何报错**，agent 正常返回——但它其实**没有被隔离**，和别的 agent 共用同一工作目录，并行改文件时照样冲突。这是个隐蔽坑：错误被「成功」的表象掩盖了。
+
+</div>
+
+**原因**：运行时对 `isolation` 只**特判两个值**——`'worktree'`（执行隔离）与 `'remote'`（本 build 禁用，会抛 `agent({isolation:'remote'}) is not available in this build`）；**其它任何未知值都被静默忽略**，agent 按默认（不隔离）正常运行。实测 `isolation: 'totally-bogus'` **不抛错、返回 OK**，只有 `'remote'` 抛错（Run `wf_dace2fc6-966`，见 [附录 E · R4 opts 校验记录](#/zh/app-e)）。所以拼错的 `'worktreee'` 等同于「没写 isolation」。
+
+**解法**：写 `isolation` 时**逐字核对**只能是 `'worktree'`；不要依赖运行时报错来抓拼写。需要隔离的判断标准见 [第 19 章](#/zh/p4-19)（仅当并行改文件会冲突时才用，它昂贵）。
+
+```javascript
+// ✗ 拼错被静默忽略：agent 没隔离，并行改文件仍冲突，且无任何报错
+await agent('refactor src/auth.ts', { isolation: 'worktreee' })
+
+// ✓ 逐字写对
+await agent('refactor src/auth.ts', { isolation: 'worktree' })
+```
+
+> 对照：`agentType` 拼错会**立即抛错**（见 [B.21](#b21-model-拼错不在提交期报错) 末尾），`isolation` 拼错却被吞掉——同是 opts 字段，校验严格度不一致，务必记牢哪些「会报错、哪些会沉默」。
+
+---
+
+## B.21 `model` 拼错不在提交期报错
+
+<div class="callout warn">
+
+**症状**：你把 `model: 'opus'` 误写成 `model: 'oputs'`，期望提交时被挡下——结果脚本顺利提交、agent 正常运行，你误以为这个 model 名是合法的。
+
+</div>
+
+**原因**：`model` 字符串**没有提交/解析期校验**。实测一个明显不存在的 `model: 'totally-not-a-real-model-xyz'` 既没在提交期被拒、agent 也照常返回 OK（Run `wf_dace2fc6-966`）。
+
+<div class="callout info">
+
+**实测的诚实边界**：本会话 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖了一切 per-call `model`（实跑 Opus），所以那个 bogus 字符串**从未真正发往 API**——「拼错会在 API 调用时失败」这一步本会话**未能观测到**（社区第三方资料如此声称，本书未独立实测）。能确认的只有：**提交期不报错**。
+
+</div>
+
+**对比 `agentType`（有校验）**：未知 `agentType` 会在**生成任何模型之前**（0 token / 4ms）就抛错，并列出全部可用 agent——原文 `agent({agentType}): agent type '…' not found. Available agents: claude, claude-code-guide, codex:codex-rescue, Explore, general-purpose, …`（Run `wf_a222f20f-0f5`）。这一「`agentType` 严校验、`model` 不校验」的不对称，是真实可教的差异。
+
+```javascript
+// ✗ model 拼错：提交期不报错，你拿不到早期反馈
+await agent('do x', { model: 'oputs' })          // 静默通过
+
+// ✗ agentType 拼错：立即抛错并列出可用 agent（0 token）
+await agent('do x', { agentType: 'code-reviewr' })   // throw
+
+// ✓ 两者都逐字核对；尤其 model 没有「拼错保护网」
+await agent('do x', { model: 'opus', agentType: 'Explore' })
+```
+
+> 实践含义：`model` 拼错的代价**滞后**（最坏到 API 层才暴露），所以更要靠 code review / 校验器（见 [附录 E · validator-r4](#/zh/app-e)）在提交前抓；别指望运行时替你兜。
+
+---
+
+## B.22 budget 守卫漏 `total` 短路
+
+<div class="callout warn">
+
+**症状**：一个「循环到干 / 重试到通过」的动态循环，本想用预算守卫提前收手，却写成了 `if (budget.remaining() < 30000) break`。在**用户没设 token 目标**时，这个守卫**永不触发**，循环一路跑到运行时的 **1000 agent 官方兜底上限**才被迫停下，烧掉大量 token。
+
+</div>
+
+**原因**：未设目标时 `budget.total === null`、`budget.remaining()` 返回 **`Infinity`**（实测 `total===null` 见 Run `wf_59bf3654-183`；budget 探针 `wf_fd09a6ed-38a` 实测返回 `{ totalIsNull:true, remainingBefore/After:"Infinity", guardRounds:0 }`，见 `r3-reverification.md`）。于是 `Infinity < 30000` 恒为 `false`，守卫形同不存在；而你若把守卫**当成唯一的循环出口**，循环就只剩业务条件兜底——业务一旦不收敛，便一路撞 1000 上限。
+
+这其实是 [B.6](#b6-无-budget-守卫的死循环) 的**精确化版本**：B.6 讲「要有预算守卫」，本条讲「守卫**必须**用 `budget.total &&` 短路，否则在『没设目标』这一最常见情形下它根本不工作」。
+
+**解法**：守卫**始终**写成 `budget.total && budget.remaining() < 阈值`——只有用户真的设了目标（`total` 非 null）时才让它生效；同时**永远**配一个独立的 `MAX_ROUNDS` 硬上限作为「没设目标」时的兜底。
+
+```javascript
+// ✗ 漏 total 短路：未设目标时 remaining()===Infinity，守卫永不触发，跑到 1000 上限
+while (!done) {
+  if (budget.remaining() < 30_000) break      // Infinity < 30000 → 永远 false
+  const r = await agent(`round ${round++} ...`, { schema: S })
+  done = r.converged
+}
+
+// ✓ total 短路 + 独立轮次硬上限（两道闸都不依赖对方）
+let round = 0
+const MAX_ROUNDS = 5
+while (!done && round < MAX_ROUNDS) {          // ① 没设目标时由它兜底
+  if (budget.total && budget.remaining() < 30_000) {   // ② 设了目标才生效
+    log(`budget guard: ${budget.remaining()} left, stopping`)
+    break
+  }
+  const r = await agent(`round ${round} ...`, { schema: S })
+  done = r.converged
+  round++
+}
+```
+
+> 双重护栏的分工：`MAX_ROUNDS`（主动、对「没设目标」也有效）+ `budget.total &&` 守卫（对「设了目标」精准收尾）+ 运行时 1000 agent 兜底（被动、防失控）。生产脚本应靠前两道收口，**绝不**把 1000 当正常退出点。详见 [第 21 章 · 动态预算与规模化](#/zh/p4-21)。
+
+---
+
+## B.23 排错心法（收尾）
 
 把上面的坑归纳成三句可迁移的判断：
 

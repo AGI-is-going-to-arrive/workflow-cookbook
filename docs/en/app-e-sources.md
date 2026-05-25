@@ -95,6 +95,24 @@ Everywhere the book cites specific usage (`agent_count`/`tool_uses`/`total_token
 
 > Before writing a recipe chapter, read the corresponding transcript record first — it's the sole basis for that chapter's data. More real runs will be appended to `assets/transcripts/` over time.
 
+### E.3.1 R4 Real Runs (Reproducing Third-Party Claims)
+
+The table above (#1–#10) is this book's first batch of real runs. The **R4 round** added a set of **further tests** specifically targeting the sandbox mechanisms and the third-party repo's claims, recorded in five `*-r4.md` files under `assets/transcripts/`. The purpose of these runs is: **not to take the third-party repo on faith** — either reproduce its claims as facts by testing, or mark them "unverified."
+
+| Record file | Mechanisms covered | Key Run IDs |
+|---|---|---|
+| `sandbox-r4.md` | The determinism **dual-layer ban** (literal rejected at submit + aliased thrown at runtime); injected globals (`console`/`setTimeout`/`log`/`budget`); `args` passed through unchanged (object stays object); host APIs (`require`/`process`/`fetch`) absent; `CLAUDE_CODE_SUBAGENT_MODEL` overriding the per-call model | `wf_59bf3654-183` (sandbox introspection, 0 agents), `wf_9c94951d-58c` (model resolution, 5 agents) |
+| `api-facts-r4.md` | `agentType` validated (an unknown value throws at 0 tokens and lists available agents) vs `model` not validated; resume = 100% cache hit (0 tokens); nested `workflow()` one-level cap + args passthrough | `wf_a222f20f-0f5`, `wf_9c94951d-58c` (resume), `wf_2b04881f-6a9` |
+| `repo-claims-r4.md` | Testing the third-party repo's claims item by item: meta reserved keys rejected, `isolation:'remote'` disabled (+ the correction that an unknown isolation is silently ignored), `model` not validated at submit, the 30000ms VM sync timeout | `wf_dace2fc6-966`, `wf_e3b2b123-5f4` (sync timeout, failed) |
+| `validator-r4.md` | The **real-run behavior** of the third-party `validate-workflow.mjs`: a valid script `ok…passes` (exit 0); a broken script erroring item by item (meta must be first, banned nondeterministic calls, host-API warning, `parallel` bare-promise warning, exit 1) | (run on this machine with Node v22.22.0, not a Workflow Run ID) |
+| `mcp-access-r4.md` | A subagent can use MCP: the default `workflow-subagent` holds 0 `mcp__` tools (deferred environment), but loads on demand via ToolSearch and calls context7 end-to-end successfully | `wf_1d4c6a71-56a` (tool introspection), `wf_d8aa0772-ced` (end-to-end) |
+
+<div class="callout info">
+
+**How this R4 batch changes the source tiers**: it **promotes several entries** previously in "third-party claim" **to tested facts** (citable with Run IDs) — meta reserved keys rejected, `isolation:'remote'` disabled, `model` not validated at submit, the 30000ms sync timeout, `args` passthrough, injected globals. Still in "third-party, unverified": the error class names `WorkflowAgentCapError`/`WorkflowBudgetExceededError`, `stallMs` default/retry counts, the budget-exhausted in-flight-agent behavior, the exact composition of the resume cache key, the exact schema-retry count (see the relevant entries in [Appendix B](#/en/app-b) and [Appendix D · D.6/D.8](#/en/app-d)).
+
+</div>
+
 ---
 
 ## E.4 The Four Community Systems (the Source Repositories for Ecosystem Borrowing)
@@ -126,8 +144,10 @@ The following third-party readings served as **background reference** and **pers
 |---|---|---|
 | The "AI Meta-Domain" blog (community reading) | An early community reading of and perspective on the Workflow feature | **Reference**: background motivation and terminology understanding; cases are all original, not copied |
 | Related explainer videos | The community's explanations of multi-agent orchestration | **Reference**: building intuition; specific numbers defer to this book's real runs |
+| **`claude-code-workflow-creator`** (third-party GitHub repo) | A YouTuber's companion repo to their video `c0gVowvMR-g`, **not official Claude/Anthropic output.** Contains `references/api-reference.md`, `references/patterns.md`, 6 example workflows, 3 templates, `scripts/validate-workflow.mjs` (a pre-submit lint). | **Borrow ideas, not authority**: borrow its way of organizing `CLAUDE_CODE_WORKFLOWS` to enrich this book; **never copy its text, never treat its claims as truth.** Those of its claims this book could reproduce by testing (e.g. meta reserved keys rejected, `isolation:'remote'` disabled, the 30000ms sync timeout, `model` not validated at submit) have been promoted to tested facts with Run IDs (see [E.3.1](#e31-r4-real-runs-reproducing-third-party-claims)); those it couldn't (error class names, `stallMs`, etc.) are all marked "a community third-party source claims this; this book did not independently verify it." Its bundled `validate-workflow.mjs`, this book **did run to confirm its behavior** (see [E.3.1](#e31-r4-real-runs-reproducing-third-party-claims)). |
+| The video `c0gVowvMR-g` (the above repo's companion video) | The YouTuber's video explaining multi-agent orchestration/workflows | **Content not quoted**: the video page is a SPA, **captions cannot be retrieved**, so this book quotes none of its specific statements; only its companion relationship to the above third-party repo is recorded. |
 
-> The reason they're listed separately and "not copied" is repeatedly stressed: this book's promise is **facts-first + original and real.** Reference material can inspire understanding but cannot replace "running it by hand and recording the real numbers" — the latter is the foundation of every claim in this book.
+> The reason they're listed separately and "not copied" is repeatedly stressed: this book's promise is **facts-first + original and real.** Reference material can inspire understanding but cannot replace "running it by hand and recording the real numbers" — the latter is the foundation of every claim in this book. **In particular, `claude-code-workflow-creator` is a third-party YouTuber's repo, not official**: this book borrows only its ideas, and any of its claims must be reproduced by this book's own testing before being promoted to fact, otherwise explicitly marked "unverified."
 
 ---
 

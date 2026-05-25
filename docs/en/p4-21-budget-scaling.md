@@ -28,6 +28,8 @@ Pin down each one's precise semantics:
 
 **The number-one pitfall: when the user sets no target, `total` is `null` and `remaining()` is `Infinity`.** This isn't "0," nor "no limit equals very small" — it's **infinity.** Any "is there enough left" judgment must first use `budget.total` to distinguish "did the user actually set a target" between these two worlds, or your adaptive logic fails entirely when "no budget is set" (comparing against `Infinity`, all threshold checks are constantly true). §21.3 uses this guard repeatedly.
 
+**`total === null` is not a guess, it's tested.** This book's sandbox-introspection probe (Run `wf_59bf3654-183`, 0 agents / 0 tokens / 4 ms) directly read, in a session with no budget target set, that `budget` is injected (`typeof budget === 'object'`) and `budget.total === null`. So "no target set → `total` is `null`" is behavior confirmed on this machine by testing, not extrapolated from the type signature.
+
 </div>
 
 ### `budget.spent()`: it's a function, and a **shared pool**
@@ -54,6 +56,12 @@ flowchart LR
     style Throw fill:#ffcdd2,stroke:#e53935
     style Run fill:#c8e6c9,stroke:#388e3c
 ```
+
+<div class="callout info">
+
+**"It throws" is officially specified behavior; but "which exception class it throws, and how in-flight agents are handled" is not tested by this book.** "Calling `agent()` after `spent()` reaches `total` throws" comes from the official tool definition and can be trusted. As for the **exact class name** of this error (third-party community material calls it `WorkflowBudgetExceededError`), and the **fine handling semantics** of "when the budget is exhausted, do already-in-flight agents finish, are their results kept, or does it merely stop launching new agents" — these are claimed by third-party community material and not independently reproduced by this book. This chapter doesn't depend on them: every pattern rests on "**proactively living within your means and never hitting this cap at all**," not on `catch`ing some specific exception class. So when writing code, **don't assume** you can catch a particular named exception, and don't assume in-flight results are necessarily kept after hitting the wall — putting budget guards up front is far more reliable than catching exceptions after the fact.
+
+</div>
 
 <div class="callout tip">
 

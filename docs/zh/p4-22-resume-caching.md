@@ -146,14 +146,14 @@ sequenceDiagram
 
 <div class="callout tip">
 
-**真实运行印证（缓存命中 = 0 token / 8 毫秒）**：本书对第 4 章跑过的 `hello-workflow`（Run `wf_dacbd480-d5d`），用**未改动的脚本** + `resumeFromRunId` 重跑。两次用量对比（同一 Run ID）——
+**真实运行印证（5 个 agent 的流水线，续传 = 0 token / 3 毫秒）**：本书跑了一条 5-agent 的模型解析工作流（Run `wf_9c94951d-58c`），首跑真实执行；随后用**完全未改动的脚本** + `{ scriptPath, resumeFromRunId: 'wf_9c94951d-58c' }` 原样重跑。两次用量对比（同一 Run ID）——
 
-| 运行 | tool_uses | total_tokens | duration_ms |
+| 运行 | agent 数 | total_tokens | duration_ms |
 |---|---|---|---|
-| 首次（真实执行） | 1 | **26,338** | **5,506** |
-| 续传（缓存命中） | **0** | **0** | **8** |
+| 首次（真实执行） | 5 | **133,691** | **32,959** |
+| 续传（100% 缓存命中） | 5（全缓存） | **0** | **3** |
 
-返回值完全相同。**缓存命中的 `agent()` 调用零 token、零工具调用、8 毫秒返回**——它直接复用结果、没有重新派发 subagent。这也实证回答了上一节「缓存命中算不算 token」：**不算**。原始记录见 `assets/transcripts/advanced.md`。
+续传返回的 5 个结果与首跑**完全一致**。**5 个 agent 的活儿，续传时全部命中缓存——0 新 token、3 毫秒返回**（首跑是 13 万 token、33 秒）。运行时直接从 journal 回放每个 `agent()` 的结果，没有重新派发任何 subagent。这把「同脚本 + 同 args → 100% 命中」从一句承诺变成了实打实的数字，也实证回答了下一节「缓存命中算不算 token」：**不算**。原始记录见 `assets/transcripts/api-facts-r4.md`（另有一个更早的单 agent 续传 `wf_dacbd480-d5d`，0 token / 8ms，结论一致，见 `assets/transcripts/advanced.md`）。
 
 </div>
 
@@ -163,13 +163,21 @@ sequenceDiagram
 
 </div>
 
+<div class="callout info">
+
+**「什么算改动」——哪些字段会让一个 `agent()` 失去缓存？** 本书实测到的边界是粗粒度的：**同脚本 + 同 args = 100% 命中**（`wf_9c94951d-58c`），且那次运行里给 agent 加的 `label` / `phase` 仅是**显示用途、不参与缓存判定**（改它们不会让缓存失效）。所以最稳的心智模型是：**改了喂给 agent 的 `prompt`（或它依赖的上游数据），就会失去缓存；只改 `label`/`phase` 这类展示标签，不会。** 
+
+至于「缓存键到底由哪些字段精确组成」——社区第三方资料声称恰好是 agent 的 `prompt` 加上 `opts` 里的 `schema / model / isolation / agentType`（而 `label`/`phase` 排除在外）。**本书只实测了「同脚本同 args = 100% 命中」与「label/phase 不入键」，并未逐一验证这份精确组成清单**，故这份「精确字段列表」标注为**社区第三方资料声称、本书未独立实测**。实践上你不需要记住精确清单——遵循「只改 prompt/上游数据才会失效」这条粗粒度规则即可安全迭代。
+
+</div>
+
 ---
 
 ## 22.5 续传与 budget、嵌套的相互作用
 
 续传不是孤立特性，它和前面几章讲的机制有微妙的相互作用，理清能避免踩坑。
 
-**与 budget（第 21 章）的关系：缓存命中还算 token 吗？** 续传的价值正在于「命中的调用不重新执行」——既然不执行，自然不消耗模型推理的 token。本书的真实续传运行已实证这一点：缓存命中的那次重跑 `total_tokens=0`（见上方「真实运行印证」与 `assets/transcripts/advanced.md`）。所以续传是**实打实省 token** 的——**迭代的边际成本只来自你改动的那部分**，前面命中的阶段近乎免费。
+**与 budget（第 21 章）的关系：缓存命中还算 token 吗？** 续传的价值正在于「命中的调用不重新执行」——既然不执行，自然不消耗模型推理的 token。本书的真实续传运行已实证这一点：5-agent 流水线缓存命中的那次重跑 `total_tokens=0`（见上方「真实运行印证」，Run `wf_9c94951d-58c`，原始记录 `assets/transcripts/api-facts-r4.md`）。所以续传是**实打实省 token** 的——**迭代的边际成本只来自你改动的那部分**，前面命中的阶段近乎免费。
 
 **与嵌套 `workflow()`（第 20 章）的关系。** 续传的「未改动 `agent()` 命中缓存」是针对当前工作流脚本里的 `agent()` 调用。当脚本里有 `workflow()` 子调用时，续传如何与子工作流的缓存交互，事实源未展开说明，属「（待核实）」——实际迭代含嵌套的工作流时，应通过 `/workflows` 观察实际的缓存命中行为来确认。
 

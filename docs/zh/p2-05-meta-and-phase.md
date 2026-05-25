@@ -4,7 +4,7 @@
 >
 > 一台织机上，最先被绷紧的是经线。它纵贯整匹布，决定了布的长度、宽度与张力——纬线还没穿进来之前，布的「形」已经定好了。
 >
-> 在一个 Workflow 脚本里，`meta` 与 `phase()` 就是这样的经线。它们不执行任何 subagent、不产出任何业务结果，却在第一个 `agent()` 派发之前，就把整个工作流的**骨架**张好了：它叫什么、要做什么、分几个阶段、每个阶段用哪个模型、进度该怎样呈现给人看。
+> 在一个 Workflow 脚本里，`meta` 与 `phase()` 就是这样的经线。它们不执行任何 subagent、不产出任何业务结果，却在第一个 `agent()` 派发之前，就把整个工作流的**骨架**张好了：它叫什么、要做什么、分几个阶段、每个阶段意图用哪个模型、进度该怎样呈现给人看。
 >
 > 这一章我们把这根经线彻底拆开。你会看到一个看似不起眼的「导出常量」背后,藏着运行时一条不可妥协的硬约束;也会看到 `phase()` 这个「只有一行、没有返回值」的小函数,如何把几十个 subagent 的乱麻,梳理成 `/workflows` 里一棵清晰的进度树。
 
@@ -179,22 +179,30 @@ export const meta = {
 }
 ```
 
-### 5.3.3 模型:两层确认的覆盖
+### 5.3.3 模型:唯一可靠的旋钮是 `agent()` 的 `model`
 
-模型这件事,恰恰是 `meta`(经线)与 `agent()`(纬线)交汇的地方。据工具定义,**只有两层模型覆盖被确认**:
+模型这件事,恰恰是 `meta`(经线)与 `agent()`(纬线)交汇的地方。但这里有一个**极常见的误区**必须先讲清楚:很多人以为「在 `meta.phases[].model` 上标个 `'haiku'`,这一阶段的 agent 就会跑 Haiku」——**这件事的运行时效果其实是未定的**。
 
-- **`meta.phases[].model`** —— 按**阶段**覆盖(如 `{ title: 'Verify', model: 'haiku' }`),写在 `phases` 数组里。
-- **agent `opts.model`** —— 按**单次调用**覆盖;**省略则继承主循环模型**。
+据 `_grounding.md` 的接地事实:
+
+- **`meta.phases[].model`** —— 写在 `phases` 数组里(如 `{ title: 'Verify', model: 'haiku' }`)。官方工具描述对它的措辞**含糊**(「某阶段用特定模型 override 时加上」);本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖一切 per-call model(见 `_grounding.md` A2,Run ID `wf_9c94951d-58c`)**未能独立隔离**它到底有没有运行时效果。
+- **agent `opts.model`** —— 按**单次调用**覆盖;官方明确「**省略则继承主循环模型**」。这是**唯一**有官方明确语义的模型旋钮。
 
 两者都不写时,agent 继承主循环模型——**本书实测会话**的主循环是 Opus 4.7(由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7` 指定,见 `_grounding.md` A 节;这是本书会话的事实,非 Workflow 通用保证)。
 
 <div class="callout warn">
 
-**关于顶层 `meta.model`:** Workflow 工具定义里,`meta` 的字段是必填 `name`/`description` + 可选 `whenToUse`/`phases`(`phases` 内可带 `model`)——**并未把顶层 `meta.model` 列为 meta 字段**。因此本书**不**把它当作一个生效的「模型层」来叙述;它的自动解析语义**未经核实(待核实)**。模型覆盖只认上面那两层。
+**常见误区:别指望 `meta.phases[].model` 单独把某阶段切到某模型。** 它的**运行时效果未定**——官方措辞含糊,本会话又因环境变量 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖而**无法独立验证**它单独是否生效(那次 5 个 agent 的探针里,其中一个就处在 `meta.phases[]` 标了 `model:'haiku'` 的阶段,结果仍跑 Opus,Run ID `wf_9c94951d-58c`)。**安全做法:真正要让某阶段用 Haiku,就在那个阶段的每个 `agent()` 上写 `model:'haiku'`**——把 `phases[].model` 当成「给人和权限对话框看的标签」,而不是一个会单独生效的开关。(注:有第三方资料称它「纯展示用、运行时不读」——本书**未独立实测**,故不把这一说法当作已证实的事实;我们只确认「`agent()` 的 `model` 才是可靠旋钮」这条安全做法。)
 
 </div>
 
-完整的两层解析与按阶段选模型的成本权衡,见 5.6 节。
+<div class="callout warn">
+
+**关于顶层 `meta.model`:** Workflow 工具定义里,`meta` 的字段是必填 `name`/`description` + 可选 `whenToUse`/`phases`(`phases` 内可带 `model`)——**并未把顶层 `meta.model` 列为 meta 字段**。因此本书**不**把它当作一个生效的「模型层」来叙述;它的自动解析语义**未经核实(待核实)**。
+
+</div>
+
+按阶段选模型的成本权衡(以及为什么仍建议在 `phases` 上标注意图),见 5.6 节。
 
 ### 5.3.4 `phases`:经线上的「刻度」
 
@@ -214,7 +222,7 @@ phases: [
 |---|---|---|
 | `title` | 是 | 阶段标题。**这是一个会被精确匹配的字符串**(见 5.5 节) |
 | `detail` | 否 | 阶段的一句话说明,显示在进度树里帮人理解这一阶段在做什么 |
-| `model` | 否 | 标注「这一阶段用什么模型」(见 5.6 节) |
+| `model` | 否 | **标注**「这一阶段意图用什么模型」;运行时是否单独生效**未定**,真正设模型请在 `agent()` 上写 `model`(见 5.3.3、5.6) |
 
 `phases` 是**纯声明**——它只是在 `meta` 里「画出刻度」,告诉运行时「这个工作流计划分这么几个阶段、每个阶段叫什么」。真正在执行时**切换**到某个阶段,是 `phase()` 函数的事(5.4 节)。声明与切换的配合(`meta.phases[].title` ↔ `phase('...')` 的字符串匹配),是整章的关键机制(5.5 节)。
 
@@ -467,43 +475,54 @@ agent_count = 6   tool_uses = 8   total_tokens = 158982   duration_ms = 26743
 
 ---
 
-## 5.6 模型覆盖:两层确认
+## 5.6 模型覆盖:可靠的只有 `agent()` 的 `model`
 
-模型(model)是 `meta` 这根经线与 `agent()` 那根纬线**交汇**的地方,值得单独梳理。据工具定义,模型覆盖**只有两层是确认的**——一层在经线(按阶段)、一层在纬线(按单次调用)。一个 agent 最终用哪个模型,可按**从宽到窄**理解:
+模型(model)是 `meta` 这根经线与 `agent()` 那根纬线**交汇**的地方,值得单独梳理。5.3.3 已经下了结论:**唯一有官方明确语义、值得依赖的模型旋钮,是 `agent()` 的 `opts.model`**;`meta.phases[].model` 是写在经线上的「意图标注」,运行时是否单独生效**未定**。一个 agent 最终用哪个模型,可按**从宽到窄**理解:
 
 ```mermaid
 flowchart TD
-    A["主循环模型<br/>(本书实测会话:Opus 4.7)"] --> B["meta.phases[].model<br/>按阶段覆盖(确认)"]
-    B --> C["agent(opts.model)<br/>按单次调用覆盖(确认)"]
+    A["主循环模型<br/>(本书实测会话:Opus 4.7)"] --> C["agent(opts.model)<br/>按单次调用覆盖<br/>(唯一可靠旋钮)"]
     C --> E["最终生效模型"]
+    B["meta.phases[].model<br/>意图标注 · 运行时效果未定"] -. "本会话被 CLAUDE_CODE_SUBAGENT_MODEL<br/>覆盖,无法独立隔离" .-> E
     style E fill:#2d6
+    style B fill:#fdd,stroke:#d66,stroke-dasharray: 4 4
 ```
 
 从宽到窄理解:
 
-1. **两层都不写** → agent 继承**主循环模型**。据 `_grounding.md`:「(`agent` 的)`opts.model` 省略则继承主循环模型」。**本书实测会话**的主循环是 Opus 4.7(这是本书会话的事实,非 Workflow 通用保证)。
-2. **在 `meta.phases[].model` 标注某阶段**(已确认)→ 表达「这一阶段用什么模型」。例如一个先「廉价地海量扇出找线索」、再「昂贵地精审」的工作流,可以在 phases 上标出来:
+1. **不写 `agent({ model })`** → agent 继承**主循环模型**。据 `_grounding.md`:「(`agent` 的)`opts.model` 省略则继承主循环模型」。**本书实测会话**的主循环是 Opus 4.7(这是本书会话的事实,非 Workflow 通用保证)。
+2. **在 `agent({ model })` 上指定** → 唯一可靠的覆盖。最细粒度,精确控制**这一个** agent 用什么模型,覆盖「继承主循环」这一默认。例如一个先「廉价地海量扇出找线索」、再「昂贵地精审」的工作流,**正确做法是在每个 agent 上落实 `model`**——同时**也**在 `phases` 上标注同样的意图,让权限对话框与读脚本的人一眼看清成本结构:
 
 ```javascript
 export const meta = {
   name: 'scan-then-deep',
   description: '先用 haiku 廉价地海量扫描线索,再用 opus 精审命中项',
   phases: [
+    // phases[].model 是「意图标注」,真正生效靠下面每个 agent 的 model
     { title: 'Scan',   detail: '大量并行的轻量扫描', model: 'haiku' },
     { title: 'Deepen', detail: '对命中项做昂贵的深入分析', model: 'opus' },
   ],
 }
+
+phase('Scan')
+const leads = await parallel(
+  inputs.map((x, i) => () =>
+    agent(`轻量扫描:${x}`, { label: `scan:${i}`, phase: 'Scan', model: 'haiku' })  // ← 真正生效的是这里
+  )
+)
+phase('Deepen')
+const deep = await agent(`精审命中项:${JSON.stringify(leads.filter(Boolean))}`, {
+  label: 'deepen', phase: 'Deepen', model: 'opus',                                  // ← 真正生效的是这里
+})
 ```
 
-3. **在 `agent({ model })` 上指定**(已确认)→ 最细粒度,精确控制**这一个** agent 用什么模型,覆盖「继承主循环」这一默认。
+<div class="callout warn">
 
-<div class="callout info">
-
-**`meta.phases[].model` 与 `agent({ model })` 的分工。** `meta.phases[].model` 是**声明性**的——它写在经线上,表达「这个阶段的意图是用某模型」,也让读脚本的人一眼看清成本结构。而 `agent({ model })` 是**命令性**的——它在纬线上,真正决定某个具体 agent 的模型。两者一个「说计划」、一个「下命令」。`agent({ model })` 的细节(包括 `'haiku'` 适合什么任务)留到第 06 章。
+**`meta.phases[].model` 与 `agent({ model })` 的分工——以及一个关键告诫。** `meta.phases[].model` 是**声明性**的——它写在经线上,表达「这个阶段的意图是用某模型」,也让读脚本的人一眼看清成本结构。而 `agent({ model })` 是**命令性**的——它在纬线上,**真正**决定某个具体 agent 的模型。关键告诫:**别只写 phases 上的 `model` 就以为它会生效**——如 5.3.3 所述,本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖(Run ID `wf_9c94951d-58c`)无法证实 `phases[].model` 单独是否起作用,且官方措辞含糊。所以:`phases[].model` 与每个 `agent({ model })` **成对出现**——一处「说计划」给人看,一处「下命令」让它真生效。`agent({ model })` 的细节(包括 `'haiku'` 适合什么任务)留到第 06 章。
 
 </div>
 
-为什么把「按 phase 选模型」做成一种模式?因为它对应一个极常见的成本权衡:**广度阶段用便宜模型大量扇出,深度阶段用强模型精雕细琢。** 这能在不牺牲关键质量的前提下,显著压低总 token——而 token 成本,正如 `_grounding.md` C 节的经验法则,约等于「agent 数 × 每 agent 上下文」。把扇出最多的那个阶段换成 haiku,省下的就是「agent 数 × 单价差」。
+为什么仍要在 phase 上标注模型意图?因为它对应一个极常见的成本权衡:**广度阶段用便宜模型大量扇出,深度阶段用强模型精雕细琢。** 把意图写在 `phases` 上,读脚本的人和权限对话框就能一眼看清「这个工作流哪一段贵、哪一段省」。而**真正压低 token** 的动作,是在那个扇出最多的阶段的每个 `agent()` 上写 `model:'haiku'`——token 成本正如 `_grounding.md` C 节的经验法则,约等于「agent 数 × 每 agent 上下文」,把扇出最多的那个阶段换成 haiku,省下的就是「agent 数 × 单价差」。
 
 ---
 
@@ -634,10 +653,10 @@ return plan
 逐一对照本章知识点:
 
 - **`meta` 纯字面量**:全字段都是死值,无变量、无函数、无插值——能通过静态读取(5.1–5.2)。
-- **五个字段全用上**:`name` / `description`(必填)、`whenToUse`(列表说明)、`model`(默认 opus)、`phases`(三阶段,Triage 标 haiku)(5.3)。
+- **四个 meta 字段全用上**:`name` / `description`(必填)、`whenToUse`(列表说明)、`phases`(三阶段,Triage 标 haiku)(5.3)。
 - **顺序段用全局 `phase()`**:Triage、Suggest 是串行代码,`phase('Triage')` / `phase('Suggest')` 安全(5.4)。
 - **并发段用 `opts.phase`**:Locate 阶段是 `parallel()`,每个 agent 用 `phase: 'Locate'` 显式归组,避免全局游标竞争(5.5.1)。
-- **模型覆盖(确认的两层)**:`triage` agent 显式 `model: 'haiku'`(`opts.model` 覆盖,也对应 phases 标注);`suggest` agent 不写 model,故继承**主循环模型**——这是两层都不写时的确认行为(顶层 `meta.model` 非 meta 字段、语义待核实,不参与此处,5.6)。
+- **模型:`agent()` 上的 `model` 才生效**:`triage` agent 显式 `model: 'haiku'`(这是真正起作用的一处,与 phases[0] 上的同名标注**成对出现**);`suggest` agent 不写 model,故继承**主循环模型**(顶层 `meta.model` 非 meta 字段、`phases[].model` 单独是否生效未定,均不参与此处,5.3.3、5.6)。
 - **`log()` 叙述**:每阶段一句进度旁白,且只用 `.length` 这种纯计算,不碰时间/随机(5.7.2)。
 
 它的 `/workflows` 进度树会是这样(示意):
@@ -660,10 +679,10 @@ triage-and-fix
 
 - **经线 = 张紧的结构骨架。** `meta` 与 `phase()` 不执行业务、不计 token,却在第一个 `agent()` 之前就定下工作流的「形」。
 - **`meta` 必须纯字面量**,因为运行时在**执行前静态读取**它,用于权限弹窗显示 `name` / `description` / `phases`。含变量、函数调用、模板插值、展开运算的「活值」都会被**拒绝执行**(5.1–5.2)。
-- **`meta` 字段**:必填 `name` / `description`(自报家门);可选 `whenToUse`(工作流列表的「何时用」)、`phases`(阶段刻度,每项 `{title, detail?, model?}`)。注意:**顶层 `meta.model` 并非工具定义里已确认的 meta 字段,其语义未核实——本书只确认 `phases[].model` 与 `opts.model` 两层模型覆盖**(5.3、5.6)。
+- **`meta` 字段**:必填 `name` / `description`(自报家门);可选 `whenToUse`(工作流列表的「何时用」)、`phases`(阶段刻度,每项 `{title, detail?, model?}`)。注意:**顶层 `meta.model` 并非工具定义里已确认的 meta 字段,语义未核实**(5.3、5.6)。
 - **`phase(title)`** 切换全局当前阶段游标,其后 `agent()` 归入该组;`meta.phases[].title` 与 `phase('...')` 按**字符串精确匹配**关联——大小写、空格一字之差就会让进度树错乱(5.4–5.5)。
 - **并发场景的铁律**:顺序脚本用全局 `phase()`,`parallel`/`pipeline` 里改用每个 agent 的 `opts.phase` 显式归组,避免竞争全局游标(5.5.1)。
-- **模型覆盖(两层确认)**:两层都不写则继承主循环 → `meta.phases[].model` 按阶段覆盖 → `agent({model})` 按单次调用覆盖。顶层 `meta.model` 并非工具定义里的 meta 字段,语义**待核实**,本书不当作模型层叙述(5.6)。
+- **模型:唯一可靠的旋钮是 `agent()` 的 `model`**(省略则继承主循环;本会话主循环 Opus 4.7)。`meta.phases[].model` 只是「意图标注」,**运行时是否单独生效未定**——官方措辞含糊,且本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖(`wf_9c94951d-58c`)无法独立隔离。**要某阶段真用某模型,就在该阶段每个 `agent()` 上写 `model`,别只标在 phases 上**(5.3.3、5.6)。
 - **`/workflows`** 把 `meta.name`(根)/ `phases[].title`(分组,预先成形)/ `agent` 的 `label`(叶子)渲染成实时进度树;**`log()`** 在树上方打人类可读的叙述行——一个塑形,一个叙事(5.7)。
 
 经线已张紧。下一章,我们把目光全部投向那根穿梭其间、真正干活的**纬线**——把 `agent(prompt, opts)` 的每一个选项(`label`、`schema`、`phase`、`model`、`isolation`、`agentType`)拆到见底,看清一个 subagent 从派发到返回的完整生命。

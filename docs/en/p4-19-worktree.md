@@ -55,6 +55,17 @@ flowchart TD
 
 </div>
 
+<div class="callout warn">
+
+**The value validation of `isolation` only special-cases two values in testing — don't mistakenly assume "only `'worktree'` is accepted, everything else errors."** This book ran a dedicated probe to verify `isolation`'s value behavior (Run `wf_dace2fc6-966`, 3 agents / 52,014 tokens / 5,253 ms):
+
+- `isolation: 'remote'` → **throws**, verbatim `agent({isolation:'remote'}) is not available in this build` — confirming the value `'remote'` exists but is disabled in the current build.
+- `isolation: 'totally-bogus'` (a value that doesn't exist at all) → **does not throw**; the agent runs to completion and returns `"OK"`.
+
+That is, the runtime special-cases only two values: `'worktree'` (do isolation) and `'remote'` (reject); **any other unknown value is silently ignored** (treated as "no isolation"), not errored. Some third-party material claims "`isolation` only accepts `'worktree'`, everything else errors" — this book's testing finds that **untrue**, and corrects it here. Practical implication: a misspelled `isolation` (e.g., `'worktre'`) gets **no** warning whatsoever; the agent quietly runs in the shared workspace — so spell this field correctly, the runtime won't cover for you.
+
+</div>
+
 ---
 
 ## 19.3 When to Use It, When Not To

@@ -95,6 +95,24 @@
 
 > 写实战章节前，请先读对应的 transcript 记录——它是该章数据的唯一依据。更多真实运行会陆续追加到 `assets/transcripts/`。
 
+### E.3.1 R4 真实运行（实测复现第三方声称）
+
+上表（#1–#10）是本书第一批真实运行。**R4 轮**专门针对沙箱机制与第三方仓库声称做了一组**附加实测**，记录于 `assets/transcripts/` 下五个 `*-r4.md` 文件。这组运行的目的是：**不轻信第三方仓库**，把它的声称要么实测复现为事实、要么标注为「未核实」。
+
+| 记录文件 | 覆盖的机制 | 关键 Run ID |
+|---|---|---|
+| `sandbox-r4.md` | 确定性**双层防护**（字面量提交期拒绝 + 别名运行时抛错）；注入全局（`console`/`setTimeout`/`log`/`budget`）；`args` 原样透传（对象保持对象）；宿主 API（`require`/`process`/`fetch`）缺席；`CLAUDE_CODE_SUBAGENT_MODEL` 覆盖 per-call model | `wf_59bf3654-183`（沙箱自省，0 agent）、`wf_9c94951d-58c`（模型解析，5 agent） |
+| `api-facts-r4.md` | `agentType` 有校验（未知值 0 token 抛错并列出可用 agent）vs `model` 无校验；resume = 100% 缓存命中（0 token）；嵌套 `workflow()` 一层上限 + args 透传 | `wf_a222f20f-0f5`、`wf_9c94951d-58c`（续传）、`wf_2b04881f-6a9` |
+| `repo-claims-r4.md` | 逐条实测第三方仓库声称：meta 保留键被拒、`isolation:'remote'` 禁用（+ 未知 isolation 被静默忽略的纠正）、`model` 无提交校验、VM 同步超时 30000ms | `wf_dace2fc6-966`、`wf_e3b2b123-5f4`（同步超时，failed） |
+| `validator-r4.md` | 第三方 `validate-workflow.mjs` 的**实跑行为**：合法脚本 `ok…passes`（exit 0）；违规脚本逐条报错（meta 须首句、禁用非确定性调用、宿主 API 警告、`parallel` 裸 promise 警告，exit 1） | （本机 Node v22.22.0 实跑，非 Workflow Run ID） |
+| `mcp-access-r4.md` | subagent 能用 MCP：默认 `workflow-subagent` 持 0 个 `mcp__` 工具（延迟环境），但经 ToolSearch 按需加载并端到端调用 context7 成功 | `wf_1d4c6a71-56a`（工具自省）、`wf_d8aa0772-ced`（端到端） |
+
+<div class="callout info">
+
+**这组 R4 运行如何改变信源分级**：把若干原属「第三方声称」的条目**升级为实测事实**（带 Run ID 可引用）——meta 保留键被拒、`isolation:'remote'` 禁用、`model` 无提交校验、30000ms 同步超时、`args` 透传、注入全局。仍属「第三方声称、未核实」的：错误类名 `WorkflowAgentCapError`/`WorkflowBudgetExceededError`、`stallMs` 默认/重试次数、预算耗尽时在途 agent 行为、resume 缓存键的确切构成、schema 重试确切次数（详见 [附录 B](#/zh/app-b) 相关条目与 [附录 D · D.6/D.8](#/zh/app-d)）。
+
+</div>
+
 ---
 
 ## E.4 四大社区系统（生态借鉴的源码仓库）
@@ -126,8 +144,10 @@
 |---|---|---|
 | 「AI 超元域」博客（社区解读） | 对 Workflow 特性的早期社区解读与视角 | **参考**：背景动机与术语认知；案例一律原创，不照抄 |
 | 相关讲解视频 | 社区对多 agent 编排的讲解 | **参考**：建立直觉；具体数字以本书实跑为准 |
+| **`claude-code-workflow-creator`**（第三方 GitHub 仓库） | 某 YouTuber 为其视频 `c0gVowvMR-g` 配套的仓库，**非 Claude/Anthropic 官方出品**。含 `references/api-reference.md`、`references/patterns.md`、6 个示例工作流、3 个模板、`scripts/validate-workflow.mjs`（提交前 lint）。 | **借鉴思路、不当权威**：借鉴它对 `CLAUDE_CODE_WORKFLOWS` 的组织方式来增强本书；**绝不照抄其文本、绝不把其声称当真值**。它的声称里能被本书实测复现的（如 meta 保留键被拒、`isolation:'remote'` 禁用、30000ms 同步超时、`model` 无提交校验），已升级为实测事实并标注 Run ID（见 [E.3.1](#e31-r4-真实运行实测复现第三方声称)）；不能复现的（错误类名、`stallMs` 等）一律标「社区第三方资料声称，本书未独立实测」。其自带的 `validate-workflow.mjs` 本书**已实跑确认行为**（见 [E.3.1](#e31-r4-真实运行实测复现第三方声称)）。 |
+| 视频 `c0gVowvMR-g`（上述仓库的配套视频） | 该 YouTuber 讲解多 agent 编排/工作流的视频 | **不引述内容**：该视频页面为 SPA，**取不到字幕**，故本书不引用其任何具体表述；仅记录其与上述第三方仓库的配套关系。 |
 
-> 之所以把它们单列并反复强调「非照抄」：本书的承诺是**事实优先 + 原创真实**。参考资料可以启发理解，但不能替代「亲手跑一遍、记录真实数字」——后者才是本书每一个论断的底座。
+> 之所以把它们单列并反复强调「非照抄」：本书的承诺是**事实优先 + 原创真实**。参考资料可以启发理解，但不能替代「亲手跑一遍、记录真实数字」——后者才是本书每一个论断的底座。**特别地，`claude-code-workflow-creator` 是第三方 YouTuber 仓库而非官方**：本书只借它的思路，凡其声称均须经本书实测复现才升级为事实，否则显式标注「未核实」。
 
 ---
 

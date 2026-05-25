@@ -2,7 +2,7 @@
 
 > In one sentence: **pass `agent()` a `schema`, and the runtime forces this subagent to call the internal `StructuredOutput` tool, validates the return value at the tool-call layer, and makes the model retry if it doesn't conform — finally handing you an object guaranteed to be structurally correct.**
 >
-> This is the essential dividing line between Workflow and "let the model freestyle, then dig the data out with regex." This chapter explains that line fully: what real problem it solves, what the runtime actually does, how to design a schema, how schema-shaped data flows between pipeline stages, and which pitfalls turn your "validation" into "infinite retries."
+> This is the essential dividing line between Workflow and "let the model freestyle, then dig the data out with regex." This chapter explains that line fully: what real problem it solves, what the runtime actually does, how to design a schema, how schema-shaped data flows between pipeline stages, and which pitfalls turn your "validation" into "repeated retries that burn tokens."
 
 ---
 
@@ -105,12 +105,12 @@ The last row is the point: **the orchestrator (your script) gets a structure-gua
 
 ## 7.3 What the Runtime Actually Does: StructuredOutput and Retry
 
-What exactly happens at runtime behind the word "validation"? Per `_grounding.md`'s verification of the tool definition, the mechanism is:
+What exactly happens at runtime behind the word "validation"? This mechanism is backed both by the **official tool definition** and by **this book's own measurements** (see `_grounding.md`); the flow is:
 
-1. When `agent()` carries a `schema`, the runtime **forces** this subagent to call an internal tool — `StructuredOutput`. The subagent no longer "writes a paragraph as the final answer"; it must instead **call this tool** with the answer as arguments.
-2. The tool's argument schema is exactly the JSON Schema you passed in. So validation happens at the **tool-call layer**: the arguments the model fills must match the schema, or that tool call is judged non-conforming.
-3. What if it doesn't match? **The model is asked to retry** — reorganize the output and call `StructuredOutput` again, until the arguments conform.
-4. Once conforming, the runtime returns this tool call's arguments **as a validated object** to your script.
+1. When `agent()` carries a `schema`, the runtime **forces** this subagent to call an internal tool — `StructuredOutput`. The subagent no longer "writes a paragraph as the final answer"; it must instead **call this tool** with the answer as arguments (official).
+2. The tool's argument schema is exactly the JSON Schema you passed in. So validation happens at the **tool-call layer**: the arguments the model fills must match the schema, or that tool call is judged non-conforming (official).
+3. What if it doesn't match? **The model is asked to retry** — reorganize the output and call `StructuredOutput` again, until the arguments conform (the official description says "the model retries if it doesn't match"; **the exact retry count is not something this book measured**, see the note below).
+4. Once conforming, the runtime returns this tool call's arguments **as a validated object** to your script. This means `agent()` hands back a **validated object** directly — you can `r.field` the moment you get it, with **no `JSON.parse`** and no error handling needed.
 
 ```mermaid
 flowchart TD
@@ -126,6 +126,14 @@ flowchart TD
     H --> J["script gets object<br/>fields/types guaranteed"]
 ```
 
+**"Returns a validated object" isn't just an official claim — every schema-bearing run in this book confirmed it.** The hello smoke test (`wf_dacbd480-d5d`), parallel-demo (`wf_52957913-6d2`), pipeline-demo (`wf_bf086b98-6ec`) — every `agent()` call carrying a `schema` got back an object with all fields present and types correct (the real return values later in this chapter show each one). So "with a schema → you get a validated object" is nailed down **both officially and by measurement.**
+
+<div class="callout info">
+
+**On the boundary of "retry," distinguish "official behavior" from "third-party claim."** The official definition states only the **behavior**: the model retries on a mismatch, until it conforms. As for the **implementation details and the exact count** — community third-party material (a YouTuber's repo, not official) claims: the runtime compiles your schema with **AJV**, `StructuredOutput`'s argument schema is that schema, and when a subagent **never calls** the tool it "fails after up to two more nudges." **These points (AJV, two nudges) this book has not independently verified; we record the claim and do not treat it as fact.** So this book does **not** assert any exact retry count; the only hard boundary you can safely rely on is the official **budget cap** (calling `agent()` after `spent()` reaches `total` throws, see Chapter 09) — no matter how many retries, they will not cross that budget gate.
+
+</div>
+
 Two design details deserve special mention; they explain "why a Workflow subagent's output differs from what you usually see in chat":
 
 **First: the subagent is explicitly told "the final product is the return value, not words for a human."** Per `_grounding.md`'s "subagent behavior" section, the subagent knows its output will be **consumed by a program**, so it returns raw data, not pleasantries like "Sure, I've analyzed it for you…." Even without a schema, the plain-text return is "the goods," not small talk.
@@ -134,7 +142,7 @@ Two design details deserve special mention; they explain "why a Workflow subagen
 
 <div class="callout info">
 
-**An often-overlooked corollary: schema turns "format compliance" from a probability problem into a determinism problem.** Without a schema, "will the model reply in format" is a probabilistic event — 99% but not 100%. With a schema, the runtime uses the "retry if non-conforming" loop to **push this probability toward 100%**: it either finally returns a conforming object, or (in the extreme) fails by exhausting the budget/retry limit, but you **will never** get an object that "looks right but actually has missing fields / wrong types." This "usable the moment you receive it" guarantee is exactly what deterministic orchestration needs.
+**An often-overlooked corollary: schema turns "format compliance" from a probability problem into a determinism problem.** Without a schema, "will the model reply in format" is a probabilistic event — 99% but not 100%. With a schema, the runtime uses the "retry if non-conforming" loop to **push this probability toward 100%**: it either finally returns a conforming object, or (in the extreme) fails by exhausting this turn's budget, but you **will never** get an object that "looks right but actually has missing fields / wrong types." This "usable the moment you receive it" guarantee is exactly what deterministic orchestration needs.
 
 </div>
 
@@ -143,6 +151,12 @@ Two design details deserve special mention; they explain "why a Workflow subagen
 ## 7.4 Schema Design Patterns: From Minimal to Production-Grade
 
 JSON Schema itself is a mature spec, but in Workflow you only need to master a few high-frequency constructs. Below we layer up from the minimal example, each with a directly usable template. **Those marked with a Run ID come from real runs; the rest are marked "(illustrative, not actually run)."**
+
+<div class="callout tip">
+
+**First, a placement rule: a schema goes in the script body, passed as `agent()`'s `opts.schema` — not inside `meta`.** `meta` must be a **pure literal** (read statically before the run; no variables or function calls, see `_grounding.md`); it governs the workflow's name, description, and phases. A schema, by contrast, is the per-`agent()`-call "output contract," varying per call and reusable via a constant (as below, where schemas are extracted into a `const` and referenced in several places). Keeping the two separate saves you the "why does putting a schema in meta error out" confusion.
+
+</div>
 
 ### Pattern 1: flat object + required (the most-used cornerstone)
 
@@ -368,6 +382,12 @@ flowchart LR
 <div class="callout tip">
 
 **Remember this mantra: in Workflow, a schema isn't just "validate the output," but "define the contract between stages."** An upstream agent's schema is the interface a downstream agent can depend on. When you design a multi-stage pipeline, think through each stage's schema (i.e., its "contract") first, and the joints between stages become as natural as calling ordinary functions — the previous function's return type is the next function's parameter type.
+
+</div>
+
+<div class="callout tip">
+
+**A joining technique: `JSON.stringify` the upstream object into the downstream prompt.** The example above interpolated only a single scalar, `found.example`; when you need to pass an **entire validated object** (multi-field, nested) to the next stage, the most robust form is to splice `JSON.stringify(found)` into the next `agent()`'s prompt string — the downstream model reads it as JSON, with less ambiguity from newlines/quotes. This is the same technique as §7.6's `JSON.stringify(report)`: **the orchestration script serializes structured data into the prompt, and the downstream agent consumes it as input.**
 
 </div>
 

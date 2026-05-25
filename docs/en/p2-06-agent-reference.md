@@ -314,13 +314,19 @@ The strings in `phase: 'Find'` / `'Verify'` must likewise **match `meta.phases[]
 
 ## 6.6 `model`: Model Inheritance and Single-Point Override
 
-The `model` option controls which model **this one agent** uses. It is the **finest-granularity, confirmed** layer of Chapter 05 §5.6's model resolution: it overrides the "inherit the main loop" default, and also the `meta.phases[].model` of the phase this agent is in. (The top-level `meta.model`'s auto-resolution relationship with the layers is unverified by the sources, see §5.6; this section covers only the confirmed `opts.model`.)
+The `model` option controls which model **this one agent** uses. It is the **only knob with clear official semantics, worth relying on** in Chapter 05 §5.6's model selection: omitted, it inherits the main loop model; given a value, it overrides that default. As Chapter 05 stressed: `meta.phases[].model`'s runtime effect is undetermined, so to genuinely set the model, rely on `opts.model` here. (The top-level `meta.model`'s auto-resolution relationship with the layers is unverified by the sources, see §5.6; this section covers only the confirmed `opts.model`.)
 
 ### 6.6.1 Default: inherit the main loop model
 
-Per `_grounding.md`: `opts.model` "omitted, inherits the main loop model; simple tasks can use `'haiku'`."
+Per `_grounding.md`: `opts.model` "omitted, inherits the main loop model; simple tasks can use `'haiku'`." This is the only clearly-defined semantics for `model` in the tool definition — **omitted, it inherits the main loop.**
 
 Write no `model`, and this agent uses the **main loop's current model.** This book's test-environment main loop is Opus 4.7, with the subagent model set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7` (see `_grounding.md` section A). All the earlier real runs (`hello` / `parallel` / `pipeline`) passed **no** explicit `model`, so their subagents ran on the inherited Opus model.
+
+<div class="callout warn">
+
+**Once set, `CLAUDE_CODE_SUBAGENT_MODEL` overrides every agent's `model`.** This is a **user/CI-level environment knob the script cannot control.** This book ran a dedicated probe (Run ID `wf_9c94951d-58c`) dispatching 5 agents with, respectively, `'haiku'` / `'inherit'` / `'opus'` / omitted / sitting in a phase whose `meta.phases[]` marked `model:'haiku'` — **all 5 ran as Opus**, because that session set `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` (a directly observed environment fact). In other words: the `model` you write in the script **gets silently overridden by this env var.** This is exactly why Chapter 05 couldn't independently isolate `meta.phases[].model`'s standalone effect — it, together with `opts.model`, was masked by this knob. Conclusion: `opts.model` is the finest knob the script can control, but it **is not the final verdict** — the env var sits above it.
+
+</div>
 
 ### 6.6.2 Use `'haiku'` to cut cost for simple tasks
 
@@ -359,7 +365,7 @@ The direct corollary of this rule: **the most effective lever for cutting cost i
 
 <div class="callout info">
 
-**`model` written on `agent()` vs. written on `meta.phases[]`.** Both ultimately affect which model some agent uses, but the semantics differ: `meta.phases[].model` is **declarative** (written on the warp, expressing "this phase plans to use a certain model," and helping the script reader see the cost structure); `agent({ model })` is **imperative** (on the weft, precisely deciding this one agent). A common combo in practice: mark the phase's intent on `meta.phases`, and concurrently implement `model` on each `agent()` in that phase — one place "states the plan," the other "gives the order," confirming each other.
+**`model` written on `agent()` vs. written on `meta.phases[]`.** Their semantics differ, and so does **their reliability**: `meta.phases[].model` is **declarative** (written on the warp, expressing "this phase plans to use a certain model," helping the script reader see the cost structure), but **whether it takes effect on its own at runtime is undetermined** (see §5.3.3); `agent({ model })` is **imperative** (on the weft, **actually** deciding this one agent). The correct combo in practice: mark the phase's intent on `meta.phases`, **and** implement `model` on each `agent()` in that phase — one place "states the plan" for humans, the other "gives the order" so it actually takes effect. **Don't mark only phases without writing `model` on the agent.**
 
 </div>
 
@@ -467,9 +473,32 @@ const review = await agent('Review this diff and report issues', {
 
 This combination is powerful: `agentType` decides "**who** does it, with what orientation," `schema` decides "what the product **looks like.**" The two are orthogonal and freely combinable.
 
+### 6.8.3 `agentType` Is Validated (empirically) — a Wrong Value Throws Before Any Model Is Spawned
+
+This is a fact this book **confirmed hands-on** (Run ID `wf_a222f20f-0f5`): pass a nonexistent value to `agentType`, and the runtime throws **before spawning any model** (0 tokens / 4 ms), and **lists every available agent.** The probe caught this error with `try/catch` and returned it; the error text, verbatim, is:
+
+```text
+agent({agentType}): agent type 'definitely-not-a-real-agent-xyz' not found.
+Available agents: claude, claude-code-guide, codex:codex-rescue, Explore,
+general-purpose, get-current-datetime, init-architect, Plan, planner,
+statusline-setup, team-architect, team-qa, team-reviewer, ui-ux-designer
+```
+
+Two directly usable facts: first, **a typo or a nonexistent type is not silently swallowed** but errors immediately and explicitly — so `agentType` problems are easy to diagnose; second, the error message **carries a "list of available types" with it**, effectively having the runtime enumerate every agent registered in the current environment for you.
+
+<div class="callout warn">
+
+**`agentType` is empirically validated, while whether `model` is validated is only a third-party claim.** This is a **well-grounded contrast**:
+- **`agentType`** — **confirmed validated by this book** (`wf_a222f20f-0f5`): an unknown value throws at 0 tokens before any model is spawned, and lists the available types.
+- **`model`** — the official definition only states "omitted, inherits the main loop." As for "it does **not** validate, a typo (like `'hauku'`) doesn't error at parse time but passes through and only fails later" — that's a **third-party claim this book has not independently tested**, so we don't treat it as an established fact.
+
+Practical implication: when you write `agentType`, a typo gets caught on the spot by the runtime; but when you write `model`, **don't count on the runtime to catch your typo** — get the model name right, or always pick it from a fixed set of constants.
+
+</div>
+
 <div class="callout info">
 
-**The available values of `agentType` depend on your environment.** `'Explore'` and `'code-reviewer'` are examples; which types you can actually use depends on Claude Code's built-ins and the custom subagents you define in the project (e.g., `.claude/agents/`). Without `agentType`, the default generic subagent is used — this chapter and all the earlier real-run examples are this default case. Whether a specific `agentType` exists in your environment, and its exact behavior — defer to your local config (**to be verified**: this book's three tested real runs all specified no `agentType`).
+**The available values of `agentType` depend on your environment.** The list above (`claude` / `Explore` / `planner` / related types…) is a registry snapshot of **this book's tested session** (`wf_a222f20f-0f5`); which types you can actually use depends on Claude Code's built-ins and the custom subagents you define in the project (e.g., `.claude/agents/`), and **varies by environment.** Without `agentType`, the default generic subagent is used (its internal type name is `workflow-subagent`) — the rest of this chapter's real-run examples are this default case. The fastest way to learn which types exist in your own environment is to deliberately pass a nonexistent value and read the list its error enumerates.
 
 </div>
 
@@ -591,9 +620,9 @@ This table is itself a demonstration of "choosing agent options": **every option
 - **`label`** is the progress-tree display name; the "type:instance" pattern (like `review:auth`) is most readable; affects no execution (6.3).
 - **`schema`** forces the subagent through the `StructuredOutput` tool, validates at the tool-call layer, retries if it doesn't match, letting you get structured data with **zero parsing, zero error handling**; the criterion is "will the product be consumed by code" (6.4).
 - **`phase`** explicitly groups into a progress group; sequential code uses the global `phase()`, **concurrency (`parallel`/`pipeline`) must use `opts.phase`** to avoid racing the global cursor; the string must match `meta.phases[].title` exactly (6.5).
-- **`model`** omitted inherits the main loop (this book's tested session is Opus 4.7); simple tasks use `'haiku'` to cut cost. `opts.model` and `meta.phases[].model` are the two confirmed layers; the top-level `meta.model`'s resolution semantics are to be verified (see §5.6). Confirmed by real data, **token ≈ agent count × per-agent context (~25k–30k)**, so swapping the most-fanned-out phase to a cheap model is the most effective cost-cutting lever (6.6).
+- **`model`** omitted inherits the main loop (this book's tested session is Opus 4.7); simple tasks use `'haiku'` to cut cost. **It's the finest knob the script can control, but not the final verdict** — once set, `CLAUDE_CODE_SUBAGENT_MODEL` overrides every agent's `model` (`wf_9c94951d-58c`: all 5 agents Opus); whether `meta.phases[].model` works on its own is undetermined, and the top-level `meta.model`'s semantics are to be verified (see §5.3.3, §5.6). Confirmed by real data, **token ≈ agent count × per-agent context (~25k–30k)**, so swapping the most-fanned-out phase to a cheap model is the most effective cost-cutting lever (6.6).
 - **`isolation: 'worktree'`** gives an agent an independent git worktree, **expensive** (each ~200–500ms + disk), use **only when all three conditions "parallel + edits files + would collide" hold**, auto-cleaned if no changes (6.7).
-- **`agentType`** borrows a custom subagent type (like `'Explore'`, `'code-reviewer'`), deciding the agent's role orientation, **combinable with `schema`** (6.8).
+- **`agentType`** borrows a custom subagent type (like `'Explore'`, `'code-reviewer'`), deciding the agent's role orientation, **combinable with `schema`**; **empirically validated** (`wf_a222f20f-0f5`): an unknown value throws at 0 tokens before any model is spawned and lists the available types — a contrast with whether `model` is validated, which is only a third-party claim (6.8).
 - **Context isolation** is the soul of `agent()`: each subagent has an independent context, returning only the **return value** to the main loop, isolating the "process bytes" in a one-off context — this is precisely why it **protects the main loop's context** and can fan out at scale (6.9).
 
 The single thread of the weft — `agent()` — has been seen to its end. But one thread weaves no pattern. In the next chapter, we go deep into its weightiest option, `schema`, to see how "structured output" constrains a crowd of subagents that each speak their own way into a data pipeline that code can reliably consume.

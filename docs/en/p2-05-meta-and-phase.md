@@ -4,7 +4,7 @@
 >
 > On a loom, the first thing stretched tight is the warp. It runs the length of the whole bolt, fixing the cloth's length, width, and tension — before the weft is even threaded in, the cloth's "form" is already set.
 >
-> In a Workflow script, `meta` and `phase()` are exactly this warp. They execute no subagent and produce no business result, yet before the first `agent()` is dispatched, they have already tensioned the entire workflow's **skeleton**: what it's called, what it does, how many phases it splits into, which model each phase uses, and how progress should be presented to a human.
+> In a Workflow script, `meta` and `phase()` are exactly this warp. They execute no subagent and produce no business result, yet before the first `agent()` is dispatched, they have already tensioned the entire workflow's **skeleton**: what it's called, what it does, how many phases it splits into, which model each phase intends to use, and how progress should be presented to a human.
 >
 > This chapter takes that warp completely apart. You'll see that behind a seemingly unremarkable "exported constant" hides one non-negotiable hard constraint of the runtime; you'll also see how `phase()`, a tiny "one-line, no-return-value" function, combs the tangle of dozens of subagents into a clear progress tree in `/workflows`.
 
@@ -179,22 +179,30 @@ export const meta = {
 }
 ```
 
-### 5.3.3 Model: Two Confirmed Layers of Override
+### 5.3.3 Model: The Only Reliable Knob Is `agent()`'s `model`
 
-Model, of all things, is exactly where `meta` (the warp) and `agent()` (the weft) meet. Per the tool definition, **only two layers of model override are confirmed**:
+Model, of all things, is exactly where `meta` (the warp) and `agent()` (the weft) meet. But there's an **extremely common misconception** to clear up first: many assume that "mark a `'haiku'` on `meta.phases[].model` and that phase's agents will run Haiku" — **the runtime effect of this is actually undetermined.**
 
-- **`meta.phases[].model`** — a per-**phase** override (e.g., `{ title: 'Verify', model: 'haiku' }`), written inside the `phases` array.
-- **agent `opts.model`** — a per-**call** override; **omitted, it inherits the main loop model.**
+Per `_grounding.md`'s grounding facts:
+
+- **`meta.phases[].model`** — written inside the `phases` array (e.g., `{ title: 'Verify', model: 'haiku' }`). The official tool description's wording for it is **vague** ("add it when overriding a phase to a specific model"); and because `CLAUDE_CODE_SUBAGENT_MODEL` overrode every per-call model this session (see `_grounding.md` A2, Run ID `wf_9c94951d-58c`), we **could not independently isolate** whether it has any runtime effect.
+- **agent `opts.model`** — a per-**call** override; the official definition clearly states "**omitted, it inherits the main loop model.**" This is the **only** model knob with clear official semantics.
 
 When neither is written, the agent inherits the main loop model — **this book's tested session**'s main loop is Opus 4.7 (set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7`, see `_grounding.md` section A; a fact of the book's session, not a general Workflow guarantee).
 
 <div class="callout warn">
 
-**On top-level `meta.model`:** in the Workflow tool definition, `meta`'s fields are required `name`/`description` + optional `whenToUse`/`phases` (with `model` allowed inside `phases`) — it does **not** list a top-level `meta.model` as a meta field. So this book does **not** describe it as an effective "model layer"; its auto-resolution semantics are **unverified (to be verified).** Model override recognizes only the two layers above.
+**Common misconception: don't count on `meta.phases[].model` to single-handedly switch a phase to a model.** Its **runtime effect is undetermined** — the official wording is vague, and this session **could not independently verify** whether it takes effect on its own, because the env var `CLAUDE_CODE_SUBAGENT_MODEL` overrode it (in that 5-agent probe, one agent sat in a phase whose `meta.phases[]` marked `model:'haiku'`, yet still ran Opus, Run ID `wf_9c94951d-58c`). **Safe practice: to genuinely make a phase use Haiku, write `model:'haiku'` on every `agent()` in that phase** — treat `phases[].model` as "a label for humans and the permission dialog," not a switch that takes effect on its own. (Note: some third-party material claims it is "display-only, not read at runtime" — this book has **not** independently tested that, so we do **not** treat the claim as an established fact; we only affirm the safe practice that "`agent()`'s `model` is the reliable knob.")
 
 </div>
 
-For the full two-layer resolution and the cost trade-off of choosing models per phase, see §5.6.
+<div class="callout warn">
+
+**On top-level `meta.model`:** in the Workflow tool definition, `meta`'s fields are required `name`/`description` + optional `whenToUse`/`phases` (with `model` allowed inside `phases`) — it does **not** list a top-level `meta.model` as a meta field. So this book does **not** describe it as an effective "model layer"; its auto-resolution semantics are **unverified (to be verified).**
+
+</div>
+
+For the cost trade-off of choosing models per phase (and why marking the intent on `phases` is still recommended), see §5.6.
 
 ### 5.3.4 `phases`: the "ticks" on the warp
 
@@ -214,7 +222,7 @@ Each item's fields:
 |---|---|---|
 | `title` | Yes | Phase title. **This is a string that gets matched exactly** (see §5.5) |
 | `detail` | No | A one-sentence note on the phase, shown in the progress tree to help one understand what this phase does |
-| `model` | No | Marks "what model this phase uses" (see §5.6) |
+| `model` | No | **Marks** "what model this phase intends to use"; whether it takes effect on its own at runtime is **undetermined** — to genuinely set the model, write `model` on the `agent()` (see §5.3.3, §5.6) |
 
 `phases` is **pure declaration** — it only "draws the ticks" in `meta`, telling the runtime "this workflow plans to split into these phases, each named this." Actually **switching** to a phase during execution is `phase()`'s job (§5.4). The pairing of declaration and switching (`meta.phases[].title` ↔ the string match of `phase('...')`) is the key mechanism of the whole chapter (§5.5).
 
@@ -467,43 +475,54 @@ agent_count = 6   tool_uses = 8   total_tokens = 158982   duration_ms = 26743
 
 ---
 
-## 5.6 Model Override: Two Confirmed Layers
+## 5.6 Model Override: The Only Reliable One Is `agent()`'s `model`
 
-Model is where `meta` the warp and `agent()` the weft **meet**, worth sorting out separately. Per the tool definition, model override has **only two confirmed layers** — one on the warp (per phase), one on the weft (per call). Which model an agent finally uses can be understood **from broad to narrow**:
+Model is where `meta` the warp and `agent()` the weft **meet**, worth sorting out separately. §5.3.3 already drew the conclusion: **the only model knob with clear official semantics, worth relying on, is `agent()`'s `opts.model`**; `meta.phases[].model` is an "intent label" written on the warp, whose standalone runtime effect is **undetermined.** Which model an agent finally uses can be understood **from broad to narrow**:
 
 ```mermaid
 flowchart TD
-    A["Main loop model<br/>(this book's tested session: Opus 4.7)"] --> B["meta.phases[].model<br/>per-phase override (confirmed)"]
-    B --> C["agent(opts.model)<br/>per-call override (confirmed)"]
+    A["Main loop model<br/>(this book's tested session: Opus 4.7)"] --> C["agent(opts.model)<br/>per-call override<br/>(the only reliable knob)"]
     C --> E["final effective model"]
+    B["meta.phases[].model<br/>intent label · runtime effect undetermined"] -. "masked by CLAUDE_CODE_SUBAGENT_MODEL<br/>this session, couldn't isolate" .-> E
     style E fill:#2d6
+    style B fill:#fdd,stroke:#d66,stroke-dasharray: 4 4
 ```
 
 Understanding from broad to narrow:
 
-1. **Write neither layer** → the agent inherits the **main loop model.** Per `_grounding.md`: "(agent's) `opts.model`, omitted, inherits the main loop model." **This book's tested session**'s main loop is Opus 4.7 (this is a fact of the book's session, not a general Workflow guarantee).
-2. **Mark a phase with `meta.phases[].model`** (confirmed) → express "what model this phase uses." For example, a workflow that first "cheaply fans out massively to find leads" and then "expensively reviews closely" can mark it on the phases:
+1. **Write no `agent({ model })`** → the agent inherits the **main loop model.** Per `_grounding.md`: "(agent's) `opts.model`, omitted, inherits the main loop model." **This book's tested session**'s main loop is Opus 4.7 (this is a fact of the book's session, not a general Workflow guarantee).
+2. **Specify on `agent({ model })`** → the only reliable override. The finest granularity, precisely controlling what model **this one** agent uses, overriding the "inherit main loop" default. For example, a workflow that first "cheaply fans out massively to find leads" and then "expensively reviews closely" — **the correct approach is to implement `model` on each agent** — while **also** marking the same intent on `phases`, so the permission dialog and the script reader can see the cost structure at a glance:
 
 ```javascript
 export const meta = {
   name: 'scan-then-deep',
   description: 'First use haiku to cheaply scan leads en masse, then use opus to review hits closely',
   phases: [
+    // phases[].model is an "intent label"; what actually takes effect is each agent's model below
     { title: 'Scan',   detail: 'Massively parallel lightweight scan', model: 'haiku' },
     { title: 'Deepen', detail: 'Expensive in-depth analysis of hits', model: 'opus' },
   ],
 }
+
+phase('Scan')
+const leads = await parallel(
+  inputs.map((x, i) => () =>
+    agent(`Lightweight scan: ${x}`, { label: `scan:${i}`, phase: 'Scan', model: 'haiku' })  // ← what actually takes effect
+  )
+)
+phase('Deepen')
+const deep = await agent(`Closely review the hits: ${JSON.stringify(leads.filter(Boolean))}`, {
+  label: 'deepen', phase: 'Deepen', model: 'opus',                                            // ← what actually takes effect
+})
 ```
 
-3. **Specify on `agent({ model })`** (confirmed) → the finest granularity, precisely controlling what model **this one** agent uses, overriding the "inherit main loop" default.
+<div class="callout warn">
 
-<div class="callout info">
-
-**The division of labor between `meta.phases[].model` and `agent({ model })`.** `meta.phases[].model` is **declarative** — written on the warp, expressing "this phase's intent is to use a certain model," and letting the script reader see the cost structure at a glance. `agent({ model })` is **imperative** — on the weft, actually deciding a specific agent's model. One "states the plan," the other "gives the order." The details of `agent({ model })` (including what tasks `'haiku'` suits) are left to Chapter 06.
+**The division of labor between `meta.phases[].model` and `agent({ model })` — and one key caveat.** `meta.phases[].model` is **declarative** — written on the warp, expressing "this phase's intent is to use a certain model," and letting the script reader see the cost structure at a glance. `agent({ model })` is **imperative** — on the weft, **actually** deciding a specific agent's model. The key caveat: **don't write only the `model` on phases and assume it takes effect** — as §5.3.3 explains, because `CLAUDE_CODE_SUBAGENT_MODEL` overrode it this session (Run ID `wf_9c94951d-58c`), we couldn't confirm whether `phases[].model` works on its own, and the official wording is vague. So: `phases[].model` and each `agent({ model })` **come in pairs** — one "states the plan" for humans, the other "gives the order" so it actually takes effect. The details of `agent({ model })` (including what tasks `'haiku'` suits) are left to Chapter 06.
 
 </div>
 
-Why make "choose model by phase" a pattern? Because it corresponds to an extremely common cost trade-off: **the breadth phase uses a cheap model to fan out en masse, the depth phase uses a strong model to carve closely.** This significantly lowers total tokens without sacrificing key quality — and token cost, per `_grounding.md` section C's rule of thumb, is roughly "agent count × per-agent context." Swap the phase that fans out the most to haiku, and what you save is "agent count × the unit-price difference."
+Why still mark the model intent on the phase? Because it corresponds to an extremely common cost trade-off: **the breadth phase uses a cheap model to fan out en masse, the depth phase uses a strong model to carve closely.** Writing the intent on `phases` lets the script reader and the permission dialog see at a glance "which segment of this workflow is expensive, which is cheap." But the action that **actually lowers tokens** is writing `model:'haiku'` on each `agent()` of that most-fanned-out phase — token cost, per `_grounding.md` section C's rule of thumb, is roughly "agent count × per-agent context"; swap the phase that fans out the most to haiku, and what you save is "agent count × the unit-price difference."
 
 ---
 
@@ -634,10 +653,10 @@ return plan
 Cross-checking each chapter point one by one:
 
 - **`meta` pure literal**: all fields are dead values, no variables, no functions, no interpolation — it passes the static read (§5.1–5.2).
-- **All five fields used**: `name` / `description` (required), `whenToUse` (list note), `model` (default opus), `phases` (three phases, Triage marked haiku) (§5.3).
+- **All four meta fields used**: `name` / `description` (required), `whenToUse` (list note), `phases` (three phases, Triage marked haiku) (§5.3).
 - **Sequential segments use the global `phase()`**: Triage and Suggest are serial code, `phase('Triage')` / `phase('Suggest')` are safe (§5.4).
 - **Concurrent segments use `opts.phase`**: the Locate phase is `parallel()`, each agent uses `phase: 'Locate'` for explicit grouping, avoiding the global-cursor race (§5.5.1).
-- **Model override (the two confirmed layers)**: the `triage` agent explicitly `model: 'haiku'` (an `opts.model` override, also matching the phases marking); the `suggest` agent writes no model, so it inherits the **main loop model** — the confirmed behavior when neither layer is written (the top-level `meta.model` is not a meta field, its semantics are to be verified, and it doesn't participate here, §5.6).
+- **Model: only the `model` on `agent()` takes effect**: the `triage` agent explicitly `model: 'haiku'` (this is what actually works, **coming in a pair** with the same-named marking on phases[0]); the `suggest` agent writes no model, so it inherits the **main loop model** (the top-level `meta.model` is not a meta field, and whether `phases[].model` works on its own is undetermined — neither participates here, §5.3.3, §5.6).
 - **`log()` narration**: a line of progress aside per phase, using only pure computation like `.length`, not touching time/randomness (§5.7.2).
 
 Its `/workflows` progress tree would look like this (illustrative):
@@ -660,10 +679,10 @@ triage-and-fix
 
 - **The warp = the taut structural skeleton.** `meta` and `phase()` execute no business and count no tokens, yet they set the workflow's "form" before the first `agent()`.
 - **`meta` must be a pure literal**, because the runtime **statically reads it before execution**, to show `name` / `description` / `phases` in the permission dialog. "Live values" containing variables, function calls, template interpolation, or spread operations all get **execution rejected** (§5.1–5.2).
-- **`meta` fields**: required `name` / `description` (introduce yourself); optional `whenToUse` (the workflow list's "when to use"), `phases` (phase ticks, each `{title, detail?, model?}`). Note: **top-level `meta.model` is NOT a confirmed meta field in the tool definition and its semantics are unverified — this book confirms only the two model-override layers `phases[].model` and `opts.model`** (§5.3, §5.6).
+- **`meta` fields**: required `name` / `description` (introduce yourself); optional `whenToUse` (the workflow list's "when to use"), `phases` (phase ticks, each `{title, detail?, model?}`). Note: **top-level `meta.model` is NOT a confirmed meta field in the tool definition and its semantics are unverified** (§5.3, §5.6).
 - **`phase(title)`** switches the global current-phase cursor, and subsequent `agent()` groups under it; `meta.phases[].title` and `phase('...')` are associated by **exact string match** — one letter of difference in case or spacing scrambles the progress tree (§5.4–5.5).
 - **The iron law for concurrency**: sequential scripts use the global `phase()`, `parallel`/`pipeline` switch to each agent's `opts.phase` for explicit grouping, avoiding racing the global cursor (§5.5.1).
-- **Model override (two confirmed layers)**: write neither → inherit the main loop → `meta.phases[].model` per-phase override → `agent({model})` per-call override. The top-level `meta.model` is not a meta field in the tool definition, its semantics are **to be verified**, and this book doesn't describe it as a model layer (§5.6).
+- **Model: the only reliable knob is `agent()`'s `model`** (omitted, inherits the main loop; this session's main loop is Opus 4.7). `meta.phases[].model` is just an "intent label" whose **standalone runtime effect is undetermined** — the official wording is vague, and this session couldn't isolate it because `CLAUDE_CODE_SUBAGENT_MODEL` overrode it (`wf_9c94951d-58c`). **To genuinely make a phase use a model, write `model` on every `agent()` in that phase, don't mark it only on phases** (§5.3.3, §5.6).
 - **`/workflows`** renders `meta.name` (root) / `phases[].title` (groups, taking shape in advance) / `agent`'s `label` (leaves) into a live progress tree; **`log()`** prints a human-readable narration line above the tree — one shapes, one narrates (§5.7).
 
 The warp is tensioned. In the next chapter, we turn our full attention to the **weft** that shuttles through it and does the real work — taking apart every option of `agent(prompt, opts)` (`label`, `schema`, `phase`, `model`, `isolation`, `agentType`) down to the bottom, to see a subagent's complete life from dispatch to return.

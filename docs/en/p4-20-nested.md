@@ -69,6 +69,21 @@ The trade-off between the two:
 
 The passing rule for the `args` parameter is the same as a top-level call: per `_grounding.md`, it becomes the global `args` inside the sub-workflow's script body. So when the sub-workflow reads `args.claims`, it gets the value you passed in — **this is exactly the data interface between parent and child workflows.**
 
+<div class="callout info">
+
+**Both "args passthrough" and "an unknown named workflow throws" have been tested** (Run `wf_2b04881f-6a9`). In this probe:
+
+- **scriptPath sub-call + args passthrough**: the parent called a child script with `workflow({ scriptPath }, { n: 21 })`, the child read `args.n` as `21` and returned `doubled: 42` — args is **passed into the sub-workflow unchanged**, not stringified or stripped of fields.
+- **Unknown name throws**: calling a name that doesn't exist makes the runtime throw and **list all currently registered named workflows**, verbatim:
+
+  ```text
+  workflow('definitely-no-such-workflow-xyz'): no workflow with that name. Available: bughunt, bughunt-lite, deep-research, plan-hunter, review-branch
+  ```
+
+  This is the **same "validate + list" friendly design** as Chapter 16's unknown `agentType` throwing and listing available agents — misspell a name, and the runtime tells you straight away which ones are available. (The list of "available named workflows" on your machine may differ, depending on what's built in and installed under `.claude/workflows/`.)
+
+</div>
+
 ```mermaid
 flowchart TD
     P["parent workflow"] -->|"workflow('name', { claims })"| C["sub-workflow script"]
@@ -108,6 +123,18 @@ This rule has a direct impact on your design: **a sub-workflow must be "leaf-lev
 <div class="callout warn">
 
 **Don't try to build a multi-level pipeline with nesting.** A common wrong idea is "I'll split the big task into three workflows A→B→C, have A call B and B call C" — that second hop (B calls C) throws directly. The correct approach: **call them sequentially with ordinary JS in the main workflow**, `await workflow('B')` then `await workflow('C')`, or express B's and C's logic with multiple stages of a `pipeline`. Nesting isn't for "deep pipelines"; it's for "the main flow reusing an independent sub-capability."
+
+</div>
+
+<div class="callout info">
+
+**This book obtained the verbatim error of this iron law in testing** (Run `wf_2b04881f-6a9`, 0 agents / 0 tokens / 29 ms — a pure-orchestration probe, burning no model). The script had a sub-workflow call `workflow()` again, and the runtime threw verbatim:
+
+```text
+workflow() cannot be called from within a child workflow — nesting is limited to one level. Inline the inner script or call its agents directly.
+```
+
+Note the error itself hands you two ways out, exactly matching this section's "correct approach": **Inline the inner script**, or **call its agents directly**. The same run also verified two other things, see §20.2 and §20.9.
 
 </div>
 
@@ -255,7 +282,7 @@ But three constraints must always be kept in mind; all are direct corollaries of
 
 <div class="callout info">
 
-**This shape's two properties — "one-level nesting + shared pool" — have been empirically verified by the real run `wf_85e22b38-126` cited in this chapter.** Per `_grounding.md` section C, that nested workflow() run confirmed two things: ① the sub-workflow's agents **count into the parent** (`agent_count=1` attributed to the parent's count); ② the **one-level-only** constraint truly exists. This "pipeline-of-nested" composition in this section was **not run on its own** (hence marked "(illustrative, not run)"), but it merely places the already-verified `workflow()` (`wf_85e22b38-126`) inside the equally already-verified `pipeline` (`wf_bf086b98-6ec`, see Chapter 08) — both blocks are field-tested, and the way they combine is plain JS.
+**The two properties this shape relies on both have real-run backing.** ① **The sub-workflow's agents count into the parent**: per `_grounding.md` section C, the nested workflow() run `wf_85e22b38-126` confirmed the sub-workflow's `agent_count=1` is attributed to the parent's count. ② **Nesting is one level only**: this book separately obtained the verbatim out-of-bounds error with `wf_2b04881f-6a9` (see §20.3) — a sub-workflow calling `workflow()` again throws `nesting is limited to one level`. This "pipeline-of-nested" composition in this section was **not run on its own** (hence marked "(illustrative, not run)"), but it merely places the already-verified `workflow()` (`wf_85e22b38-126` / `wf_2b04881f-6a9`) inside the equally already-verified `pipeline` (`wf_bf086b98-6ec`, see Chapter 08) — both blocks are field-tested, and the way they combine is plain JS.
 
 </div>
 

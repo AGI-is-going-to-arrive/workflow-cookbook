@@ -314,13 +314,19 @@ const out = await pipeline(
 
 ## 6.6 `model`:模型继承与单点覆盖
 
-`model` 选项控制**这一个 agent** 用哪个模型。它是第 05 章 5.6 节那套模型解析里**最细粒度、已被确认**的一层:它覆盖「继承主循环」这个默认,也覆盖该 agent 所在阶段的 `meta.phases[].model`。(顶层 `meta.model` 与各层的自动解析关系事实源未核实,见 5.6;本节只讲已确认的 `opts.model`。)
+`model` 选项控制**这一个 agent** 用哪个模型。它是第 05 章 5.6 节那套模型选择里**唯一有官方明确语义、值得依赖**的旋钮:省略时继承主循环模型,显式给值则覆盖这个默认。第 05 章已强调:`meta.phases[].model` 的运行时效果未定,真正要设模型就靠这里的 `opts.model`。(顶层 `meta.model` 与各层的自动解析关系事实源未核实,见 5.6;本节只讲已确认的 `opts.model`。)
 
 ### 6.6.1 默认:继承主循环模型
 
-据 `_grounding.md`:`opts.model`「省略则继承主循环模型;简单任务可用 `'haiku'`」。
+据 `_grounding.md`:`opts.model`「省略则继承主循环模型;简单任务可用 `'haiku'`」。这是工具定义里关于 `model` 唯一明确的语义——**省略时继承主循环**。
 
 不写 `model`,这个 agent 就用**主循环当前的模型**。本书实测环境主循环是 Opus 4.7,subagent 模型由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7` 指定(见 `_grounding.md` A 节)。前面所有真实运行(`hello` / `parallel` / `pipeline`)都**没有**显式传 `model`,因此它们的 subagent 跑在继承来的 Opus 模型上。
+
+<div class="callout warn">
+
+**`CLAUDE_CODE_SUBAGENT_MODEL` 一旦设置,会覆盖每个 agent 的 `model`。** 这是一个**用户 / CI 级的环境旋钮,脚本无法控制**。本书有一次专门探针(Run ID `wf_9c94951d-58c`)派了 5 个 agent,分别带 `'haiku'` / `'inherit'` / `'opus'` / 省略 / 处在 `meta.phases[]` 标了 `model:'haiku'` 的阶段——**5 个全部跑成了 Opus**,因为该会话设置了 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`(直接观测到的环境事实)。也就是说:你在脚本里写的 `model`,**会被这个环境变量静默盖过**。这正是为什么第 05 章无法独立隔离 `meta.phases[].model` 的单独效果——它和 `opts.model` 一起被这个旋钮覆盖了。结论:`opts.model` 是脚本能控制的最细旋钮,但它**不是最终裁决**——环境变量在它之上。
+
+</div>
 
 ### 6.6.2 用 `'haiku'` 给简单任务降本
 
@@ -359,7 +365,7 @@ const check = await agent(`这是不是一个合法的 HTTP(S) URL?只回答 tru
 
 <div class="callout info">
 
-**`model` 写在 `agent()` 上 vs 写在 `meta.phases[]` 上。** 二者最终都影响某个 agent 用什么模型,但语义不同:`meta.phases[].model` 是**声明性**的(写在经线上,表达「这一阶段计划用某模型」,也方便读脚本的人看清成本结构);`agent({ model })` 是**命令性**的(在纬线上,精确决定这一个 agent)。实战中常见的组合是:在 `meta.phases` 上标注阶段意图,同时在该阶段的每个 `agent()` 上落实 `model`——一处「说计划」,一处「下命令」,互相印证。
+**`model` 写在 `agent()` 上 vs 写在 `meta.phases[]` 上。** 二者语义不同,**可靠性也不同**:`meta.phases[].model` 是**声明性**的(写在经线上,表达「这一阶段计划用某模型」,方便读脚本的人看清成本结构),但它**运行时是否单独生效未定**(见 5.3.3);`agent({ model })` 是**命令性**的(在纬线上,**真正**决定这一个 agent)。实战中正确的组合是:在 `meta.phases` 上标注阶段意图,**同时**在该阶段的每个 `agent()` 上落实 `model`——一处「说计划」给人看,一处「下命令」让它真生效。**别只标 phases、不写 agent 上的 `model`。**
 
 </div>
 
@@ -467,9 +473,32 @@ const review = await agent('审查这个 diff,报告问题', {
 
 这种组合很强大:`agentType` 决定「**谁**来做、以什么取向做」,`schema` 决定「产物**长什么样**」。两者正交,可自由搭配。
 
+### 6.8.3 `agentType` 有校验(已实测)——传错会在生成模型之前抛错
+
+这是本书**亲手实测确认**的一条事实(Run ID `wf_a222f20f-0f5`):给 `agentType` 传一个不存在的值,运行时**在派生任何模型之前**(0 token / 4ms)就抛错,并把**全部可用 agent 列出来**。探针把这个错误用 `try/catch` 兜住并返回,错误原文逐字如下:
+
+```text
+agent({agentType}): agent type 'definitely-not-a-real-agent-xyz' not found.
+Available agents: claude, claude-code-guide, codex:codex-rescue, Explore,
+general-purpose, get-current-datetime, init-architect, Plan, planner,
+statusline-setup, team-architect, team-qa, team-reviewer, ui-ux-designer
+```
+
+两个可直接利用的事实:其一,**拼错或写了不存在的类型不会静默吞掉**,而是立刻、明确地报错——所以 `agentType` 出问题很好排查;其二,错误信息**自带一份「可用类型清单」**,等于运行时帮你列出了当前环境注册的所有 agent。
+
+<div class="callout warn">
+
+**`agentType` 已实测有校验,而 `model` 是否校验只是第三方说法。** 这是一个**有据可依的对比**:
+- **`agentType`** —— **本书实测确认有校验**(`wf_a222f20f-0f5`):未知值在生成模型前 0 token 抛错并列出可用类型。
+- **`model`** —— 官方只明确了「省略则继承主循环」。至于「它**不**做校验、拼错(如 `'hauku'`)不在解析期报错、而是 passthrough 后才失败」——这是**第三方资料的说法,本书未独立实测**,故不当作已证实的事实。
+
+实践含义:写 `agentType` 时,拼错会被运行时当场拦下;但写 `model` 时,**别指望运行时帮你抓拼写错误**——把模型名写对,或固定从一组常量里取值。
+
+</div>
+
 <div class="callout info">
 
-**`agentType` 的可用值取决于你的环境。** `'Explore'`、`'code-reviewer'` 是示例;实际能用哪些类型,取决于 Claude Code 内置的以及你在项目里(如 `.claude/agents/`)定义的自定义 subagent。不传 `agentType` 时,用的是默认通用 subagent——本章及前面所有真实运行示例都属于这种默认情况。某个具体 `agentType` 在你的环境中是否存在、其确切行为——以你本机配置为准(**待核实**:本书实测的三个真实运行均未指定 `agentType`)。
+**`agentType` 的可用值取决于你的环境。** 上面那份清单(`claude` / `Explore` / `planner` / `code` 相关类型……)是**本书实测会话**(`wf_a222f20f-0f5`)的注册表快照;实际能用哪些类型,取决于 Claude Code 内置的以及你在项目里(如 `.claude/agents/`)定义的自定义 subagent,**因环境而异**。不传 `agentType` 时,用的是默认通用 subagent(其内部类型名为 `workflow-subagent`)——本章其余真实运行示例都属于这种默认情况。要知道你自己环境里有哪些类型,最快的办法就是故意传一个不存在的值、读它报错列出的清单。
 
 </div>
 
@@ -591,9 +620,9 @@ const blockers = (review?.issues ?? []).filter(i => i.severity === 'critical')
 - **`label`** 是进度树显示名,用「类型:实例」模式(如 `review:auth`)最易读;不影响执行(6.3)。
 - **`schema`** 强制 subagent 走 `StructuredOutput` 工具、在工具调用层校验、不匹配则重试,让你**零解析、零容错**拿到结构化数据;判据是「产物要被代码消费吗」(6.4)。
 - **`phase`** 显式归入进度组;顺序代码用全局 `phase()`,**并发(`parallel`/`pipeline`)里必须用 `opts.phase`** 避免竞争全局游标;字符串须与 `meta.phases[].title` 精确匹配(6.5)。
-- **`model`** 省略则继承主循环(本书实测会话为 Opus 4.7);简单任务用 `'haiku'` 降本。`opts.model` 与 `meta.phases[].model` 是已确认的两层,顶层 `meta.model` 解析语义待核实(见 5.6)。由真实数据印证 **token ≈ agent 数 × 每 agent 上下文(~2.5–3 万)**,故把扇出最多的阶段换便宜模型是最有效的降本杠杆(6.6)。
+- **`model`** 省略则继承主循环(本书实测会话为 Opus 4.7);简单任务用 `'haiku'` 降本。**它是脚本能控制的最细旋钮,但不是最终裁决**——`CLAUDE_CODE_SUBAGENT_MODEL` 一旦设置会覆盖每个 agent 的 `model`(`wf_9c94951d-58c`:5 个 agent 全 Opus);`meta.phases[].model` 单独是否生效未定、顶层 `meta.model` 语义待核实(见 5.3.3、5.6)。由真实数据印证 **token ≈ agent 数 × 每 agent 上下文(~2.5–3 万)**,故把扇出最多的阶段换便宜模型是最有效的降本杠杆(6.6)。
 - **`isolation: 'worktree'`** 给 agent 独立 git worktree,**昂贵**(每个约 200–500ms + 磁盘),**仅当「并行 + 改文件 + 会冲突」三条件同时成立**才用,无改动自动清理(6.7)。
-- **`agentType`** 借用自定义 subagent 类型(如 `'Explore'`、`'code-reviewer'`),决定 agent 的角色取向,**可与 `schema` 组合**(6.8)。
+- **`agentType`** 借用自定义 subagent 类型(如 `'Explore'`、`'code-reviewer'`),决定 agent 的角色取向,**可与 `schema` 组合**;**已实测有校验**(`wf_a222f20f-0f5`):未知值在生成模型前 0 token 抛错并列出可用类型——与 `model` 是否校验仅属第三方说法形成对比(6.8)。
 - **上下文隔离**是 `agent()` 的灵魂:每个 subagent 独立上下文,只把**返回值**回流主循环,把「过程字节」隔离在一次性上下文里——这正是它**保护主循环上下文**、能大规模扇出的根本原因(6.9)。
 
 纬线的单根丝线——`agent()`——已经看到了头。但一根丝织不成花纹。下一章,我们深入它最有分量的那个选项 `schema`,看「结构化输出」如何把一群各说各话的 subagent,约束成一条能被代码可靠消费的数据流水线。
