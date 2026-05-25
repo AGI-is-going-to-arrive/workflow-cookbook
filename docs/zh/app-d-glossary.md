@@ -139,7 +139,7 @@
 
 按英文术语首字母快速跳转（中文别名见上文各表）：
 
-- **A**：`agent()`（[D.4](#d4-核心原语agent-parallel-pipeline)）、`agentType`（[D.5](#d5-agent-选项opts)）、`agent_count`（[D.8](#d8-用量模式与生态)）、adversarial verification（[D.8](#d8-用量模式与生态)）、`args`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`async_launched`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
+- **A**：`agent()`（[D.4](#d4-核心原语agent-parallel-pipeline)）、`agentType`（[D.5](#d5-agent-选项opts)）、`agent_count`（[D.8](#d8-用量模式与生态)）、adversarial verification（[D.8](#d8-用量模式与生态)）、`args`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`async_launched`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`ANTHROPIC_DEFAULT_*_MODEL`（[D.1](#d1-顶层概念)）
 - **B**：barrier / 屏障（[D.4](#d4-核心原语agent-parallel-pipeline)）、`budget`（[D.6](#d6-预算与规模)）
 - **C**：cache hit（[D.8](#d8-用量模式与生态)）、concurrency limit（[D.6](#d6-预算与规模)）、`CLAUDE_CODE_WORKFLOWS`（[D.1](#d1-顶层概念)）、`CLAUDE_CODE_SUBAGENT_MODEL`（[D.1](#d1-顶层概念)）
 - **D**：deterministic orchestration（[D.1](#d1-顶层概念)）、determinism dual-layer ban / 确定性双层防护（[D.8](#d8-用量模式与生态)）、dogfooding（[D.8](#d8-用量模式与生态)）、`duration_ms`（[D.8](#d8-用量模式与生态)）

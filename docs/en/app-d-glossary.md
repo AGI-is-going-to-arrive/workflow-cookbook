@@ -139,7 +139,7 @@
 
 Quick jump by the English term's first letter (Chinese aliases in the tables above):
 
-- **A**: `agent()` ([D.4](#d4-core-primitives-agent-parallel-pipeline)), `agentType` ([D.5](#d5-agent-options-opts)), `agent_count` ([D.8](#d8-usage-patterns-and-ecosystem)), adversarial verification ([D.8](#d8-usage-patterns-and-ecosystem)), `args` ([D.2](#d2-input-and-output-workflowinput-workflowoutput)), `async_launched` ([D.2](#d2-input-and-output-workflowinput-workflowoutput))
+- **A**: `agent()` ([D.4](#d4-core-primitives-agent-parallel-pipeline)), `agentType` ([D.5](#d5-agent-options-opts)), `agent_count` ([D.8](#d8-usage-patterns-and-ecosystem)), adversarial verification ([D.8](#d8-usage-patterns-and-ecosystem)), `args` ([D.2](#d2-input-and-output-workflowinput-workflowoutput)), `async_launched` ([D.2](#d2-input-and-output-workflowinput-workflowoutput)), `ANTHROPIC_DEFAULT_*_MODEL` ([D.1](#d1-top-level-concepts))
 - **B**: barrier / 屏障 ([D.4](#d4-core-primitives-agent-parallel-pipeline)), `budget` ([D.6](#d6-budget-and-scale))
 - **C**: cache hit ([D.8](#d8-usage-patterns-and-ecosystem)), concurrency limit ([D.6](#d6-budget-and-scale)), `CLAUDE_CODE_WORKFLOWS` ([D.1](#d1-top-level-concepts)), `CLAUDE_CODE_SUBAGENT_MODEL` ([D.1](#d1-top-level-concepts))
 - **D**: deterministic orchestration ([D.1](#d1-top-level-concepts)), determinism dual-layer ban ([D.8](#d8-usage-patterns-and-ecosystem)), dogfooding ([D.8](#d8-usage-patterns-and-ecosystem)), `duration_ms` ([D.8](#d8-usage-patterns-and-ecosystem))

@@ -309,6 +309,6 @@ while (round < 2 && budget.total && budget.remaining() > 60_000) {
 - Three lines of defense against "plausible but wrong": force source tracing (unsupported claims not admitted), independent verification back to primary sources (puncture paraphrase drift), version-by-version / source-by-source cross-verification (single-point errors non-fatal).
 - Shares its core with Chapter 15's Bug Hunter: **adversarial falsification** — let an independent, skeptical agent go back to the primary evidence and scrutinize, rather than agree.
 
-**The Practical Recipes part (10–16) is now fully complete**, each anchored in a real run. Part IV turns to the advanced patterns that make these recipes more trustworthy — and the first stop is abstracting this chapter's and Chapter 15's "adversarial falsification" into a general pattern.
+Every step of this chapter is anchored in a real run. Deep research shares its "adversarial falsification" core with Chapter 15's Bug Hunter — a thread Part IV will abstract into a general pattern. Three recipes remain; the next chapter turns to another structure for how multiple independent judgments converge into a conclusion: the judge panel.
 
-> Continue reading: [Chapter 17 · Adversarial Verification](#/en/p4-17)
+> Continue reading: [Chapter 14 · Judge Panel](#/en/p3-14)

@@ -134,7 +134,7 @@ flowchart TD
 workflow() cannot be called from within a child workflow — nesting is limited to one level. Inline the inner script or call its agents directly.
 ```
 
-注意报错本身就给了你两条出路，与本节的「正确做法」完全一致：**Inline the inner script**（把内层脚本内联进来）或 **call its agents directly**（直接调它的 agent）。同一次运行还顺带验证了另外两件事，见 20.2 与 20.9。
+注意报错本身就给了你两条出路，与本节的「正确做法」完全一致：**Inline the inner script**（把内层脚本内联进来）或 **call its agents directly**（直接调它的 agent）。同一次运行还顺带验证了另外两件事，见 20.2 与 20.8。
 
 </div>
 
@@ -254,7 +254,7 @@ flowchart LR
 
 ---
 
-## 20.9 招牌组合：每个条目本身是一整个 Workflow
+## 20.8 招牌组合：每个条目本身是一整个 Workflow
 
 前面 20.5 节讲的是「主流程顺序拼装几个子工作流」。把它和 `pipeline`（第 08 章）叠在一起，就得到嵌套 Workflow 最具代表性的形态——**父流程是对一批条目的 `pipeline`，而每个条目都被委派给一个具名子工作流独立处理。**
 
@@ -300,14 +300,14 @@ flowchart TD
 
 ---
 
-## 20.8 本章小结
+## 20.9 本章小结
 
 - `workflow(nameOrRef, args?)` 在一个工作流里**内联调用另一个工作流**，把验证过的工作流当作可复用的「能力单元」，是构建工作流库的地基。
 - 两种定位：**具名**（`'name'`，调用已固化/跨项目的标准工作流）与 **`{ scriptPath }`**（调用项目内、迭代中的脚本）。`args` 进、`return` 出是父子间的数据接口。
 - **铁律：嵌套仅一层。** 子工作流里再调 `workflow()` 会抛错。多步复用靠**主流程的顺序/控制流**编排（主工作流是唯一编排层），而非子工作流互相调用。
 - **共享一个池**：父子合用同一个并发上限、agent 计数（计入 1000 上限）、中止信号、token 预算（`budget` 硬上限对整棵调用树生效）。心智模型——整回合就一个资源池，`workflow()` 不变出额外资源。
 - 取舍：纯计算用 JS 函数、schema 用共享变量、prompt 用模板函数；只有**完整的多 agent 编排单元**才值得抽成 `workflow()`。别为「看起来模块化」过度嵌套。
-- 招牌组合（20.9）：**父 `pipeline` 扇出、每个条目本身是一整个子工作流**（如「审 10 个 PR」），是「复用」的终点形态。仍受一层嵌套约束（子工作流内不能再调 `workflow()`），且所有子工作流的 agent / token 合并计入父的同一个池。
+- 招牌组合（20.8）：**父 `pipeline` 扇出、每个条目本身是一整个子工作流**（如「审 10 个 PR」），是「复用」的终点形态。仍受一层嵌套约束（子工作流内不能再调 `workflow()`），且所有子工作流的 agent / token 合并计入父的同一个池。
 - 与 Agent Teams 划界：`workflow()` 是确定性子流程拼装；Agent Teams 是有状态协作团队，不在本书范畴。
 
 下一章，我们深入那个反复出现的「共享资源池」里最关键的一项——token 预算：如何用 `budget.total` / `remaining()` 让工作流**根据剩余预算动态调整规模**。

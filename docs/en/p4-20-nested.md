@@ -134,7 +134,7 @@ This rule has a direct impact on your design: **a sub-workflow must be "leaf-lev
 workflow() cannot be called from within a child workflow — nesting is limited to one level. Inline the inner script or call its agents directly.
 ```
 
-Note the error itself hands you two ways out, exactly matching this section's "correct approach": **Inline the inner script**, or **call its agents directly**. The same run also verified two other things, see §20.2 and §20.9.
+Note the error itself hands you two ways out, exactly matching this section's "correct approach": **Inline the inner script**, or **call its agents directly**. The same run also verified two other things, see §20.2 and §20.8.
 
 </div>
 
@@ -254,7 +254,7 @@ In short: **`workflow()` is "deterministically assembling a sub-flow into the ma
 
 ---
 
-## 20.9 The Signature Composition: Each Item Is Itself a Whole Workflow
+## 20.8 The Signature Composition: Each Item Is Itself a Whole Workflow
 
 §20.5 covered "the main flow sequentially assembling a few sub-workflows." Layer that on top of `pipeline` (Chapter 08), and you get the most representative shape of nested Workflows — **the parent is a `pipeline` over a batch of items, and each item is delegated to a named sub-workflow that handles it independently.**
 
@@ -300,14 +300,14 @@ flowchart TD
 
 ---
 
-## 20.8 Chapter Summary
+## 20.9 Chapter Summary
 
 - `workflow(nameOrRef, args?)` **inline-calls another workflow** within a workflow, treating a validated workflow as a reusable "capability unit" — the bedrock for building a workflow library.
 - Two locating ways: **named** (`'name'`, calling a solidified/cross-project standard workflow) and **`{ scriptPath }`** (calling an in-project, iterating script). `args` in, `return` out is the data interface between parent and child.
 - **Iron law: nesting is one level only.** Calling `workflow()` again inside a sub-workflow throws. Multi-step reuse is orchestrated by the **main flow's sequential/control flow** (the main workflow is the only orchestration layer), not by sub-workflows calling each other.
 - **Share one pool**: parent and child share the same concurrency limit, agent count (counting toward the 1000 cap), abort signal, and token budget (the `budget` hard cap applies to the whole call tree). Mental model — the whole turn has one resource pool, `workflow()` conjures no extra resources.
 - Trade-off: pure computation uses a JS function, schemas use a shared variable, prompts use a template function; only a **complete multi-agent orchestration unit** is worth extracting into `workflow()`. Don't over-nest for "looking modular."
-- The signature composition (§20.9): **a parent `pipeline` fans out, and each item is itself a whole sub-workflow** (e.g., "review 10 PRs") — the endpoint shape of "reuse." It's still bound by one-level nesting (the sub-workflow can't call `workflow()` again), and all sub-workflows' agents / tokens combine into the parent's same pool.
+- The signature composition (§20.8): **a parent `pipeline` fans out, and each item is itself a whole sub-workflow** (e.g., "review 10 PRs") — the endpoint shape of "reuse." It's still bound by one-level nesting (the sub-workflow can't call `workflow()` again), and all sub-workflows' agents / tokens combine into the parent's same pool.
 - The boundary with Agent Teams: `workflow()` is deterministic sub-flow assembly; Agent Teams is a stateful collaborating team, outside this book's scope.
 
 In the next chapter, we go deep into the most crucial item in that recurring "shared resource pool" — the token budget: how to use `budget.total` / `remaining()` to make a workflow **dynamically adjust its scale according to the remaining budget.**
