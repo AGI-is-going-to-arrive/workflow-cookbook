@@ -128,3 +128,19 @@ Workflow scripts must be deterministic: Date.now()/Math.random()/new Date() are 
 - **再确认 / 锐化（非新结论，仅把信源更到本会话 v2.1.150）**：① app-a/app-d 的 `model:'inherit'` → 注「R8 再确认被接受；精确语义仍未隔离」（§3）；② app-b B.19 → 补一句「静态扫描连字符串里的 token 也被拒」（§5）；③ B1 内置清单 5 个（§3，R4 已记、本轮再证）+ 解剖方法论（§7）。
 - **B5 zenn**：拒其 API 形态、待测 UX 声称清单（§6）。
 - **再确认（无需改）**：budget null/Infinity/序列化、agentType+schema 组合、两层模型覆盖——本轮重证，印证全书事实层之扎实。
+
+---
+
+## 9. 错误传播：唯 `parallel` thunk 同步 throw 崩库，其余（pipeline 同步 throw / 异步 reject）→ null（R8 Phase B 实测，与第 8 章 p2-08 一致）
+
+工具文档说「`parallel()`/`pipeline()` 里 thunk/stage 抛错会变成 `null`、调用本身不 reject」。本轮做了对照实测：这句话对**异步 reject** 普遍成立、对 **`pipeline` 的同步 throw 也成立**，但有一个要命的 corner case——**`parallel` 的 thunk 体内同步 `throw`** 会崩掉整个 workflow。四种组合分清如下（与第 8 章 p2-08 既有实测一致，那里另有独立 Run ID）：
+
+| 情形 | 脚本写法 | 结果 | Run ID |
+|---|---|---|---|
+| **`parallel` thunk + 同步 throw** | `parallel([…, () => { throw new Error('x') }, …])`（thunk 体内同步抛） | **整个 workflow 失败**：`Error: x`、**6ms / 0 token / 一个 agent 都没派**（分发前就崩） | `wf_6cc89add-680` |
+| **`pipeline` stage + 同步 throw** | `pipeline(['A','B','C'], item => { if(item==='B') throw … }, stage2)`（stage 体内同步抛） | **workflow 成功**：`['S2-A<-S1-A', null, 'S2-C<-S1-C']`（该 item 变 `null`、跳过其余 stage、其它 item 照常流完）；失败进 `<failures>`；0 agent / 0 token / 4ms | `wf_76a9b42b-86f` |
+| **异步 reject（parallel & pipeline）** | `parallel([…, async () => { throw … }, …])` + `pipeline(['A','B'], async item => { if(item==='B') throw … })` | **workflow 成功**：`parallel → ['P0','NULL','P2']`、`pipeline → ['S2-A','NULL']`（出错槽位变 `null`、其余照常）；失败进 `<failures>` 频道（`parallel[1] failed:…`、`pipeline[1] failed:…`）；4 agent / 122,372 token / 9,320ms | `wf_bbeb54c0-750` |
+
+**结论**：① 错误转 `null` 的保护覆盖**所有异步 reject**（含 agent() 出错、`async` thunk/stage 抛错）**以及 `pipeline` stage 的同步 `throw`**（per-item 包裹，`wf_76a9b42b-86f`）；**唯一例外是 `parallel` 的 thunk 体内同步 `throw`**——它会逃逸、直接 fail 掉整个 workflow（`wf_6cc89add-680`；机理：`parallel` 逐个调用 thunk，同步异常在它拿到 promise 之前就穿透了「收集成 null」的逻辑）。② 失败的 item/槽位丢成 `null` 并跳过其余 stage、**其它 item 不受影响**；失败不静默，进 `<failures>`。这层与操作系统无关（JS 运行时层），三平台一致。**与第 8 章 p2-08 对照表完全一致**（那里另有 `wf_ed5e87f3-435` parallel 同步崩 / `wf_f5f5b422-a4f` pipeline 同步→null / `wf_74ebe5ac-2db` 异步→null）。
+
+**落点**：错误处理/健壮性章节 + app-b 踩坑——为「`.filter(Boolean)` 前先把 `parallel` 里有风险的 thunk 写成 `async`」补硬证据，明确「唯 `parallel` thunk 同步 throw 崩库；`pipeline` 同步 throw 与异步 reject 都隔离成 `null`」。

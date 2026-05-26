@@ -665,7 +665,273 @@ flowchart TD
 
 ---
 
-## 24.7 本章小结
+## 24.7 官方内置 workflow：五个免剥离的现成范本
+
+本章前面教的提取术，最费劲的一步永远是**剥离宿主**——四个社区系统的精华都长在「提示词 + Hook + 状态文件」这层宿主上，你得先把它们从宿主上剥下来，才能焊到原生骨架。但有一类范本天生省掉了这一步：Claude Code 官方自带的五个具名 workflow，它们**本就是原生 Workflow**，没有宿主可剥。所以它们是最干净的偷师对象——你能直接看清「独立多视角 → 对抗验证 → 综合收口」这套质量套路的骨架，而不必先做一遍剥离手术。这一节把这五个范本逐一拆开，正好横向印证本章的方法论：模式才是可迁移的，而官方内置把模式以最纯粹的形态摆在了你面前。
+
+### 我们能看见什么，看不见什么
+
+这一节的所有论断，都踩在三块**有据可查**的地基上，没有第四块：
+
+1. **运行时自证的五个名字**。在脚本里调用一个不存在的具名 workflow，运行时会抛错并**列出当前注册表的全部内置**。本书实测（Run `wf_28a5d455-300`）拿到的原文是：
+
+   ```
+   Error: workflow('___nonexistent_child_workflow___'): no workflow with that name.
+   Available: bughunt, bughunt-lite, deep-research, plan-hunter, review-branch
+   ```
+
+   这是比任何文档都硬的证据——内置具名 workflow**恰好这五个**，一个不多一个不少。
+
+2. **官方技能列表里的一行注册简介**。每个内置 workflow 在技能列表里都带一句话的架构摘要（下面每节会**摘录这句简介的架构要点**作为判断依据，方法论锚在 `examples-r8.md` §7）。注意这是官方文字的**架构摘要**、不是逐字源码——其中只有 `bughunt` 的架构要点在本书真值源里有对照锚点（§7「如 bughunt = 自繁殖 finder 池 + 5 票对抗验证 + pigeonhole 早退 + 综合」），其余四个的**具体措辞以你本机 `/workflows` 实际列出的 skill 简介为准**，本节不对逐字用词打包票。
+
+3. **Workflow 工具定义里的同名模式**，以及本书自己跑过的真实运行。工具描述在讲 `pipeline`/`parallel`/`agent` 时，反复提到「fan-out」「对抗验证」「judge」这些词；本书第 13–17 章也都拿真实 Run ID 复现过同类编排。两相印证，能确认「这类模式真实存在且本书亲手跑通过」。
+
+<div class="callout warn">
+
+**一条铁律，全程适用。** 本书的接地分级里（见 `_grounding.md` A2），关于这五个内置 workflow，**唯一被实测确认的只有「它们存在」这一层**——也就是上面那行报错列出的五个名字。它们的**内部架构（finder 池怎么繁殖、几票算确认、judge 怎么打分）既没有官方工具定义、也无法逐行读源码、更未经本书复现**。所以下文每一处对「内部怎么跑」的拆解，依据都只是**那一行注册简介 + 通用模式知识**，标注为「**基于官方 skill 描述 + 行为观察，非源码逐行**」。拿它建立直觉、提炼骨架——但别把里头的数字（3 rapid、5 票、4 评委）当成已验证的实现事实。下面给的骨架代码同理，都是**本书的推测性示例实现**，标「（示意，未实跑）」。
+
+</div>
+
+为什么连源码都读不到？因为 Claude Code 的 CLI 是打包产物，内置 workflow 的脚本不落在 `~/.claude` 下；本书 grep 过 CLI 安装目录里这些特征串（`self-respawning`、`pigeonhole`、`MVP-first`），**零命中**（依据见 `examples-r8.md` §7）。读不到源码，恰恰是这一节存在的理由：教你**从行为和官方简介里反推可复用模式**，这本身就是「偷师」最实用的姿势——你将来面对任何一个看不到源码的好工具，都得这么干。
+
+### 五个内置，五个模式
+
+#### 1. `bughunt` —— 自繁殖 finder 池 + 对抗证伪
+
+**官方 skill 描述（架构摘要，非源码）**：
+> Multi-agent bug sweep of the current branch. Self-respawning finder pool (3 rapid + deep-until-dry-streak) streams into 5-vote adversarial verification with pigeonhole early-exit, then synthesis.
+
+**一句话定位**：对当前分支做「不知道有几个 bug」的全量扫荡——重头戏是**怎么找全**（自繁殖的猎手池）和**怎么信得过**（五票对抗证伪）。
+
+**它示范了哪个模式**（基于官方 skill 描述 + 行为观察，非源码逐行）：
+
+- **自繁殖 finder 池（self-respawning finder pool）**。简介里的 `Self-respawning finder pool (3 rapid + deep-until-dry-streak)` 说的是：先撒一批快猎手（rapid）广度扫，再让深猎手（deep）持续补充派发，**直到连续若干轮榨不出新东西（dry-streak）才停**。这正是本书第 18 章「loop-until-dry + dry-streak」的官方同款——用「连续 K 轮无新增」而不是「一轮没找到就停」来防漏尾。
+- **五票对抗证伪 + pigeonhole 早退**。`5-vote adversarial verification with pigeonhole early-exit`：每条疑似 bug 派多个独立验证者，默认证伪，计票收口；一旦多数已锁定胜负就提前判决、不再为定局付满额成本。这是第 17 章对抗验证 + 第 15 章 pigeonhole 的合体。
+- **综合（synthesis）**收口。
+
+**你能偷师什么**——把它抽象成「未知规模发现 + 信任校准」的骨架：
+
+```javascript
+// （示意，未实跑）—— 自繁殖 finder 池 + dry-streak 防漏尾
+const K = 2                          // dry-streak：连续 2 轮无新增才判干
+const MAX_ROUNDS = 6                 // 硬上限（安全带，不可省）
+const confirmed = []
+let round = 0, dryStreak = 0
+while (dryStreak < K && round < MAX_ROUNDS && budget.remaining() > 0) {
+  round++
+  // ① 撒一批 finder（rapid 撒网 + deep 深挖），告知「这些已确认，只报新增」
+  const known = confirmed.map(c => c.id)
+  const pooled = await parallel(
+    [0, 1, 2].map(i => () =>
+      agent(`Sweep for issues. Already confirmed (skip): ${JSON.stringify(known)}. ` +
+            `Hunter #${i}: report only NEW suspects.`, { phase: 'Hunt', schema: /* … */ }))
+  )
+  const suspects = dedupeByKey(pooled.filter(Boolean).flat())   // 用代码去重，别让 agent 去重
+  // ② 每条新疑似过对抗证伪（见模式 5）
+  const fresh = await verifyAdversarially(suspects)
+  // ③ dry-streak 计数
+  if (fresh.length === 0) dryStreak++; else { dryStreak = 0; confirmed.push(...fresh) }
+}
+```
+
+骨架的三个齿轮分得很清：**finder 池**负责找（每轮注入已确认清单、只要新增）、**对抗证伪管道**负责筛、**`while` + 计数器**负责「何时停」——这是真正的 JavaScript 控制流，模型只做判断、代码做编排。
+
+<div class="callout tip">
+
+**`bughunt` 在本书里有专章拆解**：第 15 章 Bug 猎手把 finder 池（固定 vs 自繁殖）、pigeonhole、dry-streak 拆成可运行骨架，并有真实运行 `wf_53da9a06-915`（11 agent、5/5 确认、验证者反过来纠正了猎手）。本节只做横向定位，细节去第 15 章。
+
+</div>
+
+#### 2. `bughunt-lite` —— 同款骨架，去掉「自繁殖」这一层
+
+**官方 skill 描述（架构摘要，非源码）**：
+> Lighter bug sweep — fixed 3-rapid+2-deep finders stream into 5-vote adversarial verification (pigeonhole early-exit), then synthesis. Simpler than bughunt: no self-respawning, no dry-streak.
+
+**一句话定位**：`bughunt` 的轻量版——同样是「finder 池 → 五票对抗证伪 → 综合」，但 finder 池是**固定**的（3 rapid + 2 deep，跑完即止），**砍掉了自繁殖和 dry-streak**。
+
+**它示范了哪个模式**（基于官方 skill 描述 + 行为观察，非源码逐行）：**固定 finder 池**。与 `bughunt` 的对比恰好演示了一个重要的工程取舍——
+
+| 维度 | `bughunt-lite`（固定池） | `bughunt`（自繁殖池） |
+|---|---|---|
+| finder 池 | 固定 3 rapid + 2 deep，跑完即止 | 持续派发，直到 dry-streak |
+| 成本上界 | **确定**（5 个 finder 封顶） | 不确定（靠 dry-streak + budget 刹车） |
+| 漏尾风险 | 较高（单轮，尾部 bug 找不回） | 较低（多轮 + 连续 K 轮无新增才停） |
+| 适用 | 目标规模大致可估、要可预测成本 | 规模完全未知、漏报代价高 |
+
+**你能偷师什么**：**「同一个核心骨架，用『要不要自繁殖』开一个挡位」**。固定池的骨架就是把上面 `bughunt` 的 `while` 循环拍平成一轮——
+
+```javascript
+// （示意，未实跑）—— 固定 finder 池：rapid 撒网 + deep 深挖，一轮搞定
+const pooled = await parallel([
+  () => agent('Rapid sweep #1 …', { phase: 'Hunt', schema: /* … */ }),
+  () => agent('Rapid sweep #2 …', { phase: 'Hunt', schema: /* … */ }),
+  () => agent('Rapid sweep #3 …', { phase: 'Hunt', schema: /* … */ }),
+  () => agent('Deep dive #1 …',   { phase: 'Hunt', schema: /* … */ }),
+  () => agent('Deep dive #2 …',   { phase: 'Hunt', schema: /* … */ }),
+])
+const suspects = dedupeByKey(pooled.filter(Boolean).flat())
+const confirmed = await verifyAdversarially(suspects)   // 同款证伪管道
+```
+
+这给你的设计启发是：**先把验证层（证伪 + 综合）做稳，再把发现层做成可换挡的——便宜场景用固定池，高危场景才上自繁殖。** 验证骨架复用，发现策略可插拔。
+
+#### 3. `deep-research` —— fan-out 检索 + 引用核实
+
+**官方 skill 描述（架构摘要，非源码）**：
+> Deep research harness — fan-out web searches, fetch sources, adversarially verify claims, synthesize a cited report.
+
+**一句话定位**：深度调研的脚手架——把一个问题**扇出（fan-out）**成多路并发检索，抓原文，**对抗式核实每条论断**，最后产出带引用的报告。
+
+**它示范了哪个模式**（基于官方 skill 描述 + 行为观察，非源码逐行）：
+
+- **fan-out 检索**。`fan-out web searches` 就是「把一个大问题拆成多个子查询、并发去搜」——`parallel` 的天然用武之地。
+- **抓原文 + 对抗式核实论断**。`fetch sources, adversarially verify claims`：检索结果只是「第三方信号」，要逐条抓回原文、再用对抗式校验把没站住的论断剔掉。这与本书第 13 章深度调研「逐版本核实」一脉相承。
+- **带引用综合**。`synthesize a cited report`：收口时每条结论都挂上来源。
+
+**你能偷师什么**——「fan-out → 抓原文 → 核实 → 带引用收口」的调研骨架：
+
+```javascript
+// （示意，未实跑）—— fan-out 检索 + 逐条核实
+phase('Fan-out')
+const subQueries = await agent(`Decompose this question into 4-6 independent search angles: ${args.question}`,
+  { schema: { type: 'object', properties: { queries: { type: 'array', items: { type: 'string' } } }, required: ['queries'] } })
+
+phase('Search & Fetch')
+const hits = await parallel(subQueries.queries.map(q => () =>
+  agent(`Search the web for "${q}", fetch the top sources, extract claims with URLs.`,
+    { schema: /* { claims: [{ text, url }] } */ })))
+
+phase('Verify')
+const claims = hits.filter(Boolean).flatMap(h => h.claims)
+const verified = await pipeline(claims, (c) =>          // 每条论断独立流过核实
+  agent(`Verify this claim against its source. Default to unsupported if the source doesn't back it. ` +
+        `Claim: ${c.text} | Source: ${c.url}`, { phase: 'Verify', schema: /* { supported, note } */ }))
+
+phase('Synthesize')
+return await agent(`Write a cited report from these verified claims: ` +
+  JSON.stringify(verified.filter(Boolean).filter(c => c.supported)), { schema: /* … */ })
+```
+
+关键纪律：**检索 agent 负责「搜与抓」，核实 agent 负责「这条到底站不站得住」，两者分开**——别让同一个 agent 既找证据又给自己背书（确认偏误）。注意网络/抓取这类副作用只能放进 `agent()` 叶子（subagent 才有 Read/Bash/MCP 能力，脚本体本身无 `fetch`）。
+
+<div class="callout tip">
+
+`deep-research` 在本书有专章（第 13 章），并有真实运行 `wf_6090decc-8a5`（4 agent、真实 web 检索 + 逐版本核实）。本节只做模式定位。
+
+</div>
+
+#### 4. `plan-hunter` —— 多视角草案 + 评委团投票 + 嫁接综合
+
+**官方 skill 描述（架构摘要，非源码）**：
+> Exhaustive planning harness. Generates 4 independent draft plans (MVP-first, risk-first, dependency-first, user-first), scores them with 4 parallel judges, picks the winner by vote, then synthesizes a polished final plan grafting in the best ideas from runners-up.
+
+**一句话定位**：穷尽式规划——从**四个不同视角**各出一份独立草案，用**四个并发评委**打分投票选出冠军，再把亚军里的好点子**嫁接（graft）**进冠军，综合成终稿。
+
+**它示范了哪个模式**（基于官方 skill 描述 + 行为观察，非源码逐行）：
+
+- **多视角独立草案**。`4 independent draft plans (MVP-first, risk-first, dependency-first, user-first)`：同一个任务，用四种**互不相同的优先级框架**各写一版。「独立」是精髓——四份草案并发产出、互不参考，才能真正发散、避免趋同。
+- **评委团投票（judge panel）**。`scores them with 4 parallel judges, picks the winner by vote`：用并发的评委各自独立打分，按票收敛。这正是本书第 14 章「judge panel」的官方同款。
+- **嫁接综合（graft synthesis）**。`synthesizes a polished final plan grafting in the best ideas from runners-up`：不是「选了冠军就扔掉其余」，而是把亚军的亮点缝进冠军——这是比「赢家通吃」更聪明的收口。
+
+**你能偷师什么**——「发散（多视角）→ 评判（评委团）→ 收敛（嫁接）」的方案设计骨架：
+
+```javascript
+// （示意，未实跑）—— 多视角草案 + 评委团 + 嫁接综合
+phase('Draft')
+const lenses = ['MVP-first', 'risk-first', 'dependency-first', 'user-first']
+const drafts = await parallel(lenses.map((lens, i) => () =>
+  agent(`Draft a plan for: ${args.goal}. Optimize strictly through a ${lens} lens.`,
+    { label: `draft:${lens}`, schema: /* … */ })))   // label 含 lens：N 路并发各自有别
+
+phase('Judge')
+const valid = drafts.filter(Boolean)
+const scored = await parallel([0, 1, 2, 3].map(j => () =>
+  agent(`You are judge #${j}. Score each of these ${valid.length} plans on feasibility/coverage/risk. ` +
+        `Plans: ${JSON.stringify(valid)}`, { label: `judge:${j}`, phase: 'Judge', schema: /* { rankings:[…] } */ })))
+
+phase('Synthesize')
+// 用代码计票选冠军（确定性操作交给代码）
+const winner = tallyVotes(scored.filter(Boolean))
+return await agent(`Here is the winning plan plus the runner-up drafts. ` +
+  `Produce a polished final plan, grafting in the best ideas from the runners-up. ` +
+  `Winner: ${JSON.stringify(winner)} | Others: ${JSON.stringify(valid)}`, { schema: /* … */ })
+```
+
+两点工程纪律：**①「独立」要靠并发 + 不同提示词框架实现**（四个 lens 各跑各的，别让它们看见彼此）；**②计票用代码、嫁接用 agent**——「谁票多」是确定性运算（`tallyVotes`），「怎么把亮点缝进去」才是判断，交给 agent。
+
+<div class="callout info">
+
+`plan-hunter` 的「评委团投票」这一段，本书第 14 章 judge panel 有专章 + 真实运行 `wf_f5b69668-b18`（5 agent、评委 3:0 收敛）。它的「多视角发散」则呼应第 17 章对抗与多样性。`plan-hunter` 相当于把这两层叠在一起、外加「嫁接」收口。
+
+</div>
+
+#### 5. `review-branch` —— 多维审查 + 逐条对抗验证
+
+**官方 skill 描述（架构摘要，非源码）**：
+> Thoroughly review the current branch for bugs, simplicity, architecture, dead code, best practices, and pattern consistency. Each finding is adversarially verified before reporting.
+
+**一句话定位**：对当前分支做**多维度**审查（bug、简洁性、架构、死代码、最佳实践、模式一致性六个维度），**每一条发现在上报前都先经对抗验证**。
+
+**它示范了哪个模式**（基于官方 skill 描述 + 行为观察，非源码逐行）：
+
+- **多维度分工审查**。`bugs, simplicity, architecture, dead code, best practices, and pattern consistency` 列了六个**正交的审查视角**——这正是本书第 10 章「分片/多维审查」的思路：与其让一个 agent 「把所有问题都找出来」（注意力摊薄、维度互相干扰），不如每个维度派一个专职 agent，各管一摊。
+- **逐条对抗验证**。`Each finding is adversarially verified before reporting`——和 `bughunt` 同源的「默认证伪、挺过才上报」，把多维审查里的假阳性滤掉。
+
+**你能偷师什么**——「多维度 fan-out → 汇流 → 逐条对抗验证」的审查骨架：
+
+```javascript
+// （示意，未实跑）—— 多维度审查 + 逐条对抗验证
+phase('Review')
+const dims = ['bugs', 'simplicity', 'architecture', 'dead-code', 'best-practices', 'pattern-consistency']
+const reviews = await parallel(dims.map(d => () =>
+  agent(`Review the current branch strictly for "${d}" issues only. List findings with file:line and rationale.`,
+    { label: `review:${d}`, agentType: 'Explore', schema: /* { findings:[…] } */ })))
+
+phase('Verify')
+const findings = dedupeByKey(reviews.filter(Boolean).flatMap(r => r.findings))
+const verified = await pipeline(findings, (f) =>      // 每条发现独立过对抗验证
+  agent(`You are a skeptic. Try to REFUTE this review finding. Default to refuted=true if not certain. ` +
+        `Finding (${f.dim}): ${f.text} @ ${f.loc}`, { phase: 'Verify', schema: /* { refuted, reason } */ }))
+return verified.filter(Boolean).filter(f => !f.refuted)
+```
+
+启发：**审查任务最容易犯的错是「一个 agent 包打天下」**。把维度拆开 fan-out，每个维度的 agent 注意力集中、提示词专一，召回率立刻上一个台阶；再用对抗验证把准确率拉回来。这正是本书第 11 章 PR 多维 review 的真实做法（Run `wf_4c5caabb-b73`，4 agent、把 26 个问题收敛到 16 个），以及第 10 章分片审查。
+
+### 横向看：五个内置共享的同一套「质量套路」
+
+把五个内置摆在一起，会发现它们不是五个孤立的工具，而是**同一套质量哲学的五种应用**。这套套路有三个固定动作：
+
+```mermaid
+flowchart LR
+  A["① 独立多视角<br/>(fan-out / 多 lens / 多维度 / finder 池)"] --> B["② 对抗验证<br/>(默认证伪 / 评委投票 / 逐条核实)"]
+  B --> C["③ 综合收口<br/>(计票去重 / 嫁接亮点 / 带引用报告)"]
+```
+
+| 内置 workflow | ① 独立多视角 | ② 对抗验证 | ③ 综合收口 |
+|---|---|---|---|
+| `bughunt` | 自繁殖 finder 池 | 五票对抗证伪 + pigeonhole | 综合 |
+| `bughunt-lite` | 固定 finder 池（3+2） | 五票对抗证伪 + pigeonhole | 综合 |
+| `deep-research` | fan-out 多路检索 | 逐条核实论断 | 带引用报告 |
+| `plan-hunter` | 四个视角独立草案 | 四评委投票 | 嫁接亚军亮点 |
+| `review-branch` | 六维度分工审查 | 逐条对抗验证 | 汇流上报 |
+
+为什么这套套路反复出现？因为单个 agent 有两个改不掉的毛病：**①视野窄**（一个 agent 顾不全所有角度，必然漏）；**②会编**（它有强烈的「报告点什么/给自己背书」的倾向，必然有假阳性）。三个动作正好各治一病、再收口：
+
+1. **独立多视角治「漏」**——让多个 agent 从互不相同的角度并发出击（`parallel`），把召回率拉满。「独立」二字是灵魂：它们不能互相参考，否则就趋同、白白多花钱。
+2. **对抗验证治「编」**——对每一条产出，派**默认唱反调**的验证者（或评委团），把举证责任压给「这是真的」一方，沉默与犹豫都倒向「不算数」，假阳性被滤掉。
+3. **综合收口求「准而省」**——计票、去重、嫁接这些**确定性操作交给代码**，只有「怎么把亮点缝进去」这类判断才交给 agent。
+
+<div class="callout tip">
+
+**这就是你能从官方范本里偷到的最值钱的一课：质量不是靠「让 agent 更努力」堆出来的，而是靠『结构』逼出来的。** 你设计任何一个「要可信产出」的 workflow，都可以照着这三步搭骨架：先想清楚**哪些视角要并发覆盖**（①），再想清楚**用什么对抗机制过滤假阳性**（②），最后**把确定性收口交给代码**（③）。`agent()` 负责判断，`parallel()`/`pipeline()` 负责编排，schema 负责约束形状，普通 JavaScript 负责计票与控制流——五个内置全是这套积木的不同拼法。
+
+</div>
+
+> 继续阅读：把这套套路落到每个专章——[第 10 章 分片审查](#/zh/p3-10-sharded-review)、[第 13 章 深度调研](#/zh/p3-13-deep-research)、[第 14 章 评委面板](#/zh/p3-14-judge-panel)、[第 15 章 Bug 猎手](#/zh/p3-15-bug-hunter)、[第 17 章 对抗验证](#/zh/p4-17-adversarial)。
+
+---
+
+## 24.8 本章小结
 
 - **直接抄会排异**：你抄来的是「长在别人宿主上的实现」，而你真正要的是「与宿主无关的模式」。提取术 = 把模式从实现里剥出，再用原生骨架重新长出实现。
 - **四步法**：解构（看清真实机制，精确到文件/数据流，区分本质与宿主偶然）→ 抽象（查转译词典，把本质映射到 `pipeline`/`parallel`/`while`/`schema`）→ 适配（落成可运行脚本）→ 验证（能跑、行为对、与原系统等价）。

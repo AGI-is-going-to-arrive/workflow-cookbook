@@ -147,6 +147,7 @@
 | 相关讲解视频 | 社区对多 agent 编排的讲解 | **参考**：建立直觉；具体数字以本书实跑为准 |
 | **`claude-code-workflow-creator`**（第三方 GitHub 仓库） | 某 YouTuber 为其视频 `c0gVowvMR-g` 配套的仓库，**非 Claude/Anthropic 官方出品**。含 `references/api-reference.md`、`references/patterns.md`、6 个示例工作流、3 个模板、`scripts/validate-workflow.mjs`（提交前 lint）。 | **借鉴思路、不当权威**：借鉴它对 `CLAUDE_CODE_WORKFLOWS` 的组织方式来增强本书；**绝不照抄其文本、绝不把其声称当真值**。它的声称里能被本书实测复现的（如 meta 保留键被拒、`isolation:'remote'` 禁用、30000ms 同步超时、`model` 无提交校验），已升级为实测事实并标注 Run ID（见 [E.3.1](#e31-r4-真实运行实测复现第三方声称)）；不能复现的（错误类名、`stallMs` 等）一律标「社区第三方资料声称，本书未独立实测」。其自带的 `validate-workflow.mjs` 本书**已实跑确认行为**（见 [E.3.1](#e31-r4-真实运行实测复现第三方声称)）。 |
 | 视频 `c0gVowvMR-g`（上述仓库的配套视频） | 该 YouTuber 讲解多 agent 编排/工作流的视频 | **不引述内容**：该视频页面为 SPA，**取不到字幕**，故本书不引用其任何具体表述；仅记录其与上述第三方仓库的配套关系。 |
+| **zenn 文章（`lumichy`，日文社区解读·R8 新增）** | Zenn 作者 lumichy 对 ultrawork 的解读（约 2500–3000 字 + 7 图），标题「MCPとSkillsに続く第3の革命：Claude Code Workflowがultraworkで Agentをコードに焼き付ける」。文中称「官方文档未收录（2025 年 5 月时）」，评论区另称 v2.1.150 需 `export DISABLE_GROWTHBOOK=1` 才启用。**非 Claude/Anthropic 官方出品。** | **辩证参考、不当真值**：其涉及 API 形态/字段的表述，一律以官方类型定义（[E.1](#e1-官方类型定义api-字段的权威来源)）与本机实跑（[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制)）为准，与本书实测冲突处以本书为准；其环境/UX 类声称（如「v2.1.150 需设 `DISABLE_GROWTHBOOK`」）列入**待测清单**，未经本书实测复现前一律标「第三方声称、未核实」。完整辩证核实记录见 `assets/transcripts/examples-r8.md` §6。 |
 
 > 之所以把它们单列并反复强调「非照抄」：本书的承诺是**事实优先 + 原创真实**。参考资料可以启发理解，但不能替代「亲手跑一遍、记录真实数字」——后者才是本书每一个论断的底座。**特别地，`claude-code-workflow-creator` 是第三方 YouTuber 仓库而非官方**：本书只借它的思路，凡其声称均须经本书实测复现才升级为事实，否则显式标注「未核实」。
 

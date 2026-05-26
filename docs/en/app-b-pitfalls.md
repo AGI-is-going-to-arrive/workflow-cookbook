@@ -632,4 +632,114 @@ Distill the above potholes into three transferable judgments:
 
 > Companion reading: the checkable positive checklist is in [Appendix C · Best Practices](#/en/app-c); for unclear terms see [Appendix D · Glossary](#/en/app-d); for field semantics see [Appendix A · Full API Reference](#/en/app-a).
 
+---
+
+## B.24 Cross-Platform Corner Cases (Windows / macOS / Linux)
+
+> Premise (running through this section): all of this book's hands-on tests ran on a **single macOS machine (Darwin 25.5.0)**, with **no Windows / Linux test data whatsoever**. So every entry here is strictly graded into two evidence classes — **[platform-independent · verified]** (the behavior happens at the JS-runtime layer, OS-independent; the mechanism is "the same JS engine runs the same script," so even though we only ran it on macOS, the conclusion holds for all three platforms) and **[inferred · untested]** (the behavior **really may differ by platform**, such as paths, case sensitivity, shell, git; these **can only be inferred from the mechanism + general knowledge**, are explicitly labeled "not tested on Windows / Linux," and are **never written as verified, settled conclusions**).
+
+### What This Section Wants to Tell Workflow Authors
+
+The workflow script you write will ultimately be distributed to run on other people's machines — maybe a colleague's Windows laptop, maybe a Linux container in CI, maybe a case-sensitive deployment environment like GitHub Pages. **A script that runs fine on your Mac may go off the rails on another machine.** Which parts will break and which are rock-solid — you need to tell them apart first.
+
+The single most important intuition: **the workflow script body runs inside a JS sandbox, and this sandbox is the same on all three platforms.** So script-logic-level behavior (the determinism guard, how `args` is passed, the absence of `require/process/fetch`, the 30000ms synchronous timeout, how errors propagate upward) — **has nothing whatsoever to do with whether you're on Windows or Linux.** What truly varies by platform all happens **outside the sandbox**: either you had a subagent touch the file system/shell inside an `agent()` leaf (that's where the real OS is touched), or external facilities like git worktree and the deployment environment.
+
+Let's break the two classes apart below.
+
+### B.24.1 The Platform-Independent Half (Verified, Consistent Across Three Platforms)
+
+These behaviors all happen at the JS-runtime layer. The mechanism is simple: **the workflow's script sandbox is the same JS-engine implementation; all three platforms run the same code down the same decision logic.** So this book's macOS-verified conclusions can be extrapolated directly to Windows / Linux — this isn't "guessing they're the same," it's "they were the same layer to begin with."
+
+**① The determinism guard is a source-string-level scan — it rejects even a token inside a string.** Evidence class: **[platform-independent · verified]** (verified on macOS, the mechanism dictates consistency across three platforms). Workflow forbids `Date.now()` / `Math.random()` / arg-less `new Date()` (rationale: they break replayability, and resume falls apart). This static scan **does not distinguish "a real call" from "merely mentioned in a string"** — even if these three tokens are wrapped in a string literal and **never execute** from start to finish, the whole workflow is rejected at **submit** time, verbatim error:
+
+```
+Workflow scripts must be deterministic: Date.now()/Math.random()/new Date() are unavailable (breaks resume). Stamp results after the workflow returns, or pass timestamps via args.
+```
+
+Why this is platform-independent: this scan happens **before** Claude Code receives the script and submits it to the Workflow runtime; it's pure source-text matching — submitting the same script containing such a string on Windows, macOS, or Linux is **rejected the same way on all of them.** The real corner case is this: if your agent prompt text **wants to mention these three APIs** (say you're writing a "teach the agent not to use nondeterministic APIs" workflow, where the prompt naturally writes "don't use `Date.now()`"), **the whole workflow gets caught by this scan as collateral damage and rejected outright.**
+
+```javascript
+// Scenario: the prompt genuinely needs to mention these API names
+// Workaround A: split and concatenate the token so the static scan can't match the full string
+const apiName = 'Date' + '.now()';        // the scanner sees two fragments, not a full token
+const warn = 'Do not call ' + 'Math' + '.random() in the script';
+
+// Workaround B: reword so the full token never appears
+const warn2 = 'Do not use time/random APIs that break replayability (e.g., the current millisecond count, pseudo-random numbers)';
+```
+
+<div class="callout warn">
+
+**Collateral-damage pitfall**: the guard scans source text, not real calls. Writing `Date.now()` in a string for documentation/prompt purposes will also make the whole script fail to submit. Either split-and-concatenate (`'Date'+'.now()'`) or reword. This is platform-independent — all three platforms reject it alike.
+
+</div>
+
+**② `args` is passed through unchanged; you must normalize before reading fields.** Evidence class: **[platform-independent · verified]** (`wf_59bf3654-183`). You pass in `{hello, n, nested:{deep}}`, and in the script `args` is just an object: `typeof args === 'object'`, `Array.isArray(args) === false`, and it **won't be stringified**; if you don't pass it, `args` is `undefined`. This behavior is determined by the JS-runtime injection, **consistent across three platforms.** Practical reminder (also a platform-independent pitfall): **don't `JSON.parse(args)` unconditionally** — only parse (with try/catch) when `typeof args === 'string'`, otherwise an object will make your parse throw.
+
+**③ Host APIs absent: `require` / `process` / `fetch` are all `undefined`.** Evidence class: **[platform-independent · verified]** (`wf_59bf3654-183`). The script sandbox **has none** of the Node set: `require`, `process`, `fetch` are all `undefined`, no file system, no network. This is the sandbox design, **so on all three platforms** — there's no such thing as "you can `require` on Windows but not on Mac." This directly yields an **architectural iron rule** (crucial for cross-platform): **anything that touches files, shell, or network can only go inside an `agent()` leaf** (only subagents have Read/Write/Bash). That is — **the script body is always platform-independent; all platform differences are squeezed into the `agent()` leaf layer.** If you want to know "will my workflow have a problem on Windows," you only need to watch what the `agent()` leaves do (see B.24.2).
+
+**④ The 30000ms synchronous timeout and error-propagation semantics.** Evidence class: **[platform-independent · verified]** (`wf_e3b2b123-5f4`, measured aborted at 30222ms). A long synchronous loop (`for(i=0;i<1e12;i++)`) is aborted by the runtime at 30000ms, the workflow marked failed, with the error `Error: Script execution timed out after 30000ms`. This cap constrains only **synchronous** execution (catching dead loops); async workflows aren't bound by it. It's the runtime's watchdog, **platform-independent** — it won't become a different number because of Windows's clock precision or Linux's scheduling policy. Error propagation likewise lives at the JS-runtime layer and is consistent across three platforms, but you must **distinguish three cases — don't conflate them** (matching the comparison table in [Chapter 8 / p2-08](#/en/p2-08)): an **asynchronous** error — a thunk/stage's returned Promise rejecting, or `agent()` itself failing — turns only **that one** slot/item into `null`, while the rest run to completion and the workflow is still judged success (`wf_bbeb54c0-750`: `parallel` got `['P0', null, 'P2']`, `pipeline` got `['S2-A', null]`); **a `pipeline` stage's synchronous `throw` is also isolated to `null`** (`wf_76a9b42b-86f`: `['S2-A<-S1-A', null, 'S2-C<-S1-C']` — that item skips its remaining stages, the other items run on, the workflow succeeds); **the only thing that crashes the whole workflow is a synchronous `throw` in a `parallel` thunk body** — it escapes the "collect into `null`" logic before `parallel` ever obtains a promise, and marks the run failed (`wf_6cc89add-680`, terminating at 0 tokens; see also [B.17](#b17-a-synchronous-throw-in-a-parallel-thunk-body-crashes)). In one line: of the four combinations, only "`parallel` thunk + synchronous throw" crashes the workflow; the other three are all isolated to `null`. This is OS-independent — it depends on how the JS engine distinguishes a synchronous exception from a Promise rejection, consistent across three platforms.
+
+**⑤ `meta` must be a pure literal, plus various validations.** Evidence class: **[platform-independent · verified]**. `meta` must be a pure literal (reserved keys like `constructor` are rejected), an unknown `agentType` value throws before any model is spawned and lists the available agents, `isolation:'remote'` is rejected while `isolation:'totally-bogus'` is silently ignored — these validations all complete at runtime/submit time, **OS-independent, consistent across three platforms.** Same mechanism as ①: it scans the script's structure and values, not OS behavior.
+
+<div class="callout info">
+
+**Remember the first part in one line**: the script sandbox is the same JS engine, so everything at the script-logic level (the guard, args, the absent host APIs, the timeout, error propagation, the various validations) is **identical across three platforms.** Although this book only verified on macOS, this layer's conclusions can be confidently extrapolated — because it was OS-independent to begin with.
+
+</div>
+
+### B.24.2 The Half That Truly May Differ by Platform (Inferred · Untested, Labeled by Mechanism)
+
+The following **really do behave differently across platforms.** This book has **no Windows / Linux test data**, so every entry is "mechanism inference + general knowledge" — **please treat these as reminders that "you need to verify on the target platform yourself," not as confirmed conclusions.**
+
+**① Path separators & filename case sensitivity (the most common cross-platform pothole).** Evidence class: **[inferred · untested]** — this is **general cross-platform knowledge**, **not a verified conclusion of this feature.** This book did not test the `agent()` leaf's file read/write behavior on Windows / Linux. Recall B.24.1 ③: file operations can only happen inside an `agent()` leaf (subagents use Read/Write/Bash). The moment you touch files, you step onto the real OS's turf, and that's exactly the classic cross-platform minefield:
+
+- **Path separators**: Unix-likes (macOS / Linux) use `/`, Windows natively uses `\` (though most APIs also accept `/`). If you hardcode a path like `dir/sub/file.txt` in the prompt for a subagent to read/write, **whether it's safe on Windows depends on how the tool/shell the subagent actually uses parses it** — this book didn't test it; by general knowledge we infer there's risk here. Recommendation: have the subagent use relative paths, or say clearly in the prompt to "use the native path notation of your platform," rather than splicing absolute paths for it.
+
+- **Case sensitivity** (this one is especially deadly):
+  - macOS's default file system (APFS) is **case-insensitive** — `README.md` and `readme.md` are treated as the same file.
+  - Linux (ext4, etc.) is **case-sensitive** — these two are different files.
+  - **The GitHub Pages deployment environment is Linux, case-sensitive.**
+
+  Implication: you write a workflow on Mac, have one `agent()` produce `Foo.md`, and a downstream `agent()` read `foo.md` — **it happens to read on your Mac (case-insensitive), but on Linux / GitHub Pages it can't be read, and the link 404s.** This is **a pothole that this book's own deployment must watch out for** (this cookbook's English mirror goes through GitHub Pages), but **it's general cross-platform knowledge, not verified Workflow-feature behavior.**
+
+<div class="callout warn">
+
+**Case-sensitivity pitfall (inferred · untested)**: Mac is case-insensitive by default, Linux / GitHub Pages is case-sensitive. When you have an `agent()` write a file and a downstream `agent()` read it, **the filename case must match exactly**, or it runs on Mac and 404s on Linux. This book did not test this phenomenon on Linux; it's merely a reminder based on the general file-system mechanism.
+
+</div>
+
+**② Worktree isolation needs a git repo — behavior in a non-git directory.** Evidence class: **[inferred · untested]**. The mechanism of `opts.isolation:'worktree'` is "run this agent in a **separate git worktree**" (expensive, ~200–500ms startup + disk/agent, used only when parallel file edits would collide). `git worktree` is a git feature, **predicated on the current directory being inside a git repo.** From this we **infer** (untested): if you use `isolation:'worktree'` in a **non-git directory** (or a project without git initialized), since the underlying `git worktree add` has no repo to attach to, it **probably fails or degrades.** But whether it specifically throws or silently degrades to "not isolated" (by analogy with the bogus-isolation-ignored behavior in B.24.1 ⑤) — **this book did not test it, and we draw no conclusion.** This one has little to do with the OS and more to do with "whether there's a git repo," but it really is a corner case that will derail a workflow in certain environments. Safe practice: for a workflow using `isolation:'worktree'`, state in the docs that it "must run from the git repo root."
+
+> Addendum (inferred): worktree also implies "the target platform has a usable `git`, with the worktree subcommand available." Cases of git missing or too old in CI images do exist — likewise untested, merely a reminder.
+
+**③ Shell differences inside the `agent()` leaf.** Evidence class: **[inferred · untested]**. The subagent inside an `agent()` leaf can run Bash. All of this book's Bash tests ran on macOS (zsh/bash). We **infer** (untested): if you have a subagent run **Unix-like shell commands** in the prompt (`ls`, `grep`, `rm -rf`, pipes, `&&`), they should behave consistently on macOS / Linux; **on Windows**, native `cmd` / PowerShell differ in syntax, command names, and path notation — whether this command runs **depends on what actually provides the subagent's Bash on that Windows machine** (e.g., Git Bash / WSL / nothing). This book has **not verified this on Windows at all**, so it **cannot guarantee** that the shell commands you hardcode are cross-platform portable. Safe practice (an inference-level recommendation): when having a subagent run shell, **prefer cross-platform-safe forms**, or describe "the goal to achieve" in the prompt and let the subagent pick the platform-appropriate command, rather than nailing a long string of Unix-only commands into the prompt.
+
+<div class="callout warn">
+
+**Shell portability (inferred · untested)**: an `agent()` leaf can run Bash, but this book only verified on macOS. Whether Unix-only commands (`rm -rf`, pipes, `&&`) nailed into the prompt run on Windows is **untested**. Describing the goal and letting the subagent choose the command is steadier than hardcoding the command.
+
+</div>
+
+**④ Line endings and file encoding (a minor pothole, inferred).** Evidence class: **[inferred · untested]** — general knowledge, not verified for this feature. Files written out by `agent()`: Windows favors `CRLF`, Unix favors `LF`; occasionally there's a BOM difference in encoding. If a downstream agent or external tool is sensitive to line endings/encoding (some diffs, some parsers), it **may** behave differently across platforms. This is general file-IO knowledge, **untested in this book**, just a one-line reminder, not elaborated.
+
+### B.24.3 A One-Page Cheat Sheet for Workflow Authors
+
+| Corner case | Evidence class | Consistent across three platforms? | Key point |
+|---|---|---|---|
+| Determinism guard scans the token inside a string | **platform-independent · verified** | ✅ Consistent | Even `Date.now()` inside a string is rejected; to mention it in a prompt, split-write or reword |
+| `args` passed through unchanged + normalize | **platform-independent · verified** | ✅ Consistent | Parse only when `typeof==='string'`, don't `JSON.parse` unconditionally |
+| `require/process/fetch` absent | **platform-independent · verified** | ✅ Consistent | Files/shell/network can only go inside an `agent()` leaf |
+| 30000ms synchronous timeout / error propagation | **platform-independent · verified** | ✅ Consistent | The watchdog only governs synchronous loops; only a `parallel` thunk's synchronous throw crashes the workflow — everything else (pipeline's synchronous throw, any async reject) → single-slot `null` |
+| meta/agentType/isolation validation | **platform-independent · verified** | ✅ Consistent | Submit/runtime validation, OS-independent |
+| Path separators | **inferred · untested** | ⚠️ May differ | Don't hardcode absolute paths; have the subagent use native notation |
+| Filename case sensitivity | **inferred · untested** | ⚠️ **Will differ** | Mac case-insensitive / Linux+GitHub Pages case-sensitive; keep read/write filename case consistent |
+| Worktree needs a git repo | **inferred · untested** | ⚠️ Depends on git | Non-git-directory behavior untested; document "run from the git repo root" |
+| The `agent()` leaf's shell | **inferred · untested** | ⚠️ May differ | Windows shell untested; describe the goal > nail Unix commands |
+| Line endings/encoding | **inferred · untested** | ⚠️ May differ | CRLF/LF, BOM; watch out when downstream is sensitive |
+
+**Running insight**: Workflow naturally converges "platform differences" onto a single boundary — **the script body (the JS sandbox) is always platform-independent; all platform potholes are at the moment the `agent()` leaf touches the real OS.** So when doing a cross-platform review, you can rest easy about the script logic and **focus on the file paths, case, and shell commands inside the leaves.** This book can confirm the former on a single macOS machine; the latter it can only remind you of by mechanism — **verify it yourself on the target platform.**
+
+---
+
 > Continue reading: [Appendix C · Best Practices](#/en/app-c)
