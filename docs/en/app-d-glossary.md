@@ -11,11 +11,11 @@
 | Term (EN / 中) | Definition | Locator |
 |---|---|---|
 | **Workflow / 工作流** | Claude Code's multi-agent orchestration primitive: use a JS script to deterministically dispatch and chain multiple subagents. Feature nickname **ultrawork**. | [Ch. 1](#/en/p1-01) |
-| **ultrawork** | One of Workflow's nicknames/trigger keywords; a message containing this word can trigger a workflow. | [Appendix A · A.10](#/en/app-a) |
+| **ultrawork** | One of Workflow's nicknames/trigger keywords; a message containing this word can trigger a workflow. | [Appendix A · A.12](#/en/app-a) |
 | **deterministic orchestration / 确定性编排** | An orchestration style where code (not the model freestyling) decides "how many agents, in what order, how they rendezvous," distinct from pure prompt-driven. | [Ch. 2](#/en/p1-02) |
 | **subagent / 子智能体** | An independent execution unit dispatched by `agent()`, with its own context and real tool permissions; its "final text is the return value." | [Ch. 1](#/en/p1-01) |
 | **main loop / 主循环** | The Claude session you're conversing with; it initiates the Workflow tool call and **shares the token budget pool** with all workflows. | [Ch. 9](#/en/p2-09) |
-| **CLAUDE_CODE_WORKFLOWS** | The gating environment variable; set to `1` to enable the Workflow feature. | [Appendix A · A.10](#/en/app-a) |
+| **CLAUDE_CODE_WORKFLOWS** | The gating environment variable; set to `1` to enable the Workflow feature. | [Appendix A · A.12](#/en/app-a) |
 | **CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS** | The related experimental flag (Agent Teams); in the same experimental capability family as Workflow. | [Grounding facts table](#/en/p1-01) |
 | **CLAUDE_CODE_SUBAGENT_MODEL** | A user/CI-level environment variable; once set, it **overrides every per-call `model`** (the script's `opts.model`/`phases[].model` are silently ignored). Tested set to `claude-opus-4-7[1m]` this session, 5 agents with different model options all ran Opus (Run `wf_9c94951d-58c`). | [Appendix E · R4 model-resolution record](#/en/app-e) |
 | **ANTHROPIC_DEFAULT_HAIKU_MODEL / SONNET / OPUS** | User/CI-level environment variables; remap the corresponding **model alias** wholesale to a given model. Stacked with `CLAUDE_CODE_SUBAGENT_MODEL` they form a "two-layer model override" — both pointed to Opus this session, so a script's `model: 'haiku'` ran as Opus (Run `wf_e8cb23ff-829`). | [Appendix A · A.4](#/en/app-a) |
@@ -53,7 +53,7 @@
 | **phases (meta field)** | `{ title, detail?, model? }[]`, declaratively listing the workflow's phases. | [Appendix A · A.4](#/en/app-a) |
 | **whenToUse** | An optional `meta` field, describing the use case, shown in the workflow list. | [Appendix A · A.4](#/en/app-a) |
 | **log / progress narration** | `log(message)` outputs a line of progress narration to the user (above the progress tree). | [Ch. 9](#/en/p2-09) |
-| **/workflows** | The slash command to watch a workflow's live progress. | [Appendix A · A.10](#/en/app-a) |
+| **/workflows** | The slash command to watch a workflow's live progress. | [Appendix A · A.12](#/en/app-a) |
 
 ---
 
@@ -124,7 +124,7 @@
 | **tool_uses** | A usage field: the number of tool calls this run; 0 on a resume cache hit. | [Ch. 22](#/en/p4-22) |
 | **total_tokens / duration_ms** | Usage fields: total tokens / wall-clock milliseconds. Rule of thumb: token ≈ agent count × per-agent context (about 25k–30k). | [primitives run record](#/en/p2-08) |
 | **cache hit / 缓存命中** | On resume, an unchanged `agent()` call directly reuses the result (zero tokens, zero tools, about 8ms). Tested, re-running the same script + same args = a 100% hit, 0 tokens (Run `wf_9c94951d-58c` resume). | [Ch. 22](#/en/p4-22) |
-| **resume cache key / resume 缓存键** | The basis for whether a given `agent()` call hits the cache. This book **verified by testing** that "same script + same args → 100% hit"; per a **community third-party claim**, the key is composed of the agent's `schema/model/isolation/agentType`, with `label`/`phase` not part of it (changing them doesn't invalidate) — the latter is **not independently verified key-by-key**, taken as a "third-party claim." | [Ch. 22](#/en/p4-22) |
+| **resume cache key / resume 缓存键** | The basis for whether a given `agent()` call hits the cache. This book **verified by testing**: "same script + same args → 100% hit" (`wf_9c94951d-58c`); and R8 isolated **`label` not in the key, `prompt` in the key** (`wf_4ffde230-535`: changing label → 0-token full hit, changing prompt → 91,044 re-runs as 60,702 ≈ 2/3). Whether `schema/model/isolation/agentType` are in the key and whether `phase` is not is per a **community third-party claim**, **not independently verified key-by-key by this book.** | [Ch. 22](#/en/p4-22) |
 | **replayability / 可重放性** | The property "same script + same input → same execution path"; the prerequisite for resume, hence `Date.now()`/`Math.random()`/arg-less `new Date()` are forbidden. | [Ch. 22](#/en/p4-22) |
 | **determinism dual-layer ban / 确定性双层防护** | The two gates banning nondeterministic calls: ① a **literal** is rejected by a source static scan at **submit** time (the script doesn't run); ② an **aliased form** (`const D=Date;D.now()`) fools the scan and is then trapped and thrown at **runtime.** `try/catch` can intercept neither layer (Run `wf_59bf3654-183`). | [Ch. 22](#/en/p4-22) / [Appendix B · B.19](#/en/app-b) |
 | **adversarial verification / 对抗验证** | The pattern of using an independent agent to specifically "pick holes" to expose the first version's blind spots (e.g., Generate-Critique-Fix). | [Ch. 17](#/en/p4-17) |

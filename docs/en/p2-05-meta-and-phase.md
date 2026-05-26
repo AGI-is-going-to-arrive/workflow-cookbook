@@ -144,7 +144,7 @@ Per `_grounding.md` section B, checked against the official `sdk-tools.d.ts` and
 | `description` | **Yes** | string | One-line "what it does" | Permission confirmation dialog |
 | `whenToUse` | No | string | Use-case "when to use it" | Workflow list |
 | `phases` | No | `Array<{title, detail?, model?}>` | Phase declaration, driving progress-tree grouping | `/workflows` progress tree |
-| `model` (top-level) | No | string | **Semantics unverified**: the tool definition does not list top-level `meta.model` as a meta field. This book confirms only the two layers `phases[].model` and `opts.model` (see the §5.3.3 warning) | (to be verified) |
+| `model` (top-level) | No | (type unverified) | **Semantics unverified**: the tool definition does not list top-level `meta.model` as a meta field. This book confirms only the two layers `phases[].model` and `opts.model` (see the §5.3.3 warning) | (to be verified) |
 
 Let's take them one by one.
 
@@ -188,7 +188,7 @@ Per `_grounding.md`'s grounding facts:
 - **`meta.phases[].model`** — written inside the `phases` array (e.g., `{ title: 'Verify', model: 'haiku' }`). The official tool description's wording for it is **vague** ("add it when overriding a phase to a specific model"); and because `CLAUDE_CODE_SUBAGENT_MODEL` overrode every per-call model this session (see `_grounding.md` A2, Run ID `wf_9c94951d-58c`), we **could not independently isolate** whether it has any runtime effect.
 - **agent `opts.model`** — a per-**call** override; the official definition clearly states "**omitted, it inherits the main loop model.**" This is the **only** model knob with clear official semantics.
 
-When neither is written, the agent inherits the main loop model — **this book's tested session**'s main loop is Opus 4.7 (set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7`, see `_grounding.md` section A; a fact of the book's session, not a general Workflow guarantee).
+When neither is written, the agent inherits the main loop model — **this book's tested session**'s main loop is Opus 4.7 (set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`, see `_grounding.md` section A; a fact of the book's session, not a general Workflow guarantee).
 
 <div class="callout warn">
 

@@ -144,7 +144,7 @@ export const meta = {
 | `description` | **是** | string | 一行描述「做什么」 | 权限确认弹窗 |
 | `whenToUse` | 否 | string | 适用场景说明「何时用」 | 工作流列表 |
 | `phases` | 否 | `Array<{title, detail?, model?}>` | 阶段声明,驱动进度树分组 | `/workflows` 进度树 |
-| `model`(顶层) | 否 | string | **语义未核实**:工具定义未把顶层 `meta.model` 列为 meta 字段。本书只确认 `phases[].model` 与 `opts.model` 两层(见 5.3.3 警告) | (待核实) |
+| `model`(顶层) | 否 | （类型未确认） | **语义未核实**:工具定义未把顶层 `meta.model` 列为 meta 字段。本书只确认 `phases[].model` 与 `opts.model` 两层(见 5.3.3 警告) | (待核实) |
 
 下面逐一拆解。
 
@@ -188,7 +188,7 @@ export const meta = {
 - **`meta.phases[].model`** —— 写在 `phases` 数组里(如 `{ title: 'Verify', model: 'haiku' }`)。官方工具描述对它的措辞**含糊**(「某阶段用特定模型 override 时加上」);本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖一切 per-call model(见 `_grounding.md` A2,Run ID `wf_9c94951d-58c`)**未能独立隔离**它到底有没有运行时效果。
 - **agent `opts.model`** —— 按**单次调用**覆盖;官方明确「**省略则继承主循环模型**」。这是**唯一**有官方明确语义的模型旋钮。
 
-两者都不写时,agent 继承主循环模型——**本书实测会话**的主循环是 Opus 4.7(由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7` 指定,见 `_grounding.md` A 节;这是本书会话的事实,非 Workflow 通用保证)。
+两者都不写时,agent 继承主循环模型——**本书实测会话**的主循环是 Opus 4.7(由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 指定,见 `_grounding.md` A 节;这是本书会话的事实,非 Workflow 通用保证)。
 
 <div class="callout warn">
 

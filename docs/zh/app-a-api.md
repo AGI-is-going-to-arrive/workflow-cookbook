@@ -182,12 +182,12 @@ await agent(prompt, {
 
 | 选项 | 口径 | 说明 |
 |---|---|---|
-| `label` | 【官方】 | 覆盖 `/workflows` 里的显示标签；描述性 label 利于搜索与观察。（第三方称不参与续传缓存键，本书未独立核实精确组成。） |
-| `phase` | 【官方】 | 显式归组；与 `meta.phases.title` 精确匹配。**在 pipeline/parallel 内部务必用它**，避免对全局 `phase()` 的竞争。（第三方称不参与续传缓存键，本书未独立核实精确组成。） |
-| `schema` | 【官方】 | JSON Schema；校验在工具调用层，故模型会自动重试到合规。（第三方称参与续传缓存键，本书未独立核实精确组成。） |
-| `model` | 【官方】 | 覆盖该 agent 模型；**省略则继承主循环模型**（推荐，除非用户指定或任务足够简单可用 `'haiku'`）。注意会被 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖（见 A.4）。（第三方称参与续传缓存键，本书未独立核实精确组成。） |
-| `isolation: 'worktree'` | 【官方】 | 在全新 git worktree 运行；**昂贵**（约 200–500ms 启动 + 磁盘/agent），仅当并行 agent 改文件会冲突时用；无改动自动清理；**结果返回 worktree 路径与分支**。（第三方称参与续传缓存键，本书未独立核实精确组成。） |
-| `agentType` | 【官方】【实测有校验】 | 用自定义 subagent 类型而非默认；**与 Agent 工具同一注册表解析**；与 `schema` 可组合（自定义 agent 的系统提示会被追加 StructuredOutput 指令）。（第三方称参与续传缓存键，本书未独立核实精确组成。） |
+| `label` | 【官方】【实测】 | 覆盖 `/workflows` 里的显示标签；描述性 label 利于搜索与观察。**R8 实测确认 `label` 不入续传缓存键**：只改某 agent 的 label、其余不变 → 续传 0 token 全命中（`wf_4ffde230-535`，见 A.10）。 |
+| `phase` | 【官方】 | 显式归组；与 `meta.phases.title` 精确匹配。**在 pipeline/parallel 内部务必用它**，避免对全局 `phase()` 的竞争。（第三方称不参与续传缓存键，本书未独立核实。） |
+| `schema` | 【官方】 | JSON Schema；校验在工具调用层，故模型会自动重试到合规。（第三方称参与续传缓存键，本书未独立核实。） |
+| `model` | 【官方】 | 覆盖该 agent 模型；**省略则继承主循环模型**（推荐，除非用户指定或任务足够简单可用 `'haiku'`）。注意会被 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖（见 A.4）。（第三方称参与续传缓存键，本书未独立核实。） |
+| `isolation: 'worktree'` | 【官方】 | 在全新 git worktree 运行；**昂贵**（约 200–500ms 启动 + 磁盘/agent），仅当并行 agent 改文件会冲突时用；无改动自动清理；**结果返回 worktree 路径与分支**。（第三方称参与续传缓存键，本书未独立核实。） |
+| `agentType` | 【官方】【实测有校验】 | 用自定义 subagent 类型而非默认；**与 Agent 工具同一注册表解析**；与 `schema` 可组合（自定义 agent 的系统提示会被追加 StructuredOutput 指令）。（第三方称参与续传缓存键，本书未独立核实。） |
 
 ### `agentType` 有校验，`model` 没有：一个真实的不对称【实测】
 
@@ -323,7 +323,12 @@ For N independent samples, include the index in the agent label or prompt.
 
 **实测**（`wf_9c94951d-58c`）：首跑 5 个 agent = **133,691 token / 32,959ms**；带 `{ scriptPath, resumeFromRunId }` **原样重跑** → 同一 Run ID、5 个结果完全一致、**0 新 token / 3ms**。也就是说，未改动的续传是「100% 缓存命中」，几乎零成本。
 
-**缓存键由什么组成**：本书**唯一实测确认**的是「同脚本 + 同 args 重跑 = 100% 缓存命中 / 0 新 token」（`wf_9c94951d-58c`，见上）。至于缓存键的**精确字段组成**——「`schema` / `model` / `isolation` / `agentType` 入键、`label` / `phase` 不入键」——**（社区第三方资料声称，本书未独立核实）**：本书只测了「同脚本同 args = 100% 命中」，并未逐一隔离哪些字段入键。详见 [A.14](#a14-第三方未核实清单谨慎)。
+**缓存键由什么组成**：先有「同脚本 + 同 args 重跑 = 100% 缓存命中 / 0 新 token」（`wf_9c94951d-58c`，见上）。在此之上，**R8 受控实测**（基线 `wf_4ffde230-535`，3 个 agent / 91,044 token）单独隔离了两个字段：
+
+- **`label` 不入键【实测】**：只改某 agent 的 `label`、其余不变 → 续传 **0 token 全命中**。
+- **`prompt` 入键【实测】**：只改它的 `prompt`（label 还原）→ 91,044 重跑成 **60,702 token**（≈基线 2/3），改动点之前的 agent 仍命中、该 agent 及其下游重跑。这是 `label` 那次的正向对照，证明 resume 是**内容敏感**的、并非对任何改动都返回 0。
+
+至于**其余字段是否入键**——「`schema` / `model` / `isolation` / `agentType` 入键、`phase` 不入键」——**（社区第三方资料声称，本书未独立核实）**：本书尚未逐一隔离这几个字段。详见 [A.14](#a14-第三方未核实清单谨慎)。
 
 ---
 
@@ -384,7 +389,7 @@ const n = input.n ?? 1   // 现在可安全读字段
 | 预算耗尽时在途 agent 完成且结果保留、不再启新 agent | **未核实**。 |
 | schema 经 **AJV** 编译校验、subagent 不调工具时「最多再催两次」 | **未核实**。本书只确认「带 schema 必返回已验证对象、不匹配则重试」（官方+实测），**不**断言确切重试次数。 |
 | `opts.model` 的 `'inherit'` 字面量的**确切语义** | **未核实精确语义**。注：「`model` 无提交期校验」部分已实测升级（见本节顶部表）；对比 `agentType` 实测确认有校验（A.5）。 |
-| resume 缓存键 = `schema` / `model` / `isolation` / `agentType` 入键、`label` / `phase` 不入键的**精确组成** | **未核实精确组成**。本书实测确认的仅是「同脚本 + 同 args = 100% 缓存命中」（`wf_9c94951d-58c`，A.10），未逐一隔离哪些字段入键。 |
+| resume 缓存键里 `schema` / `model` / `isolation` / `agentType` 是否入键、`phase` 是否不入键 | **未核实**。本书实测确认的是「同脚本 + 同 args = 100% 命中」（`wf_9c94951d-58c`），以及 **R8 单独隔离的 `label`（不入键）/ `prompt`（入键）**（`wf_4ffde230-535`，已移出本清单，见 A.10）；这几个剩余字段尚未逐一隔离。 |
 
 ---
 

@@ -1,6 +1,6 @@
 # R8 Phase 0 — 真值锚定与实测证据
 
-> 2026-05-26。本轮（R8）开工前的地基核实，**全部为主窗口亲跑 Workflow 工具的实测**，非第三方说法。所有结论可回溯到 ① 实测会话环境变量 ② 探针 Run ID（`wf_72e98fa5-019`、`wf_28a5d455-300`、`wf_4ffde230-535` 及其两次 resume、被拒的 guard-scan 探针）。承 [`examples-r7.md`](examples-r7.md)。
+> 2026-05-26。本轮（R8）开工前的地基核实，**除 §6（zenn 文章核实，经子代理 grok-search 抓取，属第三方侦察）外，§1–§5、§7 均为主窗口亲跑 Workflow 工具/本机环境的实测**，非第三方说法。结论可回溯到 ① 实测会话环境变量 ② 探针 Run ID（`wf_72e98fa5-019`、`wf_28a5d455-300`、`wf_4ffde230-535` 及其两次 resume、被拒的 guard-scan 探针）。承 [`examples-r7.md`](examples-r7.md)。
 
 **准确定位本轮贡献**（对照 `_grounding.md` 后自我修正，避免夸大）：真正的 §5 **实测转正只有 1 条**——resume 缓存键的 `label`/`prompt` 边界（grounding line 38/56 此前明确标「未逐一验证各字段是否入键」）。其余多为**对已 grounding 事实在本会话（v2.1.150）的再确认**：budget(null/Infinity/序列化坑)、agentType+schema 组合、`model:'inherit'` 被接受（R4 line 34 已观测其能跑）、运行时内置 workflow 清单（R4 `wf_2b04881f-6a9` 已记）。另有 1 条**粒度锐化**：确定性守卫的静态扫描连字符串里的 token 都拒（R4 已记「字面量提交即拒」，本轮补「字符串内提及也被拒」）。
 
@@ -69,7 +69,7 @@ ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4-6[1m]
 ```
 
 逐项结论：
-- **`model:'inherit'` 被接受**（本会话再确认；R4 line 34 已观测 `model:'inherit'` 的 agent 正常运行）：`agent('...', { model: 'inherit' })` 正常运行并返回 `INHERIT_OK`，**不抛错**。即 `'inherit'` 是一个**有效取值**。**仍未解决**（§5 保留）：它的精确语义是否与「省略 `model`」完全一致，因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖一切 per-call model 而**无法隔离**——故只写「被接受、能跑」，不写「等同省略」。
+- **`model:'inherit'` 被接受**（本会话再确认；R4 line 34 已观测 `model:'inherit'` 的 agent 正常运行）：`agent('...', { model: 'inherit' })` 正常运行并返回 `INHERIT_OK`，**不抛错**。**但「不抛错」不能证明 `'inherit'` 是被特殊识别的有效取值**：`CLAUDE_CODE_SUBAGENT_MODEL` 覆盖一切 per-call model，连 bogus 串都不被拒、照跑 Opus（见 grounding line 45），故「能跑」只说明它**在当前覆盖环境下不被拒**；其精确语义是否等同「省略 `model`」**无法隔离**（§5 保留）。结论只写「被接受、能跑、语义未隔离」，不写「等同省略」或「有效取值」。
 - **`workflow()` 未知名 → 抛错**（错误处理实测），且错误信息**直接列出运行时的内置 workflow 注册表**：`bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`。这是比任何第三方/skill 描述都硬的**运行时自证**——内置具名 workflow 恰好这 5 个。
   - **注意区分两个注册表**：`agentType` 的注册表（R7 `wf_e8cb23ff-829` 列出的是 `claude/Explore/general-purpose/...` 等 **subagent 类型**）与 `workflow()` 的注册表（本次列出的是 **具名 workflow**）是两套东西，勿混。
 

@@ -320,7 +320,7 @@ const out = await pipeline(
 
 据 `_grounding.md`:`opts.model`「省略则继承主循环模型;简单任务可用 `'haiku'`」。这是工具定义里关于 `model` 唯一明确的语义——**省略时继承主循环**。
 
-不写 `model`,这个 agent 就用**主循环当前的模型**。本书实测环境主循环是 Opus 4.7,subagent 模型由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7` 指定(见 `_grounding.md` A 节)。前面所有真实运行(`hello` / `parallel` / `pipeline`)都**没有**显式传 `model`,因此它们的 subagent 跑在继承来的 Opus 模型上。
+不写 `model`,这个 agent 就用**主循环当前的模型**。本书实测环境主循环是 Opus 4.7,subagent 模型由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 指定(见 `_grounding.md` A 节)。前面所有真实运行(`hello` / `parallel` / `pipeline`)都**没有**显式传 `model`,因此它们的 subagent 跑在继承来的 Opus 模型上。
 
 <div class="callout warn">
 

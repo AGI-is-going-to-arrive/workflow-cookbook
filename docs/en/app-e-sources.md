@@ -110,7 +110,7 @@ The table above (#1–#10) is this book's first batch of real runs. The **R4 rou
 
 <div class="callout info">
 
-**How this R4 batch changes the source tiers**: it **promotes several entries** previously in "third-party claim" **to tested facts** (citable with Run IDs) — meta reserved keys rejected, `isolation:'remote'` disabled, `model` not validated at submit, the 30000ms sync timeout, `args` passthrough, injected globals. Still in "third-party, unverified": the error class names `WorkflowAgentCapError`/`WorkflowBudgetExceededError`, `stallMs` default/retry counts, the budget-exhausted in-flight-agent behavior, the exact composition of the resume cache key, the exact schema-retry count (see the relevant entries in [Appendix B](#/en/app-b) and [Appendix D · D.6/D.8](#/en/app-d)).
+**How this R4 batch changes the source tiers**: it **promotes several entries** previously in "third-party claim" **to tested facts** (citable with Run IDs) — meta reserved keys rejected, `isolation:'remote'` disabled, `model` not validated at submit, the 30000ms sync timeout, `args` passthrough, injected globals. Still in "third-party, unverified": the error class names `WorkflowAgentCapError`/`WorkflowBudgetExceededError`, `stallMs` default/retry counts, the budget-exhausted in-flight-agent behavior, whether the resume cache key's remaining fields (`schema`/`model`/`isolation`/`agentType`/`phase`) are in the key (`label`/`prompt` were tested in R8, see A.10), the exact schema-retry count (see the relevant entries in [Appendix B](#/en/app-b) and [Appendix D · D.6/D.8](#/en/app-d)).
 
 </div>
 

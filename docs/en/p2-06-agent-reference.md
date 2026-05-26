@@ -320,7 +320,7 @@ The `model` option controls which model **this one agent** uses. It is the **onl
 
 Per `_grounding.md`: `opts.model` "omitted, inherits the main loop model; simple tasks can use `'haiku'`." This is the only clearly-defined semantics for `model` in the tool definition — **omitted, it inherits the main loop.**
 
-Write no `model`, and this agent uses the **main loop's current model.** This book's test-environment main loop is Opus 4.7, with the subagent model set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7` (see `_grounding.md` section A). All the earlier real runs (`hello` / `parallel` / `pipeline`) passed **no** explicit `model`, so their subagents ran on the inherited Opus model.
+Write no `model`, and this agent uses the **main loop's current model.** This book's test-environment main loop is Opus 4.7, with the subagent model set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` (see `_grounding.md` section A). All the earlier real runs (`hello` / `parallel` / `pipeline`) passed **no** explicit `model`, so their subagents ran on the inherited Opus model.
 
 <div class="callout warn">
 

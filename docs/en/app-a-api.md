@@ -182,12 +182,12 @@ await agent(prompt, {
 
 | Option | Tier | Description |
 |---|---|---|
-| `label` | [Official] | Overrides the display label in `/workflows`; a descriptive label aids search and observation. (Third-party says it is not part of the resume cache key; the exact composition is not independently verified by this book.) |
-| `phase` | [Official] | Explicit grouping; matches `meta.phases.title` exactly. **Always use it inside pipeline/parallel** to avoid racing the global `phase()`. (Third-party says it is not part of the cache key; the exact composition is not independently verified by this book.) |
-| `schema` | [Official] | JSON Schema; validation is at the tool-call layer, so the model auto-retries until conforming. (Third-party says it is part of the resume cache key; the exact composition is not independently verified by this book.) |
-| `model` | [Official] | Overrides this agent's model; **omitted, it inherits the main loop model** (recommended, unless the user specifies one or the task is simple enough for `'haiku'`). Note it is overridden by `CLAUDE_CODE_SUBAGENT_MODEL` (see A.4). (Third-party says it is part of the resume cache key; the exact composition is not independently verified by this book.) |
-| `isolation: 'worktree'` | [Official] | Runs in a fresh git worktree; **expensive** (~200–500ms startup + disk/agent), use only when parallel agents editing files would collide; auto-cleaned if no changes; **the result returns the path and branch**. (Third-party says it is part of the resume cache key; the exact composition is not independently verified by this book.) |
-| `agentType` | [Official] [Verified validated] | Use a custom subagent type instead of the default; **resolved from the same registry as the Agent tool**; combinable with `schema` (the custom agent's system prompt gets the StructuredOutput instruction appended). (Third-party says it is part of the resume cache key; the exact composition is not independently verified by this book.) |
+| `label` | [Official] [Verified] | Overrides the display label in `/workflows`; a descriptive label aids search and observation. **R8 verified that `label` is not in the resume cache key**: changing one agent's label with everything else unchanged → resume is a 0-token full hit (`wf_4ffde230-535`, see A.10). |
+| `phase` | [Official] | Explicit grouping; matches `meta.phases.title` exactly. **Always use it inside pipeline/parallel** to avoid racing the global `phase()`. (Third-party says it is not part of the cache key; not independently verified by this book.) |
+| `schema` | [Official] | JSON Schema; validation is at the tool-call layer, so the model auto-retries until conforming. (Third-party says it is part of the resume cache key; not independently verified by this book.) |
+| `model` | [Official] | Overrides this agent's model; **omitted, it inherits the main loop model** (recommended, unless the user specifies one or the task is simple enough for `'haiku'`). Note it is overridden by `CLAUDE_CODE_SUBAGENT_MODEL` (see A.4). (Third-party says it is part of the resume cache key; not independently verified by this book.) |
+| `isolation: 'worktree'` | [Official] | Runs in a fresh git worktree; **expensive** (~200–500ms startup + disk/agent), use only when parallel agents editing files would collide; auto-cleaned if no changes; **the result returns the path and branch**. (Third-party says it is part of the resume cache key; not independently verified by this book.) |
+| `agentType` | [Official] [Verified validated] | Use a custom subagent type instead of the default; **resolved from the same registry as the Agent tool**; combinable with `schema` (the custom agent's system prompt gets the StructuredOutput instruction appended). (Third-party says it is part of the resume cache key; not independently verified by this book.) |
 
 ### `agentType` Is Validated, `model` Is Not: a Real Asymmetry [Verified]
 
@@ -323,7 +323,12 @@ The third-party repo also ships a pre-submit lint (`validate-workflow.mjs`), who
 
 **Verified** (`wf_9c94951d-58c`): the first run of 5 agents = **133,691 tokens / 32,959ms**; re-run **unchanged** with `{ scriptPath, resumeFromRunId }` → same Run ID, identical 5 results, **0 new tokens / 3ms**. That is, an unchanged resume is a "100% cache hit" at near-zero cost.
 
-**What the cache key is made of**: the **only thing this book verified** is "re-running with the same script + same args = a 100% cache hit / 0 new tokens" (`wf_9c94951d-58c`, above). As for the cache key's **exact field composition** — "`schema` / `model` / `isolation` / `agentType` are in the key, `label` / `phase` are not" — **(claimed by community third-party material, not independently verified by this book)**: this book only tested "same script + same args = 100% hit," and did not isolate which fields are in the key one by one. See [A.14](#a14-third-party-unverified-list-caution).
+**What the cache key is made of**: first, "re-running with the same script + same args = a 100% cache hit / 0 new tokens" (`wf_9c94951d-58c`, above). On top of that, an **R8 controlled test** (baseline `wf_4ffde230-535`, 3 agents / 91,044 tokens) isolated two fields individually:
+
+- **`label` is not in the key [Verified]**: changing one agent's `label` with everything else unchanged → resume is a **0-token full hit.**
+- **`prompt` is in the key [Verified]**: changing only its `prompt` (label restored) → 91,044 re-runs as **60,702 tokens** (≈2/3 of baseline), with agents before the change point still hit and that agent plus its downstream re-run. This is the positive control to the `label` case, proving resume is **content-sensitive** and does not return 0 for any change.
+
+As for **whether the remaining fields are in the key** — "`schema` / `model` / `isolation` / `agentType` in the key, `phase` not" — **(claimed by community third-party material, not independently verified by this book)**: this book has not yet isolated these fields one by one. See [A.14](#a14-third-party-unverified-list-caution).
 
 ---
 
@@ -384,7 +389,7 @@ The following claims come from the third-party repo `claude-code-workflow-creato
 | On budget exhaustion, in-flight agents finish and results are kept, no new agents started | **Unverified.** |
 | schema compiled/validated via **AJV**, "up to two more nudges" when the subagent doesn't call the tool | **Unverified.** This book confirms only "a schema always returns a validated object, retried if it doesn't match" (official + verified); it does **not** assert an exact retry count. |
 | `opts.model`'s `'inherit'` literal **exact semantics** | **Exact semantics unverified.** Note: the "`model` has no submit-time validation" part has been verified-upgraded (see the table at the top of this section); contrast `agentType`, verified validated (A.5). |
-| resume cache key = the **exact composition** of `schema` / `model` / `isolation` / `agentType` in the key, `label` / `phase` not in it | **Exact composition unverified.** What this book verified is only "same script + same args = a 100% cache hit" (`wf_9c94951d-58c`, A.10); it did not isolate which fields are in the key one by one. |
+| whether `schema` / `model` / `isolation` / `agentType` are in the resume cache key, and whether `phase` is not | **Unverified.** What this book verified is "same script + same args = 100% hit" (`wf_9c94951d-58c`), plus **R8's individually-isolated `label` (not in key) / `prompt` (in key)** (`wf_4ffde230-535`, moved out of this list, see A.10); these remaining fields are not yet isolated one by one. |
 
 ---
 

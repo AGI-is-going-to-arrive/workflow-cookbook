@@ -363,7 +363,7 @@ const maxRounds = args?.maxRounds ?? 5
 - To watch live progress, use the slash command `/workflows`.
 - To get the result, **wait for the notification** — don't look for result fields in the receipt.
 
-> Real form: all 10 completion records / 9 unique Run IDs had receipts giving `taskId`+`runId` first, with all usage numbers coming from the completion notification (see [Appendix E](#/en/app-e)).
+> Real form: the first batch of all 10 completion records / 9 unique Run IDs had receipts giving `taskId`+`runId` first, with all usage numbers coming from the completion notification (see [Appendix E](#/en/app-e)).
 
 ---
 

@@ -11,11 +11,11 @@
 | 术语（中 / 英） | 定义 | 定位 |
 |---|---|---|
 | **Workflow / 工作流** | Claude Code 的多 agent 编排原语：用一段 JS 脚本确定性地派发、串联多个 subagent。特性昵称 **ultrawork**。 | [第 1 章](#/zh/p1-01) |
-| **ultrawork** | Workflow 特性的昵称/触发关键词之一；消息中含此词可触发工作流。 | [附录 A · A.10](#/zh/app-a) |
+| **ultrawork** | Workflow 特性的昵称/触发关键词之一；消息中含此词可触发工作流。 | [附录 A · A.12](#/zh/app-a) |
 | **确定性编排 / deterministic orchestration** | 由代码（而非模型自由发挥）决定「派几个 agent、按什么顺序、如何汇合」的编排方式，区别于纯提示词驱动。 | [第 2 章](#/zh/p1-02) |
 | **subagent / 子智能体** | 由 `agent()` 派发的独立执行单元，拥有自己的上下文与真实工具权限；其「最终文本即返回值」。 | [第 1 章](#/zh/p1-01) |
 | **主循环 / main loop** | 你正在对话的这个 Claude 会话；它发起 Workflow 工具调用，并与所有工作流**共享 token 预算池**。 | [第 9 章](#/zh/p2-09) |
-| **CLAUDE_CODE_WORKFLOWS** | 门控环境变量；置 `1` 才启用 Workflow 特性。 | [附录 A · A.10](#/zh/app-a) |
+| **CLAUDE_CODE_WORKFLOWS** | 门控环境变量；置 `1` 才启用 Workflow 特性。 | [附录 A · A.12](#/zh/app-a) |
 | **CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS** | 关联的实验性标志（Agent Teams）；与 Workflow 同属实验能力族。 | [接地事实表](#/zh/p1-01) |
 | **CLAUDE_CODE_SUBAGENT_MODEL** | 用户/CI 级环境变量；一旦设置，**覆盖一切 per-call `model`**（脚本里的 `opts.model`/`phases[].model` 被静默忽略）。实测本会话设为 `claude-opus-4-7[1m]`，5 个带不同 model 选项的 agent 全跑 Opus（Run `wf_9c94951d-58c`）。 | [附录 E · R4 模型解析记录](#/zh/app-e) |
 | **ANTHROPIC_DEFAULT_HAIKU_MODEL / SONNET / OPUS** | 用户/CI 级环境变量；把对应**模型别名**整体重映射到指定模型。与 `CLAUDE_CODE_SUBAGENT_MODEL` 叠加构成「两层模型覆盖」——本会话两层都指向 Opus，故脚本 `model: 'haiku'` 实跑 Opus（Run `wf_e8cb23ff-829`）。 | [附录 A · A.4](#/zh/app-a) |
@@ -53,7 +53,7 @@
 | **phases（meta 字段）** | `{ title, detail?, model? }[]`，声明式列出工作流的阶段。 | [附录 A · A.4](#/zh/app-a) |
 | **whenToUse** | `meta` 可选字段，描述适用场景，显示在工作流列表。 | [附录 A · A.4](#/zh/app-a) |
 | **log / 进度叙述** | `log(message)` 向用户输出一行进度叙述（进度树上方）。 | [第 9 章](#/zh/p2-09) |
-| **/workflows** | 查看工作流实时进度的斜杠命令。 | [附录 A · A.10](#/zh/app-a) |
+| **/workflows** | 查看工作流实时进度的斜杠命令。 | [附录 A · A.12](#/zh/app-a) |
 
 ---
 
@@ -124,7 +124,7 @@
 | **tool_uses** | 用量字段：本次运行的工具调用次数；续传缓存命中时为 0。 | [第 22 章](#/zh/p4-22) |
 | **total_tokens / duration_ms** | 用量字段：总 token / 墙钟毫秒。经验：token ≈ agent 数 × 每 agent 上下文（约 2.5–3 万）。 | [primitives 运行记录](#/zh/p2-08) |
 | **缓存命中 / cache hit** | 续传时未改动的 `agent()` 调用直接复用结果（零 token、零工具、约 8ms）。实测同脚本+同 args 重跑 = 100% 命中、0 token（Run `wf_9c94951d-58c` 续传）。 | [第 22 章](#/zh/p4-22) |
-| **resume 缓存键 / resume cache key** | 判定某 `agent()` 调用能否命中缓存的依据。本书**实测确认**「同脚本+同 args → 100% 命中」；据**社区第三方资料声称**键由 agent 的 `schema/model/isolation/agentType` 构成、`label`/`phase` 不入键（改它们不失效）——后者**未逐键独立核实**，按「第三方声称」采信。 | [第 22 章](#/zh/p4-22) |
+| **resume 缓存键 / resume cache key** | 判定某 `agent()` 调用能否命中缓存的依据。本书**实测确认**：「同脚本+同 args → 100% 命中」（`wf_9c94951d-58c`）；且 R8 单独隔离出 **`label` 不入键、`prompt` 入键**（`wf_4ffde230-535`，改 label→0 token 全命中、改 prompt→91,044 重跑成 60,702≈2/3）。`schema/model/isolation/agentType` 是否入键、`phase` 是否不入键据**社区第三方资料声称**、**本书未逐键独立核实**。 | [第 22 章](#/zh/p4-22) |
 | **可重放性 / replayability** | 「同脚本+同输入→同执行路径」的性质；续传的前提，故禁用 `Date.now()`/`Math.random()`/无参 `new Date()`。 | [第 22 章](#/zh/p4-22) |
 | **确定性双层防护 / determinism dual-layer ban** | 禁用不确定调用的两道闸：①**字面量**在**提交时**被源码静态扫描拒绝（脚本不运行）；②**别名形式**（`const D=Date;D.now()`）骗过扫描后在**运行时**被陷阱抛错。`try/catch` 拦不住任何一层（Run `wf_59bf3654-183`）。 | [第 22 章](#/zh/p4-22) / [附录 B · B.19](#/zh/app-b) |
 | **对抗验证 / adversarial verification** | 用独立 agent 专门「挑刺」来暴露第一版盲区的模式（如 Generate-Critique-Fix）。 | [第 17 章](#/zh/p4-17) |

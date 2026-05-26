@@ -363,7 +363,7 @@ const maxRounds = args?.maxRounds ?? 5
 - 想看实时进度用斜杠命令 `/workflows`。
 - 想拿结果，**等通知**——不要在回执里找结果字段。
 
-> 真实形态：全部 10 次完成记录 / 9 个唯一 Run ID 的回执都先给 `taskId`+`runId`，用量数字全部来自完成通知（见 [附录 E](#/zh/app-e)）。
+> 真实形态：第一批全部 10 次完成记录 / 9 个唯一 Run ID 的回执都先给 `taskId`+`runId`，用量数字全部来自完成通知（见 [附录 E](#/zh/app-e)）。
 
 ---
 

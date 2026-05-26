@@ -110,7 +110,7 @@
 
 <div class="callout info">
 
-**这组 R4 运行如何改变信源分级**：把若干原属「第三方声称」的条目**升级为实测事实**（带 Run ID 可引用）——meta 保留键被拒、`isolation:'remote'` 禁用、`model` 无提交校验、30000ms 同步超时、`args` 透传、注入全局。仍属「第三方声称、未核实」的：错误类名 `WorkflowAgentCapError`/`WorkflowBudgetExceededError`、`stallMs` 默认/重试次数、预算耗尽时在途 agent 行为、resume 缓存键的确切构成、schema 重试确切次数（详见 [附录 B](#/zh/app-b) 相关条目与 [附录 D · D.6/D.8](#/zh/app-d)）。
+**这组 R4 运行如何改变信源分级**：把若干原属「第三方声称」的条目**升级为实测事实**（带 Run ID 可引用）——meta 保留键被拒、`isolation:'remote'` 禁用、`model` 无提交校验、30000ms 同步超时、`args` 透传、注入全局。仍属「第三方声称、未核实」的：错误类名 `WorkflowAgentCapError`/`WorkflowBudgetExceededError`、`stallMs` 默认/重试次数、预算耗尽时在途 agent 行为、resume 缓存键里其余字段（`schema`/`model`/`isolation`/`agentType`/`phase`）是否入键（`label`/`prompt` 已由 R8 实测，见 A.10）、schema 重试确切次数（详见 [附录 B](#/zh/app-b) 相关条目与 [附录 D · D.6/D.8](#/zh/app-d)）。
 
 </div>
 
