@@ -95,7 +95,7 @@ img{max-width:100%}
 .menu-btn{display:none}
 
 /* ════════ Article typography ════════ */
-.main h1,.main h2,.main h3,.main h4{font-family:var(--f-display);color:var(--ink);line-height:1.18;letter-spacing:-.01em}
+.main h1,.main h2,.main h3,.main h4{font-family:var(--f-display);color:var(--ink);line-height:1.18;letter-spacing:-.01em;overflow-wrap:break-word}
 .main h1{font-size:2.85rem;font-weight:900;margin:.2em 0 .35em;letter-spacing:-.02em}
 .main h2{font-size:1.92rem;font-weight:700;margin:2.1em 0 .6em;padding-bottom:.28em;border-bottom:1px solid var(--line)}
 .main h3{font-size:1.4rem;font-weight:700;margin:1.7em 0 .5em}
@@ -141,7 +141,7 @@ html[lang="zh-CN"] .main blockquote{font-style:normal}
 .code-copy.fail{color:#c0392b;border-color:#c0392b}
 .code-copy svg{width:12px;height:12px}
 .code-card pre{margin:0;padding:1rem 1.1rem;overflow-x:auto;background:transparent}
-.code-card pre:focus-visible{outline-offset:-2px}
+.code-card pre:focus-visible{outline-offset:-2px;border-radius:10px}
 .code-card pre::-webkit-scrollbar{height:9px}
 .code-card pre::-webkit-scrollbar-thumb{background:#dcd5c4;border-radius:5px}
 .code-card code{font-family:var(--f-mono);font-size:.83rem;line-height:1.62;color:var(--code-ink);tab-size:2;-moz-tab-size:2;white-space:pre}
@@ -406,7 +406,7 @@ function bindEvents(){
   });
   window.addEventListener('hashchange', route);
   window.addEventListener('scroll', ()=>{ if(!ticking){ ticking=true; requestAnimationFrame(onScroll); } }, {passive:true});
-  window.addEventListener('resize', ()=>{ if(!ticking){ ticking=true; requestAnimationFrame(onScroll); } if(!fadeTick){ fadeTick=true; requestAnimationFrame(()=>{ fadeTick=false; refreshFades(); }); } }, {passive:true});
+  window.addEventListener('resize', ()=>{ if(!ticking){ ticking=true; requestAnimationFrame(onScroll); } if(!fadeTick){ fadeTick=true; requestAnimationFrame(()=>{ fadeTick=false; refreshFades(); gateTableRegions(); }); } }, {passive:true});
 }
 
 function toggleNav(force){
@@ -555,9 +555,10 @@ function enhance(){
   // wrap wide tables so they scroll inside the column instead of breaking the page
   $$('table', root).forEach(tb=>{
     if(tb.parentElement && tb.parentElement.classList.contains('table-wrap')) return;
-    const w=document.createElement('div'); w.className='table-wrap'; w.setAttribute('role','region'); w.setAttribute('tabindex','0'); w.setAttribute('aria-label', S.lang==='zh'?'表格（可横向滚动）':'Table (scroll horizontally)');
+    const w=document.createElement('div'); w.className='table-wrap';
     tb.parentNode.insertBefore(w, tb); w.appendChild(tb);
   });
+  requestAnimationFrame(gateTableRegions);
   // mermaid (lazy-loaded only when present)
   const mblocks = $$('pre code.language-mermaid', root);
   if(mblocks.length){
@@ -612,6 +613,9 @@ function enhance(){
 
 function refreshFades(){ $$('#content .code-card pre').forEach(pre=>{ const card=pre.closest('.code-card'); if(card) card.classList.toggle('is-scrollable', pre.scrollWidth-pre.clientWidth-pre.scrollLeft>2); }); }
 
+/* a wrapped table is a real scroll region (keyboard tab-stop + "scroll horizontally" label) only when it actually overflows; on a non-overflowing table those ARIA/tabindex attrs are a false affordance for assistive tech */
+function gateTableRegions(){ $$('#content .table-wrap').forEach(w=>{ if(w.scrollWidth-w.clientWidth>2){ w.setAttribute('role','region'); w.setAttribute('tabindex','0'); w.setAttribute('aria-label', S.lang==='zh'?'表格（可横向滚动）':'Table (scroll horizontally)'); } else { w.removeAttribute('role'); w.removeAttribute('tabindex'); w.removeAttribute('aria-label'); } }); }
+
 function doCopy(text, btn){
   const flash=(cls,key)=>{ clearTimeout(btn._copyTimer); btn.classList.remove('done','fail'); btn.classList.add(cls); const ic=btn.querySelector('svg'); if(!btn._copyIcon) btn._copyIcon=ic.innerHTML;
     ic.innerHTML = cls==='done' ? '<polyline points="20 6 9 17 4 12"/>' : '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
@@ -643,7 +647,7 @@ function renderToc(){
 function onScroll(){
   ticking=false;
   const doc=document.documentElement;
-  const sc=doc.scrollTop||document.body.scrollTop;
+  const sc=window.scrollY||doc.scrollTop;
   const h=doc.scrollHeight-doc.clientHeight;
   $('#progress').style.width = (h>0?(sc/h*100):0)+'%';
   if(!tocLinks.length) return;
