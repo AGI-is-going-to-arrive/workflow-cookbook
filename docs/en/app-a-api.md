@@ -186,7 +186,7 @@ await agent(prompt, {
 | `phase` | [Official] | Explicit grouping; matches `meta.phases.title` exactly. **Always use it inside pipeline/parallel** to avoid racing the global `phase()`. (Third-party says it is not part of the cache key; not independently verified by this book.) |
 | `schema` | [Official] | JSON Schema; validation is at the tool-call layer, so the model auto-retries until conforming. (Third-party says it is part of the resume cache key; not independently verified by this book.) |
 | `model` | [Official] | Overrides this agent's model; **omitted, it inherits the main loop model** (recommended, unless the user specifies one or the task is simple enough for `'haiku'`). Note it is overridden by `CLAUDE_CODE_SUBAGENT_MODEL` (see A.4). (Third-party says it is part of the resume cache key; not independently verified by this book.) |
-| `isolation: 'worktree'` | [Official] | Runs in a fresh git worktree; **expensive** (~200–500ms startup + disk/agent), use only when parallel agents editing files would collide; auto-cleaned if no changes; **the result returns the path and branch**. (Third-party says it is part of the resume cache key; not independently verified by this book.) |
+| `isolation: 'worktree'` | [Official] [Verified] | Runs in a fresh git worktree; **expensive** (~200–500ms startup + disk/agent), use only when parallel agents editing files would collide; auto-cleaned if no changes. **Note**: "returns the path and branch" is how the Agent-tool definition describes the **tool-result envelope**, **not** what `agent()` returns to your script — R9 verified (`wf_17307da4-707`) that an `agent({isolation:'worktree'})` which creates a file returns the agent's normal output to the script (a `string` when there's no schema), not a `{path, branch}` object; the worktree was observed at `.claude/worktrees/wf_<runId>-N` on branch `worktree-wf_<runId>-N`. (Third-party says it is part of the resume cache key; not independently verified by this book.) |
 | `agentType` | [Official] [Verified validated] | Use a custom subagent type instead of the default; **resolved from the same registry as the Agent tool**; combinable with `schema` (the custom agent's system prompt gets the StructuredOutput instruction appended). (Third-party says it is part of the resume cache key; not independently verified by this book.) |
 
 ### `agentType` Is Validated, `model` Is Not: a Real Asymmetry [Verified]
@@ -224,7 +224,7 @@ const out = await pipeline(items,
 )
 ```
 
-This book's run (`wf_bf086b98-6ec`, 3 items × 2 stages) nailed down "each item flows through each stage independently" via `agent_count=6`; the stage signature `(prev, orig, i)` matches the table above.
+This book's run (`wf_bf086b98-6ec`, 3 items × 2 stages) nailed down "each item flows through each stage independently" via `agent_count=6`; the stage signature `(prev, orig, i)` matches the table above. **The "first stage: `prevResult === item`" point was pinned down separately by an R9 0-agent probe** (`wf_63b7a365-fdc`: both items returned `prevResult === originalItem` as `true`, 0 tokens / 6ms).
 
 ## A.7 `parallel(thunks) → Promise<any[]>` [Official]
 

@@ -33,7 +33,7 @@ return verified
 
 <div class="callout info">
 
-**官方语义（据 `_grounding.md` B 节）**：`workflow(nameOrRef, args?): Promise<any>` —— 内联跑另一个工作流（具名，或 `{scriptPath}` 引用）。它**共享并发上限 / agent 计数 / 中止信号 / token 预算**。而且——**嵌套仅一层**：子工作流里再调 `workflow()` 会抛错。这两条性质是本章的核心，下面分别展开。
+**官方语义（据 `_grounding.md` B 节）**：`workflow(nameOrRef, args?): Promise<any>` —— 内联跑另一个工作流（具名，或 `{scriptPath}` 引用）。它**共享并发上限 / agent 计数 / 中止信号 / token 预算**。而且——**嵌套仅一层**：子工作流里再调 `workflow()` 会抛错。（顺带一提可观测性：被内联调用的子工作流，在 `/workflows` 里会显示成一个 `▸ name` 分组，`name` 取子工作流的 `meta.name`，父子结构一眼可见。）这两条性质是本章的核心，下面分别展开。
 
 </div>
 

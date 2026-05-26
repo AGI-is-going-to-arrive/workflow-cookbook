@@ -172,6 +172,7 @@
 
 > **R7 Phase 0 验证探针** `wf_e8cb23ff-829`（4 agent / 93,026 token / 15,032ms，记于 `examples-r7.md`）：再确认 agentType 校验、`budget.total=null`/`remaining=Infinity`，并实证 `ANTHROPIC_DEFAULT_*_MODEL` 两层覆盖；属**验证用**运行，不并入头条 curated 计数（与 R3 复验组、R6 Phase E 复验同处理）。
 > **R8 Phase 0 验证探针**（记于 `examples-r8.md`）：`wf_72e98fa5-019`（budget/Infinity 序列化/agentType+schema 再确认）、`wf_28a5d455-300`（`model:'inherit'` 被接受 + `workflow()` 未知名列出内置清单 `bughunt/bughunt-lite/deep-research/plan-hunter/review-branch`）、**`wf_4ffde230-535` + 两次受控 resume**（**净新结论**：`label` 不入缓存键 / `prompt` 入键，见 A2）。均属**验证用**运行，不并入头条 curated 计数（curated 维持 23）。
+> **R9 Phase 0 验证探针**（记于 `examples-r9.md`）：`wf_63b7a365-fdc`（0-agent：pipeline **首阶段 `prevResult===originalItem`=true**、`budget.total=null`/`remaining()=Infinity`、pipeline 同步 throw→该 item `null`、parallel async throw→该位 `null`，全 0 token / 6ms）、`wf_e188356f-b10`（0-agent：parallel **同步** `throw` → workflow `status=failed`，再确认「同步 throw 崩库」当前 build v2.1.150 仍成立，0 token / 5ms）、`wf_17307da4-707`（1 agent / 31,679 token：`agent({isolation:'worktree'})` 建文件后，**脚本拿到的返回值是 agent 的常规文本 `string`（"created R9_WORKTREE_PROBE.txt"），不是 `{path,branch}` 对象**——故「返回 path/branch」是 Agent 工具信封层说法、不经脚本 `agent()` 暴露；实测 worktree 落 `.claude/worktrees/wf_<runId>-N`、分支 `worktree-wf_<runId>-N`、初始 locked，主工作树零泄漏）。均属**验证用**运行，不并入头条 curated 计数（curated 维持 23）。
 
 ## D. 四大社区系统精华（来自对各仓库源码的真实阅读，第五部用）
 

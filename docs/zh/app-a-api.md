@@ -186,7 +186,7 @@ await agent(prompt, {
 | `phase` | 【官方】 | 显式归组；与 `meta.phases.title` 精确匹配。**在 pipeline/parallel 内部务必用它**，避免对全局 `phase()` 的竞争。（第三方称不参与续传缓存键，本书未独立核实。） |
 | `schema` | 【官方】 | JSON Schema；校验在工具调用层，故模型会自动重试到合规。（第三方称参与续传缓存键，本书未独立核实。） |
 | `model` | 【官方】 | 覆盖该 agent 模型；**省略则继承主循环模型**（推荐，除非用户指定或任务足够简单可用 `'haiku'`）。注意会被 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖（见 A.4）。（第三方称参与续传缓存键，本书未独立核实。） |
-| `isolation: 'worktree'` | 【官方】 | 在全新 git worktree 运行；**昂贵**（约 200–500ms 启动 + 磁盘/agent），仅当并行 agent 改文件会冲突时用；无改动自动清理；**结果返回 worktree 路径与分支**。（第三方称参与续传缓存键，本书未独立核实。） |
+| `isolation: 'worktree'` | 【官方】【实测】 | 在全新 git worktree 运行；**昂贵**（约 200–500ms 启动 + 磁盘/agent），仅当并行 agent 改文件会冲突时用；无改动自动清理。**注意**：「返回 worktree 路径与分支」是 Agent 工具定义在**工具结果信封层**的说法，**不是脚本里 `agent()` 的返回值**——R9 实测（`wf_17307da4-707`）：一个在 worktree 里建文件的 `agent({isolation:'worktree'})`，脚本拿到的是 agent 的常规输出（无 schema 即 `string`），不是 `{path,branch}` 对象；实测 worktree 落在 `.claude/worktrees/wf_<runId>-N`、分支名 `worktree-wf_<runId>-N`。（第三方称参与续传缓存键，本书未独立核实。） |
 | `agentType` | 【官方】【实测有校验】 | 用自定义 subagent 类型而非默认；**与 Agent 工具同一注册表解析**；与 `schema` 可组合（自定义 agent 的系统提示会被追加 StructuredOutput 指令）。（第三方称参与续传缓存键，本书未独立核实。） |
 
 ### `agentType` 有校验，`model` 没有：一个真实的不对称【实测】
@@ -224,7 +224,7 @@ const out = await pipeline(items,
 )
 ```
 
-本书实测（`wf_bf086b98-6ec`，3 项 × 2 阶段）的 `agent_count=6` 就坐实了「每项各走各的、把每个阶段都过一遍」；阶段签名 `(prev, orig, i)` 也跟上表对得上。
+本书实测（`wf_bf086b98-6ec`，3 项 × 2 阶段）的 `agent_count=6` 就坐实了「每项各走各的、把每个阶段都过一遍」；阶段签名 `(prev, orig, i)` 也跟上表对得上。**「第一阶段 `prevResult === item`」这点，R9 又用一个 0-agent 探针单独钉死**（`wf_63b7a365-fdc`：两个 item 的 `prevResult === originalItem` 都返回 `true`，0 token / 6ms）。
 
 ## A.7 `parallel(thunks) → Promise<any[]>`【官方】
 

@@ -33,7 +33,7 @@ The line `workflow('adversarial-verify', {...})` runs another complete workflow 
 
 <div class="callout info">
 
-**Official semantics (per `_grounding.md` section B)**: `workflow(nameOrRef, args?): Promise<any>` — inline-run another workflow (named, or a `{scriptPath}` reference). It **shares the concurrency limit / agent count / abort signal / token budget.** And — **nesting is one level only**: calling `workflow()` again inside a sub-workflow throws. These two properties are the heart of this chapter, expanded below.
+**Official semantics (per `_grounding.md` section B)**: `workflow(nameOrRef, args?): Promise<any>` — inline-run another workflow (named, or a `{scriptPath}` reference). It **shares the concurrency limit / agent count / abort signal / token budget.** And — **nesting is one level only**: calling `workflow()` again inside a sub-workflow throws. (An observability note in passing: an inline-called sub-workflow shows up in `/workflows` as a `▸ name` group, where `name` is the sub-workflow's `meta.name`, so the parent-child structure is visible at a glance.) These two properties are the heart of this chapter, expanded below.
 
 </div>
 
