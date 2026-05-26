@@ -48,7 +48,7 @@ The following environment facts were **verified by testing** in real Claude Code
 | Claude Code version | **v2.1.150** | Taken from the distribution's `package.json` |
 | Gating environment variable | `CLAUDE_CODE_WORKFLOWS=1` | Tested session environment variable present |
 | Related experimental flag | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | Tested environment variable |
-| subagent model | `claude-opus-4-7` (set by `CLAUDE_CODE_SUBAGENT_MODEL`) | Tested environment variable |
+| subagent model | `claude-opus-4-7[1m]` (set by `CLAUDE_CODE_SUBAGENT_MODEL`) | Tested environment variable |
 | Run month | 2026-05 | The transcripts' recording time |
 | Return nature | Always async: the receipt arrives first (`taskId`/`runId`), the result via `<task-notification>` | Type definitions + testing |
 

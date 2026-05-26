@@ -94,7 +94,7 @@ const results = await pipeline(
 > | Claude Code 版本 | **v2.1.150**（原生二进制） |
 > | 功能标志 | `CLAUDE_CODE_WORKFLOWS=1`（已确认存在于会话环境） |
 > | 主模型 | Opus 4.7（1M 上下文） |
-> | subagent 模型 | `claude-opus-4-7`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） |
+> | subagent 模型 | `claude-opus-4-7[1m]`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） |
 > | 关联标志 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
 > | 实测时间 | 2026 年 5 月 |
 >

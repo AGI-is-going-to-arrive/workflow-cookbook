@@ -48,7 +48,7 @@
 | Claude Code 版本 | **v2.1.150** | 取自分发包 `package.json` |
 | 门控环境变量 | `CLAUDE_CODE_WORKFLOWS=1` | 实测会话环境变量存在 |
 | 关联实验标志 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | 实测环境变量 |
-| subagent 模型 | `claude-opus-4-7`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） | 实测环境变量 |
+| subagent 模型 | `claude-opus-4-7[1m]`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） | 实测环境变量 |
 | 运行月份 | 2026-05 | transcripts 记录时间 |
 | 返回性质 | 始终异步：回执先到（`taskId`/`runId`），结果随 `<task-notification>` 到达 | 类型定义 + 实测 |
 

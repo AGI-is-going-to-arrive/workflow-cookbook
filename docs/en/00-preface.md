@@ -94,7 +94,7 @@ What sets this book apart from the many "tutorials written by AI" comes down to 
 > | Claude Code version | **v2.1.150** (native binary) |
 > | Feature flag | `CLAUDE_CODE_WORKFLOWS=1` (confirmed present in the session environment) |
 > | Main model | Opus 4.7 (1M context) |
-> | Subagent model | `claude-opus-4-7` (set by `CLAUDE_CODE_SUBAGENT_MODEL`) |
+> | Subagent model | `claude-opus-4-7[1m]` (set by `CLAUDE_CODE_SUBAGENT_MODEL`) |
 > | Related flag | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
 > | Test date | May 2026 |
 >

@@ -11,7 +11,7 @@
 | 功能名 | Workflow 工具（特性昵称 ultrawork） | 工具定义 |
 | 门控环境变量 | `CLAUDE_CODE_WORKFLOWS=1` | 实测会话环境变量存在 |
 | Claude Code 版本 | v2.1.150 | `@anthropic-ai/claude-code/package.json` |
-| subagent 模型 | `claude-opus-4-7`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） | 实测环境变量 |
+| subagent 模型 | `claude-opus-4-7[1m]`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） | 实测环境变量 |
 | 模型别名重映射 | `ANTHROPIC_DEFAULT_HAIKU_MODEL/SONNET/OPUS` 把模型别名整体映射到 Opus（与 `CLAUDE_CODE_SUBAGENT_MODEL` 叠加＝两层覆盖） | 实测环境变量（R7 `wf_e8cb23ff-829`） |
 | 关联标志 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | 实测环境变量 |
 | 触发方式 | ①消息含 `ultrawork` 关键词；②直接调用 Workflow 工具；③具名工作流/技能触发 | 工具定义 |
