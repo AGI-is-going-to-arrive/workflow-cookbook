@@ -399,6 +399,7 @@ Let's pull all of this chapter's practices into a starting scaffold you can **co
 ├── README.md          # see template below
 ├── _fixtures/         # test inputs
 ├── _tests/            # test-* test workflows
+├── _lib/              # drafts in iteration (debugged with { scriptPath })
 ├── review/            # review-category finished products
 ├── research/          # research-category finished products
 └── loop/              # loop-category finished products

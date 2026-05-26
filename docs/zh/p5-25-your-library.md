@@ -399,6 +399,7 @@ flowchart TD
 ├── README.md          # 见下方模板
 ├── _fixtures/         # 测试输入
 ├── _tests/            # test-* 测试工作流
+├── _lib/              # 迭代中的草稿（用 { scriptPath } 调试）
 ├── review/            # 评审类成品
 ├── research/          # 研究类成品
 └── loop/              # 循环类成品
