@@ -111,7 +111,7 @@
 |---|---|---|
 | **workflow() / 嵌套工作流** | `workflow(nameOrRef, args?) → Promise`: run another workflow inline; the concurrency limit / agent count / abort signal / token budget are all shared. | [Ch. 20](#/en/p4-20) |
 | **one-level nesting / 嵌套仅一层** | Parent→child is allowed, child→grandchild throws; this prevents runaway recursion. | [Ch. 20](#/en/p4-20) |
-| **worktree / git 工作树隔离** | An independent git working directory; `isolation:'worktree'` runs the agent in it, keeping parallel file edits from colliding; the result returns the path and branch. | [Ch. 19](#/en/p4-19) |
+| **worktree / git 工作树隔离** | An independent git working directory; `isolation:'worktree'` runs the agent in it, keeping parallel file edits from colliding; the tool-result envelope reports the path and branch (the script-side `agent()` return is the agent's normal output, not a `{path, branch}` object — see A.5). | [Ch. 19](#/en/p4-19) |
 | **isolation / 隔离** | An agent's runtime-environment isolation strategy; right now the key value is `'worktree'`. | [Ch. 19](#/en/p4-19) |
 
 ---

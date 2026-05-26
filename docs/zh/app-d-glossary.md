@@ -111,7 +111,7 @@
 |---|---|---|
 | **workflow() / 嵌套工作流** | `workflow(nameOrRef, args?) → Promise`：内联跑起另一个工作流；并发上限/agent 计数/中止信号/token 预算都是共享的。 | [第 20 章](#/zh/p4-20) |
 | **嵌套仅一层 / one-level nesting** | 父→子可以，子→孙就抛错；防止递归失控。 | [第 20 章](#/zh/p4-20) |
-| **worktree / git 工作树隔离** | 一个独立的 git 工作目录；`isolation:'worktree'` 让 agent 在里头跑，避免并行改文件撞车；结果会返回路径和分支。 | [第 19 章](#/zh/p4-19) |
+| **worktree / git 工作树隔离** | 一个独立的 git 工作目录；`isolation:'worktree'` 让 agent 在里头跑，避免并行改文件撞车；工具结果信封层会带上路径和分支（但脚本里 `agent()` 拿到的是 agent 常规返回值，不是 `{path,branch}` 对象，见 A.5）。 | [第 19 章](#/zh/p4-19) |
 | **isolation / 隔离** | agent 运行环境的隔离策略；目前关键的取值是 `'worktree'`。 | [第 19 章](#/zh/p4-19) |
 
 ---

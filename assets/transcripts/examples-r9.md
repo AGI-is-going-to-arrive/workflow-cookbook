@@ -1,7 +1,7 @@
 # R9 Phase 0 验证探针（dogfood 实测记录）
 
 > 本文件记录 R9 第 0 阶段为「解决审计揪出的漂移点」所跑的 Workflow 真实探针。全部由主窗口直接调 Workflow 工具实测（dogfood）。真值优先级：本机实测 > 官方工具定义 > 第三方。均属**验证用**运行，不并入头条 curated 计数（curated 维持 23）。
-> 复核方式：会话 transcript 目录 `…/subagents/workflows/<runId>`，或下方 Run ID。本机环境：Claude Code v2.1.150，`CLAUDE_CODE_WORKFLOWS=1`。
+> 复核方式：每个 run 的 journal 在会话目录 `…/workflows/wf_<runId>.json`（**0-agent 探针只有这个文件、没有 `subagents/` 子目录**；派了 agent 的运行才另有 `…/subagents/workflows/<runId>/`）。或见下方 Run ID。本机环境：Claude Code v2.1.150，`CLAUDE_CODE_WORKFLOWS=1`。
 
 ## 探针 1 — 0-agent 编排型多检（`wf_63b7a365-fdc`）
 
@@ -25,7 +25,7 @@
 - 脚本要点：`agent('…在当前工作目录建 R9_WORKTREE_PROBE.txt 并回报…', {isolation:'worktree'})`。
 - 结果：`{returnType:"string", isString:true, keysIfObject:null, raw:"created R9_WORKTREE_PROBE.txt"}`。
   - → 脚本里 `agent({isolation:'worktree'})` 的返回值 = agent 常规输出（无 schema 即文本 `string`），**不是 `{path,branch}` 对象**。所以「返回 path/branch」是 Agent 工具定义在**工具结果信封层**的说法，不经脚本 `agent()` 返回值暴露。
-  - 隔离实证：主工作树零泄漏（`git status` 只剩未跟踪 `PROMOTION.md`）；worktree 落 `.claude/worktrees/wf_17307da4-707-1`、分支 `worktree-wf_17307da4-707-1`、初始 `locked`。探针后已 `git worktree remove --force` + `branch -D` + `prune` 清理干净。
+  - 隔离实证（下列 path/branch/locked/清理状态来自 `git worktree list --porcelain` + `git status` 的当场观测，**不在 run JSON 里**）：主工作树零泄漏（`git status` 只剩未跟踪 `PROMOTION.md`）；worktree 落 `.claude/worktrees/wf_17307da4-707-1`、分支 `worktree-wf_17307da4-707-1`、初始 `locked`。探针后已 `git worktree remove --force` + `branch -D` + `prune` 清理干净。
 
 ## 探针 4 — 「验证运行时」最小食谱（`wf_580909ca-b32`，R9 Phase B）
 

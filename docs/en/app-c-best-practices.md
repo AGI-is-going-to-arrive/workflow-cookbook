@@ -153,7 +153,7 @@
 
 - [ ] **Use `isolation: 'worktree'` only when "parallel agents editing the same set of files would collide."** ⚠️
   - **Why**: worktree is expensive (about 200–500ms startup, plus disk and agent overhead); read-only review, pure analysis, and agents each writing their own file all **don't need** it. It auto-cleans when there are no changes.
-  - **How**: turn it on only for parallel refactor or parallel patching; the result hands back the path and branch. See [Chapter 19 · Worktree Isolation](#/en/p4-19).
+  - **How**: turn it on only for parallel refactor or parallel patching; the tool-result envelope reports the path and branch. See [Chapter 19 · Worktree Isolation](#/en/p4-19).
 
 - [ ] **Reuse an entire flow with `workflow()` inline, but remember nesting is one level only.** ⚠️
   - **Why**: a sub-workflow shares the parent's concurrency limit, agent count, abort signal, and token budget; call `workflow()` again inside it and it throws.
