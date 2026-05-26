@@ -1,130 +1,130 @@
 # Appendix C · Best Practices
 
-> This appendix is a **checkable checklist.** Each entry gives "what to do," "why," and "how to land it," with a link to the corresponding chapter. When designing/reviewing a Workflow, go through it top to bottom: the more you can check off, the more deterministic, economical, resume-able, and observable your script.
+> This appendix is a **checklist you can tick off.** Each entry tells you "what to do," "why," and "how to land it," with a link to the matching chapter. When you design or review a Workflow, run through it top to bottom: the more boxes you tick, the more deterministic, economical, resume-able, and observable your script gets.
 >
-> The API basis for all claims is in [Appendix A](#/en/app-a); the behavioral basis is in [Appendix E](#/en/app-e)'s real runs. The companion reverse checklist (pitfalls and troubleshooting) is in [Appendix B](#/en/app-b).
+> The API basis for every claim lives in [Appendix A](#/en/app-a); the behavioral basis lives in [Appendix E](#/en/app-e)'s real runs. The companion reverse checklist (pitfalls and troubleshooting) is in [Appendix B](#/en/app-b).
 
 ---
 
 ## C.1 How to Use This Checklist
 
-- **Before** writing the script: scan [C.2 Structure & Orchestration](#c2-structure-orchestration) and [C.3 schema & Products](#c3-schema-products), settle the skeleton.
-- **While** writing the script: check against [C.4 Observability](#c4-observability-progress-logs-and-labels) and [C.5 Cost & Scale](#c5-cost-scale), checking off as you go.
-- **Before** delivery: go through [C.6 Resilience & Verification](#c6-resilience-verification), [C.7 Iteration & Resume](#c7-iteration-resume), [C.8 Isolation & Nesting](#c8-isolation-nesting), confirm nothing's missed.
-- Unsure about an entry → click the link back to the body chapter; unclear term → check [Appendix D](#/en/app-d).
+- **Before** you write the script: scan [C.2 Structure & Orchestration](#c2-structure-orchestration) and [C.3 schema & Products](#c3-schema-products), and nail down the skeleton.
+- **While** you write it: check against [C.4 Observability](#c4-observability-progress-logs-and-labels) and [C.5 Cost & Scale](#c5-cost-scale), ticking boxes as you go.
+- **Before** delivery: run through [C.6 Resilience & Verification](#c6-resilience-verification), [C.7 Iteration & Resume](#c7-iteration-resume), and [C.8 Isolation & Nesting](#c8-isolation-nesting), and make sure nothing slipped through.
+- Unsure about an entry → click the link back to the body chapter; a term you don't get → check [Appendix D](#/en/app-d).
 
-> Legend: `[ ]` to be checked; the "**Why**/**How**" below is the basis for judgment. Hard constraints (not following them errors or wastes) are marked ⚠️.
+> Legend: `[ ]` means to be checked; the "**Why**/**How**" below is what you judge by. Hard constraints (skip them and you error or waste) are marked ⚠️.
 
 ---
 
 ## C.2 Structure & Orchestration
 
 - [ ] **Use `pipeline()` by default for multi-stage; don't chain `parallel()`.** ⚠️
-  - **Why**: `parallel` is a **barrier** — it waits for a batch to all complete before the next step. Writing multi-stage as "`parallel` then `parallel`" wastefully waits for the slowest one at every stage boundary. `pipeline` lets each item flow **independently** through all stages, with **no barrier** between stages, wall clock ≈ the slowest single chain rather than the sum of each stage's slowest.
-  - **How**: see [Chapter 8 · parallel vs pipeline](#/en/p2-08). Use `parallel` only when "all results genuinely need to appear together" (e.g., fan-out then synthesize).
+  - **Why**: `parallel` is a **barrier** — it waits for a whole batch to finish before moving on. Write multi-stage as "`parallel` then `parallel`" and you burn time waiting for the slowest one at every stage boundary. `pipeline` is different: it lets each item flow **independently** through all stages, with **no barrier** between them, so wall clock ≈ the slowest single chain rather than the sum of each stage's slowest.
+  - **How**: see [Chapter 8 · parallel vs pipeline](#/en/p2-08). Reach for `parallel` only when "all results genuinely need to appear together" (e.g., fan-out then synthesize).
 
 - [ ] **Pass `parallel()` only thunks (`() => agent(...)`), never Promises.** ⚠️
-  - **Why**: passing `agent(...)` (a Promise) executes immediately at array construction, doesn't conform to the `parallel(thunks)` API so `parallel()` can't manage it as a thunk, and loses the "async reject / agent error → `null`" error-gathering semantics (the concurrency cap is throttled uniformly **per workflow** and isn't bypassed this way).
+  - **Why**: pass `agent(...)` (a Promise) and it runs the moment the array is built — it doesn't conform to the `parallel(thunks)` API, so `parallel()` can't manage it as a thunk, and it loses the "async reject / agent error → `null`" error-gathering semantics (the concurrency cap is throttled uniformly **per workflow**, and you can't slip past it this way).
   - **How**: `parallel(items.map(it => () => agent(prompt(it), { schema })))`. See [Appendix B · B.4](#/en/app-b).
 
 - [ ] **Write `meta` as a pure literal, with the first line being `export const meta = {…}`.** ⚠️
-  - **Why**: the runtime statically reads `meta` before executing the script; containing variables/function calls/spreads/template interpolation gets rejected and the workflow doesn't launch.
-  - **How**: put dynamic content in the script body, expressed with `log()`/`phase()`. See [Chapter 5 · meta & phase](#/en/p2-05).
+  - **Why**: the runtime reads `meta` statically before it runs the script; if it contains variables, function calls, spreads, or template interpolation, it gets rejected and the workflow doesn't launch.
+  - **How**: move dynamic content into the script body and express it with `log()`/`phase()`. See [Chapter 5 · meta & phase](#/en/p2-05).
 
 - [ ] **Declare phases in `meta.phases` first, then reference them in the script with `phase()`/`opts.phase`.**
-  - **Why**: declarative phases make the progress tree structure clear and predictable; `phase()`'s title matches `meta.phases[].title` by exact string.
+  - **Why**: declare phases up front and the progress tree's structure stays clear and predictable; `phase()`'s title matches `meta.phases[].title` by exact string.
   - **How**: see [Chapter 5](#/en/p2-05).
 
 - [ ] **Inside `parallel`/`pipeline`, use `opts.phase` for explicit grouping, not the global `phase()`.** ⚠️
-  - **Why**: the global `phase()` is stateful; concurrent agents race the "current phase," scrambling grouping.
-  - **How**: each concurrent agent carries `phase:'Review'`. The real scripts `frontend-review`/`judge-panel` both do this. See [Appendix B · B.12](#/en/app-b).
+  - **Why**: the global `phase()` is stateful; concurrent agents race over "which phase is current," and the grouping comes out scrambled.
+  - **How**: have each concurrent agent carry its own `phase:'Review'`. The real scripts `frontend-review`/`judge-panel` both do exactly this. See [Appendix B · B.12](#/en/app-b).
 
 - [ ] **The script body only orchestrates; side effects go to agents.** ⚠️
-  - **Why**: the script body is a restricted `async` sandbox, with no file system/network/`require`/Node global. Reading/writing files and networking must be done by the subagents dispatched by `agent()` (which hold real tool permissions).
-  - **How**: to read a file `agent('Read x and ...')`; for data pass it in via `args`. See [Appendix B · B.16](#/en/app-b).
+  - **Why**: the script body is a restricted `async` sandbox — no file system, no network, no `require`, no Node global. Reading or writing files and hitting the network must be done by the subagents that `agent()` dispatches (those are the ones holding real tool permissions).
+  - **How**: to read a file, `agent('Read x and ...')`; for data, pass it in via `args`. See [Appendix B · B.16](#/en/app-b).
 
 ---
 
 ## C.3 schema & Products
 
 - [ ] **Constrain the shape of key products with `schema`.** ⚠️
-  - **Why**: with a `schema`, validation happens at the **tool-call layer**, the model **auto-retries** until it matches, returning a **validated object** — downstream can directly use `.field`, no need to parse free text.
+  - **Why**: with a `schema`, validation happens at the **tool-call layer**, the model **auto-retries** until it matches, and you get back a **validated object** — downstream can just reach for `.field`, no parsing free text.
   - **How**: `agent(prompt, { schema: { type:'object', properties:{…}, required:[…] } })`. See [Chapter 7 · Structured Output & Schema](#/en/p2-07). Real confirmation: `hello`'s `sum` is strictly the number `4` (Run `wf_dacbd480-d5d`).
 
 - [ ] **The schema constrains the shape but leaves the model room to express (don't over-strict).**
-  - **Why**: a missing `enum` item, or forcing the model to give a field it can't produce accurately (like an exact line number), triggers **persistent retries**, slowing or stalling it.
-  - **How**: `enum` covers all legal values; `required` lists only necessary fields; use a descriptive `string` for an exact location. If unsure, run a round with `string` first, then narrow. See [Appendix B · B.9](#/en/app-b).
+  - **Why**: a missing `enum` item, or forcing the model to hand over a field it can't produce accurately (like an exact line number), triggers **persistent retries** that slow it down or stall it outright.
+  - **How**: have `enum` cover every legal value; have `required` list only the fields you truly need; stash an exact location in a descriptive `string`. If you're unsure, run a round with `string` first, then narrow it down. See [Appendix B · B.9](#/en/app-b).
 
 - [ ] **Split complex structures into two stages (produce text first, then structure), don't do it in one shot.**
-  - **Why**: a deeply nested schema is hard to satisfy at once; splitting into "generate → structure" is steadier.
+  - **Why**: a deeply nested schema is hard to satisfy in one go; splitting it into "generate → structure" is steadier.
   - **How**: use `pipeline` to split "draft" and "extract" into two stages.
 
 - [ ] **When a cross-stage needs the original input, use the callback signature `(prevResult, originalItem, index)`; don't thread it through the previous stage's return value.**
-  - **Why**: each stage of `pipeline` can grab `originalItem` directly, with no need to pollute the previous stage's product schema.
-  - **How**: `(found, kind) => agent(\`verify ${kind}: ${found.example}\`)`. Real confirmation: `pipeline-demo`'s stage2 signature is `(found, kind)` (Run `wf_bf086b98-6ec`). See [Chapter 8](#/en/p2-08).
+  - **Why**: each stage of `pipeline` can grab `originalItem` directly, so there's no need to pollute the previous stage's product schema.
+  - **How**: `(found, kind) => agent(\`verify ${kind}: ${found.example}\`)`. Real confirmation: `pipeline-demo`'s stage2 signature is exactly `(found, kind)` (Run `wf_bf086b98-6ec`). See [Chapter 8](#/en/p2-08).
 
 ---
 
 ## C.4 Observability: Progress, Logs, and Labels
 
 - [ ] **Give every agent a descriptive `label`.**
-  - **Why**: `label` is the display name in the `/workflows` progress tree and the transcript; `review:a11y` locates and searches better than "agent #3."
+  - **Why**: `label` is the name shown in the `/workflows` progress tree and the transcript; `review:a11y` is easier to spot and search than "agent #3."
   - **How**: `agent(prompt, { label: \`review:${d.key}\` })`. See [Chapter 6 · The agent() Reference](#/en/p2-06).
 
 - [ ] **`log()` at milestones, writing out key counts/decisions.**
-  - **Why**: `log()` outputs a narration line above the progress tree, the main clue for reviewing "what happened" (like "barrier released with 3/3 results," "pipeline kept N/M items").
-  - **How**: phase switches, post-filter counts, and early-exit reasons all deserve a `log`. Real scripts commonly do this. See [Chapter 9 · Progress, Logs, Resume, Budget](#/en/p2-09).
+  - **Why**: `log()` prints a narration line above the progress tree — your main clue when you go back to see "what happened" (like "barrier released with 3/3 results," "pipeline kept N/M items").
+  - **How**: a phase switch, how many items survived a filter, why something exited early — they all deserve a `log`. Real scripts commonly do this. See [Chapter 9 · Progress, Logs, Resume, Budget](#/en/p2-09).
 
 - [ ] **Explicitly record "dropouts/downgrades."**
-  - **Why**: `parallel`/`pipeline` use `null` to mark an item's failure; looking only at the final count misreads it as data loss.
+  - **Why**: `parallel`/`pipeline` use `null` to mark an item that failed; if you only look at the final count, you'll misread it as data loss.
   - **How**: `log(\`pipeline kept ${ok.length}/${items.length}\`)`. See [Appendix B · B.15](#/en/app-b).
 
 - [ ] **Keep the `taskId`/`runId`.**
-  - **Why**: `taskId` is for tracking/stopping (TaskStop), `runId` for resume (`resumeFromRunId`). The workflow is **always async**, the receipt ≠ the result.
-  - **How**: wait for the completion notification for the result; watch live progress with `/workflows`. See [Appendix B · B.14](#/en/app-b).
+  - **Why**: `taskId` is what you track and stop with (TaskStop), `runId` is what you resume with (`resumeFromRunId`). The workflow is **always async**, so the receipt ≠ the result.
+  - **How**: wait for the completion notification to get the result; watch live progress with `/workflows`. See [Appendix B · B.14](#/en/app-b).
 
 ---
 
 ## C.5 Cost & Scale
 
 - [ ] **Estimate cost before dispatching agents: token ≈ agent count × per-agent context (about 25k–30k).**
-  - **Why**: each agent is an independent context, cost approximately linearly additive. Real confirmation: parallel 3 agents ≈ 78,844 ≈ 3×26,338 (Run `wf_52957913-6d2`).
-  - **How**: first compute "how many agents this design dispatches," then decide if it's worth it. The rule of thumb is in the [primitives run record](#/en/p2-08).
+  - **Why**: each agent is an independent context, so the cost stacks up approximately linearly. Real confirmation: parallel 3 agents ≈ 78,844 ≈ 3×26,338 (Run `wf_52957913-6d2`).
+  - **How**: first work out "how many agents this design dispatches," then decide whether it's worth it. The rule of thumb is in the [primitives run record](#/en/p2-08).
 
 - [ ] **Wall clock follows the critical path, not the agent total.**
-  - **Why**: concurrency compresses N agents' time to "the slowest one." Real confirmation: 3 concurrent 8.4s ≪ 3×5.5s.
-  - **How**: concurrent what can be concurrent; use `pipeline` for multi-stage to overlap stages. See [Chapter 8](#/en/p2-08).
+  - **Why**: concurrency squeezes N agents' time down to "the slowest one." Real confirmation: 3 concurrent 8.4s ≪ 3×5.5s.
+  - **How**: run concurrently whatever can run concurrently; for multi-stage, use `pipeline` so the stages overlap. See [Chapter 8](#/en/p2-08).
 
 - [ ] **Use `model: 'haiku'` for simple/mechanical subtasks.**
-  - **Why**: omitting `model` inherits the main loop model (usually a strong model); tasks like classification, extraction, formatting do fine with a light model, saving tokens and time.
-  - **How**: what actually sets the model is `opts.model` in `agent(prompt, { model: 'haiku' })`; `meta.phases[].model`'s runtime effect is not independently verified by this book — treat it as a display label, don't rely on it alone. See [Chapter 6](#/en/p2-06), [Chapter 21 · Dynamic Budget & Scaling](#/en/p4-21).
+  - **Why**: leave out `model` and it inherits the main loop model (usually a strong one); jobs like classification, extraction, or formatting do just fine on a light model, and you save tokens and time.
+  - **How**: what actually sets the model is `opts.model` in `agent(prompt, { model: 'haiku' })`; whether `meta.phases[].model` does anything at runtime is not independently verified by this book — treat it as a display label, don't rely on it alone. See [Chapter 6](#/en/p2-06), [Chapter 21 · Dynamic Budget & Scaling](#/en/p4-21).
 
 - [ ] **Respect the concurrency limit; don't expect infinite parallelism.**
-  - **Why**: a workflow runs `min(16, CPU cores−2)` agents at once, the excess queues; the agent total hard cap per workflow is **1000**.
-  - **How**: process very large batches in batches/shards, rather than fanning out hundreds at once. See [Chapter 21](#/en/p4-21).
+  - **Why**: a single workflow runs `min(16, CPU cores−2)` agents at once and the rest queue up; on top of that, the agent total per workflow has a hard cap of **1000**.
+  - **How**: when a batch is really large, process it in batches or shards instead of fanning out hundreds at once. See [Chapter 21](#/en/p4-21).
 
 ---
 
 ## C.6 Resilience & Verification
 
 - [ ] **Add a round of adversarial verification (an independent agent "picks holes") to important output.**
-  - **Why**: the first version almost always has blind spots; switching to another agent and explicitly asking it to "find errors" systematically exposes problems. Real confirmation: GCF had adversarial Critique catch **10 genuine defects** from a seemingly simple `slugify` (Run `wf_7472ceac-daa`).
+  - **Why**: the first version almost always has blind spots; send in another agent and explicitly tell it to "find errors," and you'll flush problems out systematically. Real confirmation: GCF had adversarial Critique catch **10 genuine defects** in a seemingly simple `slugify` (Run `wf_7472ceac-daa`).
   - **How**: Generate → Critique → Fix three stages. See [Chapter 12 · Generate-Critique-Fix](#/en/p3-12), [Chapter 17 · Adversarial Verification](#/en/p4-17).
 
 - [ ] **When you need to reduce single-point bias, use independent judges + a rubric + vote-tallying.**
-  - **Why**: multiple non-communicating judges converge stably on candidates with "clearly differing quality"; a rubric (a schema solidifying dimensions into numbers) + tallying is more reliable than "a single agent's gut call." Real confirmation: judge-panel's 3 judges independently converged 3:0 (Run `wf_f5b69668-b18`).
-  - **How**: dispatch multiple judges with `parallel` to each score, then tally `votesA/votesB`. See [Chapter 14 · Judge Panel](#/en/p3-14).
+  - **Why**: several judges that don't talk to each other converge reliably on candidates whose quality is "clearly a notch apart"; a rubric (a schema that pins dimensions down into numbers) plus tallying is more reliable than "a single agent's gut call." Real confirmation: judge-panel's 3 judges scored independently and converged 3:0 (Run `wf_f5b69668-b18`).
+  - **How**: use `parallel` to dispatch several judges that each score on their own, then tally `votesA/votesB`. See [Chapter 14 · Judge Panel](#/en/p3-14).
 
 - [ ] **Always `.filter(Boolean)` `parallel`/`pipeline` results before consuming.** ⚠️
-  - **Why**: a thrown/skipped position is `null`; not filtering makes the subsequent `.map(r => r.x)` throw.
+  - **Why**: a position that threw or got skipped is `null`; skip the filter and the `.map(r => r.x)` that follows will throw.
   - **How**: `(await parallel(thunks)).filter(Boolean)`. See [Appendix B · B.11](#/en/app-b).
 
 - [ ] **When the critical path can't drop items, `try` within the stage and return a degraded result rather than throwing.**
-  - **Why**: a stage throwing in `pipeline` makes that item drop out directly, skipping the rest.
-  - **How**: after catch, return `{ ok:false, reason }` to keep that item flowing onward. See [Appendix B · B.15](#/en/app-b).
+  - **Why**: when a stage throws in `pipeline`, that item drops out on the spot and skips the rest.
+  - **How**: after the catch, return `{ ok:false, reason }` to keep that item flowing onward. See [Appendix B · B.15](#/en/app-b).
 
 - [ ] **"Loop-until-dry/retry-until-pass" needs a convergence condition + a round cap.**
-  - **Why**: relying purely on a business criterion may never converge.
+  - **Why**: lean purely on a business criterion and it may never converge.
   - **How**: `while (!done && round < MAX_ROUNDS)`. See [Chapter 18 · Loop-Until-Dry & Completeness](#/en/p4-18).
 
 ---
@@ -132,19 +132,19 @@
 ## C.7 Iteration & Resume
 
 - [ ] **Land complex scripts as `.js`, call with `scriptPath`.**
-  - **Why**: the script is a file, checkable with an editor/tools; after Write/Edit, re-run with the same `scriptPath`, no need to resend the whole script.
+  - **Why**: the script is a file, so you can vet it with an editor or tools first; after a Write/Edit, just re-run with the same `scriptPath` — no resending the whole thing.
   - **How**: `Workflow({ scriptPath: '.../my-wf.js' })`. `scriptPath` has the highest priority. See [Appendix A · A.1](#/en/app-a).
 
 - [ ] **To reuse already-run results, resume with `resumeFromRunId`, and keep the earlier script letter-for-letter unchanged.**
-  - **Why**: an unchanged `agent()` on resume returns the cached result in **zero tokens, zero tools, about 8ms.** Real confirmation: hello resume `total_tokens=0`/`duration_ms=8` (Run `wf_dacbd480-d5d` reused).
-  - **How**: changes only after the position you want to re-run; resume is **same session only**, and you should `TaskStop` the previous run first. See [Chapter 22 · Resume & Caching](#/en/p4-22).
+  - **Why**: an `agent()` that didn't change hands you the cached result on resume in **zero tokens, zero tools, about 8ms.** Real confirmation: hello resume `total_tokens=0`/`duration_ms=8` (Run `wf_dacbd480-d5d` reused).
+  - **How**: put changes only after the position you want to re-run; resume is **same session only**, and you should `TaskStop` the previous run first. See [Chapter 22 · Resume & Caching](#/en/p4-22).
 
 - [ ] **Keep the script replayable: forbid `Date.now()`/`Math.random()`/arg-less `new Date()`.** ⚠️
-  - **Why**: nondeterministic sources break the alignment resume needs (and will throw at runtime directly).
-  - **How**: timestamps via `args` or stamped after the fact; randomness via varying the prompt with the agent's index. See [Appendix B · B.5](#/en/app-b).
+  - **Why**: nondeterministic sources break the alignment resume depends on (and the runtime will throw on them outright).
+  - **How**: feed timestamps in via `args` or stamp them after the fact; get randomness by varying the prompt with the agent's index. See [Appendix B · B.5](#/en/app-b).
 
 - [ ] **To force a re-run of some segment, deliberately change it.**
-  - **Why**: the cache is judged by "whether the call changed"; changed re-runs, unchanged hits.
+  - **Why**: the cache is judged by "did the call change"; change it and it re-runs, leave it and it hits.
   - **How**: see [Chapter 22](#/en/p4-22).
 
 ---
@@ -152,15 +152,15 @@
 ## C.8 Isolation & Nesting
 
 - [ ] **Use `isolation: 'worktree'` only when "parallel agents editing the same set of files would collide."** ⚠️
-  - **Why**: worktree is expensive (about 200–500ms startup + disk/agent overhead); read-only review, pure analysis, and each writing its own file all **don't need** it. Auto-cleaned when no changes.
-  - **How**: enable only for parallel refactor/parallel patching; the result returns the path and branch. See [Chapter 19 · Worktree Isolation](#/en/p4-19).
+  - **Why**: worktree is expensive (about 200–500ms startup, plus disk and agent overhead); read-only review, pure analysis, and agents each writing their own file all **don't need** it. It auto-cleans when there are no changes.
+  - **How**: turn it on only for parallel refactor or parallel patching; the result hands back the path and branch. See [Chapter 19 · Worktree Isolation](#/en/p4-19).
 
 - [ ] **Reuse an entire flow with `workflow()` inline, but remember nesting is one level only.** ⚠️
-  - **Why**: a sub-workflow shares the parent's concurrency limit/agent count/abort signal/token budget; calling `workflow()` again inside it throws.
-  - **How**: flatten the "grandchild-level" logic into the sub-workflow; chain multi-level orchestration via the main loop. Real confirmation: a parent inline-ran a hello sub-flow, with the child agent counting toward the parent's `agent_count` (Run `wf_85e22b38-126`). See [Chapter 20 · Nested Workflows](#/en/p4-20).
+  - **Why**: a sub-workflow shares the parent's concurrency limit, agent count, abort signal, and token budget; call `workflow()` again inside it and it throws.
+  - **How**: flatten the "grandchild-level" logic into the sub-workflow; let the main loop chain any multi-level orchestration. Real confirmation: a parent inline-ran a hello sub-flow, and the child agent counted toward the parent's `agent_count` (Run `wf_85e22b38-126`). See [Chapter 20 · Nested Workflows](#/en/p4-20).
 
 - [ ] **Reuse an existing subagent type with `agentType` (combinable with schema).**
-  - **Why**: custom types like `'Explore'`, `'code-reviewer'` carry their own specialized system prompt; combined with `schema`, the StructuredOutput instruction is appended.
+  - **Why**: custom types like `'Explore'`, `'code-reviewer'` come with their own specialized system prompt; combine them with `schema` and the StructuredOutput instruction gets appended on top.
   - **How**: `agent(prompt, { agentType: 'Explore', schema })`. See [Chapter 6](#/en/p2-06).
 
 ---
@@ -168,7 +168,7 @@
 ## C.9 Budget Guards
 
 - [ ] **Guard dynamic loops with `budget.total && budget.remaining() < threshold` for an early exit.** ⚠️
-  - **Why**: `budget` is a hard cap (calling `agent()` after `spent()` reaches `total` throws); `total` may be `null` (no target set, `remaining()` is `Infinity`), so use a `budget.total &&` short-circuit to avoid exiting wrongly when no target is set.
+  - **Why**: `budget` is a hard cap (once `spent()` hits `total`, the next `agent()` call throws); but `total` may be `null` (when no target is set, `remaining()` is `Infinity`), so put a `budget.total &&` short-circuit in front to avoid bailing out wrongly when no target is set.
   - **How**:
     ```javascript
     if (budget.total && budget.remaining() < 30_000) {
@@ -179,8 +179,8 @@
   - See [Chapter 21 · Dynamic Budget & Scaling](#/en/p4-21), [Appendix B · B.6](#/en/app-b).
 
 - [ ] **The budget pool is shared — the main loop + all workflows (incl. nested sub-flows) share one pool.**
-  - **Why**: `budget.spent()` counts all output tokens this turn, with nested sub-flows' consumption also counted.
-  - **How**: when estimating a nested workflow's cost, include the sub-flows. See [Chapter 20](#/en/p4-20).
+  - **Why**: `budget.spent()` counts every output token this turn, and what nested sub-flows spend goes into that count too.
+  - **How**: when you estimate a nested workflow's cost, fold the sub-flows in. See [Chapter 20](#/en/p4-20).
 
 ---
 
