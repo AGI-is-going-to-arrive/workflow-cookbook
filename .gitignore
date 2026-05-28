@@ -15,6 +15,9 @@ SESSION-*-HANDOFF.md
 # Promotion / marketing drafts — author-side, not part of the cookbook
 PROMOTION.md
 
+# Promo video build — Remotion project, audio, fresh screenshots, rendered mp4. Local only.
+video-build/
+
 # Internal dev-process transcripts — cross-model review records + per-round grounding probes.
 # Not referenced by any chapter; kept locally as authoring evidence, not for publication.
 assets/transcripts/agy-frontend-review-r5.md
