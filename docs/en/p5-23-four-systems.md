@@ -155,7 +155,7 @@ This is exactly the physical implementation of "finishing ≠ done": it keeps th
 
 **A few forms you can actually see and touch**:
 
-The entry is a regex keyword. `keyword-detector/constants.ts` matches the user's message against `/\b(ultrawork|ulw)\b/i` and, on a hit, summons the whole orchestration — and it sharing a name with native Workflow's nickname `ultrawork` is no coincidence.
+The entry is a regex keyword. `keyword-detector/constants.ts` matches the user's message against `/\b(ultrawork|ulw)\b/i` and, on a hit, summons the whole orchestration — and it sharing a name with native Workflow's **early community nickname** `ultrawork` is no coincidence (in the official v2.1.154 client that word is no longer a trigger, surviving only as the internal event name `ultrawork_request`).
 
 The built-in roles it registers number exactly **10** (the `BuiltinAgentName` union in `src/agents/types.ts`):
 

@@ -109,7 +109,7 @@ The script body runs in an `async` context, so you can `await` directly. The run
 
 <div class="callout warn">
 
-**Scripts can't use `Date.now()`, `Math.random()`, or arg-less `new Date()`** — use one and it throws. Why? §1.6 "Resume" spells it out: each of these returns something different every time, which breaks the premise that "the same script always produces the same execution," and that breaks resume. Need a timestamp? Pass it in via `args`. Need randomness? Vary the prompt using the agent's index.
+**Scripts can't use `Date.now()`, `Math.random()`, or arg-less `new Date()`** — use one and it throws. Why? §1.7 "Resume" spells it out: each of these returns something different every time, which breaks the premise that "the same script always produces the same execution," and that breaks resume. Need a timestamp? Pass it in via `args`. Need randomness? Vary the prompt using the agent's index.
 
 </div>
 
@@ -166,7 +166,7 @@ You will be notified when it completes. Use /workflows to watch live progress.
 A few **real** pieces of info worth remembering:
 
 - **`Task ID`**: the ID of this background task.
-- **`Run ID`** (like `wf_...`): this run's identifier, needed for resume (see §1.6).
+- **`Run ID`** (like `wf_...`): this run's identifier, needed for resume (see §1.7).
 - **Script on-disk path**: every time you call, the runtime **saves your script as a file on disk.** Want to tweak and try again? Just `Write`/`Edit` that file and re-invoke with `{ scriptPath: ... }` — no need to resend the whole script.
 - **`/workflows`**: a slash command for watching the progress tree live.
 
@@ -194,44 +194,71 @@ sequenceDiagram
 
 ---
 
-## 1.5 How to Trigger a Workflow
+## 1.5 How to Get Claude to Use Workflow
 
-There are two paths:
+To get Claude to actually run a Workflow, you first have to keep **two things** apart — they're constantly conflated, and that's the single biggest source of beginner confusion:
 
-1. **The keyword `ultrawork`.** Drop `ultrawork` into your message and Claude Code gets a system prompt telling it "the user has chosen multi-agent orchestration," which clears it to call the Workflow tool. That's also where the community nickname "ultrawork" comes from.
-2. **Calling the Workflow tool directly.** Say you explicitly ask to "run a workflow / orchestrate with multiple agents / fan out agents," or you use a skill or slash command that triggers it under the hood, or you ask to run a named workflow by name.
+1. **Available** — is the Workflow tool *in Claude's toolbox* at all?
+2. **Will use** — once the tool is in the box, how do you get Claude to *actually reach for it* on this turn (or for this whole session)?
 
-Either way, you have to clear two gates first: the feature has to be **explicitly turned on**, and your Claude Code has to be **new enough**. We'll cover the one people forget most often first — the switch.
+An analogy: **available** is "is the pot even in the kitchen," **will use** is "are you going to cook with it tonight." Two separate things, managed separately. Here they are, one layer at a time.
 
-### The feature flag: `CLAUDE_CODE_WORKFLOWS`
+### Layer 1 · Available: `CLAUDE_CODE_WORKFLOWS`
 
-Workflow is an experimental feature that's **off by default and has to be turned on by hand**, gated by the environment variable `CLAUDE_CODE_WORKFLOWS`. In the session where this book was written, the variable **does exist, and its value is `1`** (confirmed by testing):
+Whether the tool is in your toolbox is decided jointly by the environment variable `CLAUDE_CODE_WORKFLOWS` and a server-side flag. In the session where this book was written, the variable **does exist, and its value is `1`** (confirmed by testing):
 
 ```text
 CLAUDE_CODE_WORKFLOWS = 1
 ```
 
-The usual ways to enable it:
+Reading the real logic of the 2.1.154 client, availability comes in three cases:
+
+- Explicitly set `CLAUDE_CODE_WORKFLOWS=1` → **tool available** (most reliable, recommended);
+- Explicitly set `=0` → **force off**;
+- Leave it unset → it falls back to a server-side flag; when that's on, the tool is **on by default for non-Pro accounts**.
+
+<div class="callout info">
+
+**Want it stable? Set `=1` yourself.** That "server-side flag" is a growthbook gate Anthropic rolls out at its own discretion — you can't control it, and it may shift across versions and accounts. Setting `CLAUDE_CODE_WORKFLOWS=1` explicitly turns "can I use it?" from "bet on the server" into "my call."
+
+</div>
+
+Two ways to set it:
 
 ```bash
-# Way one: set at launch (effective for the current session)
+# Set at launch (effective for the current session)
 CLAUDE_CODE_WORKFLOWS=1 claude
 
-# Way two: write into the env section of ~/.claude/settings.json (persistent)
-{
-  "env": { "CLAUDE_CODE_WORKFLOWS": "1" }
-}
+# Or write into the env section of ~/.claude/settings.json (persistent)
+{ "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }
 ```
 
 <div class="callout warn">
 
-**Why off by default?** Because a single Workflow can fan out dozens of subagents and burn a lot of tokens. Keeping it behind a flag is a "you'd better know what you're doing" guardrail. It's the same discipline the tool definition keeps stressing: **only call Workflow when the user has explicitly chosen multi-agent orchestration** — don't launch it on your own just because "this task looks like it might run faster in parallel."
+**Why have this switch at all?** A single Workflow can fan out dozens of subagents and burn a lot of tokens. Keeping a switch in front of it is a reminder to **know what you're doing.** It's the same discipline the tool definition keeps stressing: **Claude only calls Workflow when the user has explicitly chosen multi-agent orchestration** — it won't launch on its own just because "this task looks like it might go faster in parallel."
+
+</div>
+
+### Layer 2 · Will use: four ways to get Claude to orchestrate
+
+Once the tool is in the box, any one of the following gets Claude to reach for it this time. This is the official list the 2.1.154 client injects into the model (each item confirmed against the client binary):
+
+| Way | Scope | Notes |
+|---|---|---|
+| Include the `workflow` / `workflows` keyword in your message | **This turn** | Claude gets a system reminder telling it "you should use the Workflow tool." The lightest trigger. |
+| `/effort ultracode` | **Standing, this session** | Makes Claude orchestrate a workflow by default on every substantive task, with reasoning bumped to xhigh at the same time. See §1.6. |
+| Ask in your own words | This turn | e.g. "run a workflow," "fan out agents," "orchestrate this with subagents." |
+| Skill / slash command | This turn | Some skills' or slash commands' instructions already say to use Workflow — invoking one triggers it. (Note: you or a script can also **call the Workflow tool directly** or run a **named workflow** `{ name: 'xxx' }` — that's a programmatic launch, not part of this "model opt-in" list.) |
+
+<div class="callout warn">
+
+**`ultrawork` is no longer a trigger.** Early community lore said "type `ultrawork` in the box and it triggers," but in the official 2.1.154 client `ultrawork` exists only as an **internal event name** (`ultrawork_request`) — **typing it triggers nothing.** The official trigger keywords are now `workflow` / `workflows`. (Separately: the third-party system oh-my-openagent does use `ultrawork` as an entry word, but that's its own implementation, unrelated to official Claude Code — Chapter 23 covers it.)
 
 </div>
 
 ### Version prerequisite: Claude Code has to be new enough
 
-Workflow was added to Claude Code fairly late; older versions simply don't have it. The environment this book was tested on is **v2.1.150**, where the tool is fully available. Per community and user reports it started showing up around **2.1.148** — but **this book hasn't independently verified the exact starting version**, so treat that as a rough lower bound. Check your version:
+Workflow was added to Claude Code fairly late; older versions simply don't have it. This book's testing spans **v2.1.150 through v2.1.154**: the foundational mechanics in Parts I–IV mostly ran on 2.1.150, while `/effort` and ultracode (§1.6) were tested on **v2.1.154**. Per community reports it started showing up around **2.1.148**, but **this book hasn't independently verified the exact starting version**, so treat that as a rough lower bound. Check your version:
 
 ```bash
 claude --version
@@ -265,7 +292,74 @@ This book's run (`wf_580909ca-b32`): returns `{ ok: true, budgetTotal: null, bud
 
 ---
 
-## 1.6 Three Runtime Features That Make It "Stand Out"
+## 1.6 `/effort` and ultracode: getting Claude to orchestrate by default
+
+In that table above, `/effort ultracode` is the only "standing, this session" option. It's worth its own section — because it pulls in Claude Code's whole **effort** system.
+
+### `/effort`: a knob for "how hard to try"
+
+`/effort` is a slash command that sets, for the current session, how hard Claude **thinks.** In 2.1.154 it has seven settings (confirmed against the client; each setting's official description below):
+
+| Setting | Official description (verbatim) | In a phrase |
+|---|---|---|
+| `low` | Quick, straightforward implementation | Simple stuff, in a hurry |
+| `medium` | Balanced approach with standard testing | Everyday |
+| `high` | Comprehensive implementation with extensive testing | **Opus 4.8 defaults here** |
+| `xhigh` | Extended reasoning with thorough analysis | Official pick for "your hardest tasks" |
+| `max` | Maximum capability with deepest reasoning | Deepest reasoning |
+| `ultracode` | **xhigh + dynamic workflow orchestration (this session only)** | See below |
+| `auto` | Use the default effort level for your model | Let the system decide |
+
+You use it like `/effort xhigh`. Opus 4.8 starts at `high`; for the toughest tasks, the startup banner flat-out recommends `/effort xhigh`.
+
+### What ultracode is — first, kill a misconception
+
+A lot of people assume ultracode is "the strongest setting, even beefier than max." **It isn't.** Crack open the 2.1.154 client's real effort-parsing code: pick ultracode and the reasoning setting is actually pinned to `xhigh` (not max):
+
+```javascript
+// The 2.1.154 client's real logic for parsing /effort arguments (excerpt; variable
+// names humanized — the original minified code is in
+// assets/transcripts/effort-ultracode-r10.md)
+if (effort === "ultracode" && workflowsAvailable())
+    return { value: "xhigh" };   // ← ultracode's reasoning depth = xhigh
+```
+
+In other words:
+
+<div class="callout info">
+
+**On reasoning depth, `max` is deeper than `ultracode`.** ultracode uses xhigh's reasoning; what it buys you is something else — **getting Claude to proactively orchestrate a workflow on every substantive task by default** (officially, "standing dynamic-workflow orchestration"). With ultracode on, the standing instruction Claude receives is: "Use the Workflow tool on every substantive task; don't optimize for fastest or cheapest."
+
+</div>
+
+So the division of labor, in one line:
+
+- **`max`** = you want it to **think the deepest** (one brain digging into one hard problem).
+- **`ultracode`** = you want it to **orchestrate with more agents by default** (xhigh reasoning + proactive fan-out).
+
+When a task is "solvable by one brain thinking hard," `max` is often the better fit than `ultracode`; only when a task is "cheaper to split, parallelize, and cross-check" does `ultracode` earn its place.
+
+### Three constraints you must know
+
+1. **This session only, no persistence.** ultracode is repeatedly tagged "this session only" in the client — close the window and it's gone; it isn't written to settings. The plain settings (low–max) do get saved and are still there next time.
+2. **If you can pick ultracode in `/effort`, the workflow is already "available."** That `workflowsAvailable()` gate in the code above means: **the `ultracode` slot only appears in the picker when workflows are available.** So it doubles as a ready-made "is it available?" test — if you can see the slot, Layer 1 from §1.5 has already passed.
+3. **An env var overrides your choice.** Setting `CLAUDE_CODE_EFFORT_LEVEL` (say `=max`) **force-overrides** the setting you picked in `/effort`, with the UI prompting "clear it and ultracode takes over." The session this book was written in happens to be locked at `CLAUDE_CODE_EFFORT_LEVEL=max`, so it's worth flagging — lest you get tripped up the same way.
+
+<div class="callout info">
+
+**Easter egg: `ultrathink`.** Same mechanism as the `workflow` keyword — drop `ultrathink` into your message and Claude will "reason more deeply on this turn" (official wording: "requesting deeper reasoning on this turn"). It only governs "think harder this turn," doesn't touch workflow orchestration — don't confuse it with ultracode.
+
+</div>
+
+<div class="callout warn">
+
+**Watch out for silent downgrade.** Effort settings get quietly discounted by what your current model can do: pick a high setting your model can't sustain, and the client **silently drops to a setting it can run** (the official code mentions "after any silent downgrade"). So "I picked max" doesn't mean "it's actually running at max" — it still depends on whether the model can sustain it.
+
+</div>
+
+---
+
+## 1.7 Three Runtime Features That Make It "Stand Out"
 
 Beyond "deterministic + structured," Workflow has three more features that matter a lot in practice. They're exactly what makes it genuinely reusable, testable, and shareable.
 
@@ -287,7 +381,7 @@ Every call saves the script to a `.js` file under the session directory. Two pay
 
 ---
 
-## 1.7 What It Isn't: Drawing the Boundaries First
+## 1.8 What It Isn't: Drawing the Boundaries First
 
 When you're new to this, it's easy to mix Workflow up with Claude Code's other extension mechanisms. Let's draw the lines quickly here; Chapter 03 does the full "positioning matrix" comparison.
 
@@ -302,9 +396,10 @@ The boundary in one sentence: **if you can draw the task as a flowchart of "what
 
 ---
 
-## 1.8 Chapter Summary
+## 1.9 Chapter Summary
 
-- Workflow is a built-in Claude Code tool that uses a **pure-JavaScript script** to deterministically orchestrate subagents, gated by `CLAUDE_CODE_WORKFLOWS=1`, triggered by the `ultrawork` keyword or a direct call.
+- Workflow is a built-in Claude Code tool that uses a **pure-JavaScript script** to deterministically orchestrate subagents. Use it in two layers: **available** is gated by `CLAUDE_CODE_WORKFLOWS=1` (the most reliable way to turn it on); **will use** is triggered by the `workflow`/`workflows` keyword, `/effort ultracode` (standing, this session), natural language, or a named workflow — `ultrawork` is no longer a trigger.
+- `/effort` has seven settings (low/medium/high/xhigh/max/ultracode/auto); **ultracode = xhigh reasoning + proactive orchestration by default (this session only)** — shallower than max on reasoning depth, but it wins on "orchestrating with more agents by default."
 - A script = **warp** (`meta` pure literal + `phase`) + **weft** (`agent` / `parallel` / `pipeline` / `log` / `workflow`).
 - `agent(prompt, { schema })` dispatches a subagent and returns a **validated structured object**; a schema mismatch triggers an automatic retry.
 - The Workflow tool is **async**: it returns `taskId` / `runId` immediately, the result is in the completion notification; watch live progress with `/workflows`.

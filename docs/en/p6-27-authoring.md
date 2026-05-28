@@ -332,8 +332,8 @@ This chapter covers this step in a single sentence — **the complete list of va
 
 With validation passed, do the real run. Three things to keep in mind:
 
-1. **Gated**: the Workflow tool is only available in a session with `CLAUDE_CODE_WORKFLOWS=1`.
-2. **How to call**: once the script is on disk, trigger it with `Workflow({ scriptPath: '...' })` (`scriptPath` takes priority over inline `script` and named `name`). You can also trigger it by dropping the `ultrawork` keyword into a message.
+1. **Gated**: first make sure the Workflow tool is available — setting `CLAUDE_CODE_WORKFLOWS=1` explicitly is the most reliable way (see [Chapter 01 §1.5](#/en/p1-01)).
+2. **How to call**: once the script is on disk, trigger it with `Workflow({ scriptPath: '...' })` (`scriptPath` takes priority over inline `script` and named `name`). You can also trigger it by dropping the `workflow`/`workflows` keyword into a message (`ultrawork` is no longer a trigger — see [Chapter 01 §1.5](#/en/p1-01)).
 3. **The return is async**: the Workflow tool **returns immediately** with `taskId` and `runId` (shaped like `wf_...`), **non-blocking**. On actual completion, a `<task-notification>` returns `usage` and `result`.
 
 ```bash

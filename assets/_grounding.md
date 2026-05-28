@@ -8,15 +8,30 @@
 
 | 事实 | 值 | 信源 |
 |---|---|---|
-| 功能名 | Workflow 工具（特性昵称 ultrawork） | 工具定义 |
-| 门控环境变量 | `CLAUDE_CODE_WORKFLOWS=1` | 实测会话环境变量存在 |
-| Claude Code 版本 | v2.1.150 | `@anthropic-ai/claude-code/package.json` |
+| 功能名 | Workflow 工具（早期社区昵称 ultrawork，**已弃用为触发词**，见 A1） | 工具定义 |
+| 门控环境变量 | `CLAUDE_CODE_WORKFLOWS=1`（"能用"层；详见 A1） | 实测会话环境变量存在 |
+| Claude Code 版本 | v2.1.150（基础机制）→ **v2.1.154**（R10 effort/ultracode 实测） | `package.json` / `claude --version` |
 | subagent 模型 | `claude-opus-4-7[1m]`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） | 实测环境变量 |
 | 模型别名重映射 | `ANTHROPIC_DEFAULT_HAIKU_MODEL/SONNET/OPUS` 把模型别名整体映射到 Opus（与 `CLAUDE_CODE_SUBAGENT_MODEL` 叠加＝两层覆盖） | 实测环境变量（R7 `wf_e8cb23ff-829`） |
 | 关联标志 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | 实测环境变量 |
-| 触发方式 | ①消息含 `ultrawork` 关键词；②直接调用 Workflow 工具；③具名工作流/技能触发 | 工具定义 |
+| 触发方式（「会用」层） | **让模型 opt-in**（官方注入清单 4 项）：①`workflow`/`workflows` 关键词；②`/effort ultracode`（会话常驻）；③用户自然语言直接要求；④skill/slash command。**另：程序化发起**＝直接调 Workflow 工具 / 具名工作流 `{name}`（不属注入清单）。**`ultrawork` 已弃用为触发词**（仅存内部事件名 `ultrawork_request`） | 工具定义 + `effort-ultracode-r10.md` |
 | 返回性质 | **始终异步**：立即返回 `taskId`/`runId`，完成时发 `<task-notification>` | 类型定义 + 实测 |
 | 实时进度 | 斜杠命令 `/workflows` | 工具定义 |
+
+## A1. `/effort` 与 ultracode（R10 新增 · 实测自 2.1.154 客户端二进制，证据 `assets/transcripts/effort-ultracode-r10.md`）
+
+> **关键区分：「能用」≠「会用」。** 工具可用性（能用）与「让模型默认主动编排」（会用）是**两层**，旧表把它们和 `ultrawork` 糊在了一起，R10 校正。下面每条都可在 `effort-ultracode-r10.md` 找到 verbatim 原文。
+
+- **`/effort` 七挡**：`low / medium / high / xhigh / max / ultracode / auto`（参数校验原文：`Valid options are: low, medium, high, xhigh, max, ultracode, auto`）。官方一句话描述：low=快速直接实现；medium=均衡+标准测试；high=全面+广泛测试（**Opus 4.8 默认**）；xhigh=延伸推理+彻底分析（官方荐「最难任务」）；max=最大能力+最深推理；ultracode=见下；auto=模型默认挡。底层 level 枚举只有 `low…max` 五挡。
+- **ultracode ≡ xhigh + 主动编排（仅本会话）**：解析代码 `if(_==="ultracode"&&vx())return{value:"xhigh"}`——**推理深度 = xhigh，不及 max**；额外注入常驻指令 `Use the Workflow tool on every substantive task`。反复标注 `(this session only)`，不持久化（low~max 会存 settings）。
+- **能用（`FX5`）**：`CLAUDE_CODE_WORKFLOWS=1`→可用（**最稳**）；`=0`→强制关；不设→看服务端 flag `tengu_workflows_enabled`，开则**非 Pro 账户默认开**（`defaultOn:OK()!=="pro"`）。flag 由 Anthropic 灰度、用户不可控。
+- **ultracode 不碰可用性（实测）**：37 处 `ultracode` 字符串，**0 处**在 ±400 字符内出现 `CLAUDE_CODE_WORKFLOWS`；effort 写入函数 `v6q` 只发 `sendControlRequest({subtype:"apply_flag_settings",settings:{effortLevel, ultracode…}})`。即 `/effort ultracode` **不开工具开关**——它依赖 workflow 已可用（`vx()` 门控 ⇒ 只有 workflow 可用时 `/effort` 才列出 ultracode；可当「能不能用」的现成判据）。
+- **官方触发关键词 = `workflow`/`workflows`**（注入 `you should use the Workflow tool`）。完整 opt-in（verbatim）：`workflow`/`workflows` 关键词 / `Ultracode is on` / 用户自述（"run a workflow"/"fan out agents"）/ skill·slash command。
+- **`ultrawork` 已弃用为触发词**：二进制仅 3 处、全是内部事件名 `ultrawork_request`（`normalizeAttachmentForAPI` 白名单）；`"ulw"`=0。第三方 oh-my-openagent 用 `/\b(ultrawork|ulw)\b/` 是其**自有实现**，与官方无关（见 D 节）。
+- **彩蛋 `ultrathink`**（19 处）：消息含此词 = 这一轮更深推理（`requesting deeper reasoning on this turn`），不涉及 workflow 编排，别与 ultracode 混。
+- **`CLAUDE_CODE_EFFORT_LEVEL` 覆盖**：env 覆盖 `/effort` 会话选择（`unset`/`auto` 不覆盖；解析 `OVH`）。本机当前 `=max`，故 `/effort` 提示 `… overrides effort this session — clear it and ultracode takes over`。
+- **静默降级**：`after any silent downgrade`——模型撑不住的高挡会**不报错地降级**，「选了 max」≠「真按 max 跑」。
+- **启动横幅（verbatim）**：`Opus 4.8 is here!` / `Now defaults to high effort · /effort xhigh for your hardest tasks`。
 
 ## A2. R4 新增事实与信源（2026-05-25，每条标注权威等级）
 

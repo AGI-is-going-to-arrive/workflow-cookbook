@@ -2,7 +2,7 @@
 
 > 本附录是全书的 API 速查，对照 Claude Code 官方分发包的类型定义 `sdk-tools.d.ts`（`WorkflowInput` / `WorkflowOutput` 接口）、Workflow 工具定义原文，以及本机真实运行记录（见 [附录 E](#/zh/app-e)）整理而成。
 >
-> 适用版本：Claude Code v2.1.150（`CLAUDE_CODE_WORKFLOWS=1`，本书实测会话主循环模型 Opus 4.7 (1M)）。功能为实验性，字段可能随版本演进——以你本机的类型定义为最终依据。
+> 适用版本：Claude Code v2.1.150（基础 API；`CLAUDE_CODE_WORKFLOWS=1`，主循环 Opus 4.7 (1M)）；§A.12 的 `/effort`·ultracode·门控实测于 **v2.1.154**。功能为实验性，字段可能随版本演进——以你本机的类型定义为最终依据。
 
 ---
 
@@ -351,9 +351,25 @@ const n = input.n ?? 1   // 现在可安全读字段
 
 ## A.12 触发与门控【官方】
 
-- **门控**：环境变量 `CLAUDE_CODE_WORKFLOWS=1`。
-- **触发**：①消息含 `ultrawork` 关键词；②直接调用 Workflow 工具；③具名工作流 / 触发它的技能或斜杠命令。
-- **实时进度**：斜杠命令 `/workflows`。
+分两层（**能用** vs **会用**），别混（详见 [第 01 章 §1.5–1.6](#/zh/p1-01)）：
+
+**第一层 · 能用（Workflow 工具在不在工具箱里）**：由 `CLAUDE_CODE_WORKFLOWS` + 服务端 flag `tengu_workflows_enabled` + 账户类型决定（2.1.154 客户端逻辑 `FX5`）。
+- `CLAUDE_CODE_WORKFLOWS=1` → **最可靠的用户侧开法**（设了之后可用性仍取服务端 flag `tengu_workflows_enabled`，默认 true）；`=0` → 强制关；不设 → 看服务端 flag，开则非 Pro 账户默认开。
+- 服务端 flag 由 Anthropic 灰度控制、用户左右不了，故要确定可用就显式设 `=1`。
+
+**第二层 · 会用（让 Claude 这次／本会话去编排）**——官方 opt-in 清单（2.1.154 客户端注入给模型，逐条实测自二进制）：
+- ① 消息含 `workflow` / `workflows` 关键词（**单次**）；
+- ② `/effort ultracode`（**本会话常驻** + 推理提到 xhigh；详见 [第 01 章 §1.6](#/zh/p1-01)）；
+- ③ 用户用自己的话直接要求（"run a workflow" / "fan out agents" / "orchestrate this with subagents"）；
+- ④ 技能 / 斜杠命令（其指令要求用 Workflow）。（注：**直接调 Workflow 工具** `Workflow({ scriptPath })` 与**具名工作流** `{ name }` 属程序化发起，不在这份「让模型 opt-in」注入清单内。）
+
+**实时进度**：斜杠命令 `/workflows`。
+
+<div class="callout warn">
+
+**`ultrawork` 已不是触发词。** 2.1.154 官方二进制里 `ultrawork` 仅作内部事件名 `ultrawork_request` 存在（`normalizeAttachmentForAPI` 类型白名单），用户输入它**不触发任何东西**；现官方触发关键词为 `workflow` / `workflows`。证据见 [`assets/transcripts/effort-ultracode-r10.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/effort-ultracode-r10.md)。（第三方 oh-my-openagent 用 `ultrawork`/`ulw` 是其自有实现，与官方无关。）
+
+</div>
 
 ---
 

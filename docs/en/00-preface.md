@@ -50,6 +50,8 @@ const results = await pipeline(
 
 What this means: **the orchestration discipline the community painstakingly maintains through prompts can now be welded shut, once and for all, in code.**
 
+And as of **v2.1.154**, it isn't even "quiet" anymore — Claude Code wired it formally into the `/effort` system: a single `/effort ultracode` gets Claude to use it proactively, by default, across the whole session (see [Chapter 01 §1.6](#/en/p1-01)). It went from "a hidden tool tucked behind a feature flag" to "a prominent, session-level opt-in entry on the `/effort` dial" — provided, of course, the Workflow tool is already available.
+
 ---
 
 ## What This Book Is, and Isn't
@@ -91,14 +93,15 @@ What sets this book apart from the many "tutorials written by AI" comes down to 
 >
 > | Item | Value |
 > |---|---|
-> | Claude Code version | **v2.1.150** (native binary) |
+> | Claude Code version | **v2.1.150 – v2.1.154** (native binary; foundational mechanics mostly tested on 2.1.150, the `/effort` · ultracode set on 2.1.154) |
 > | Feature flag | `CLAUDE_CODE_WORKFLOWS=1` (confirmed present in the session environment) |
-> | Main model | Opus 4.7 (1M context) |
-> | Subagent model | `claude-opus-4-7[1m]` (set by `CLAUDE_CODE_SUBAGENT_MODEL`) |
+> | effort system | `/effort`'s seven settings `low/medium/high/xhigh/max/ultracode/auto`; **ultracode = xhigh + proactive orchestration (this session only)** |
+> | Main model | Opus 4.7 (1M context); the `/effort` · ultracode test session was Opus 4.8 (1M) |
+> | Subagent model | `claude-opus-4-7[1m]` (set by `CLAUDE_CODE_SUBAGENT_MODEL`; the R10 session was `claude-opus-4-8[1m]`) |
 > | Related flag | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
 > | Test date | May 2026 |
 >
-> Workflow is still an **experimental, opt-in** feature. The specific behavior across versions (concurrency limits, budget semantics, resume details) may evolve. The book marks the source of key behaviors so you can re-verify them on your own version.
+> Before using Workflow, first make sure it's **available** in your session (setting `CLAUDE_CODE_WORKFLOWS=1` explicitly is the most reliable way; see [Chapter 01 §1.5](#/en/p1-01)). The specific behavior across versions (concurrency limits, budget semantics, resume details) may evolve. The book marks the source of key behaviors so you can re-verify them on your own version.
 
 ---
 

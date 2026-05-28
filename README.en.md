@@ -31,7 +31,7 @@
 
 ## What this book is about
 
-Claude Code's **Workflow** feature (feature flag `CLAUDE_CODE_WORKFLOWS`, community nickname *ultrawork*) is an engine for **deterministically orchestrating multiple agents** with a JavaScript script. It is not MCP, not Skills, not Subagents, not Agent Teams — it is a new kind of engineering pipeline that is **reusable, testable, and shareable**.
+Claude Code's **Workflow** feature (availability controlled by the feature flag `CLAUDE_CODE_WORKFLOWS`; once it's available, from v2.1.154 you can also use `/effort ultracode` to make Claude orchestrate proactively by default for the session) is an engine for **deterministically orchestrating multiple agents** with a JavaScript script. It is not MCP, not Skills, not Subagents, not Agent Teams — it is a new kind of engineering pipeline that is **reusable, testable, and shareable**.
 
 This book takes you from zero to one: understand its essential positioning → master the full `agent()`/`parallel()`/`pipeline()`/`schema` API → work through 7 really-run recipes → unlock advanced patterns like adversarial verification / loop-until-dry / budget / resume → benchmark the four major community systems and extract their essence → build your own Workflow library → and master the full author → validate → debug flow from intent to ship.
 
@@ -45,7 +45,7 @@ This book takes you from zero to one: understand its essential positioning → m
 | Chapters | **29 chapters + 6 appendices** (six parts · Understanding / Foundations / Recipes / Advanced / Ecosystem / Authoring + Appendices A–F) |
 | Volume | Chinese source 140k+ Han characters ｜ `docs/zh` ↔ `docs/en` **36 files mirrored one-to-one** |
 | Real Workflow runs | **23 unique Run IDs** (R4 baseline 17 + R5 application-level 3 + R6 application-level 3; raw logs in [`assets/transcripts/`](assets/transcripts)) |
-| Tested on | Claude Code **v2.1.150**, `CLAUDE_CODE_WORKFLOWS=1`, Opus 4.7 (1M) |
+| Tested on | Claude Code **v2.1.150 – v2.1.154**, `CLAUDE_CODE_WORKFLOWS=1`, Opus 4.7 / 4.8 (1M) |
 | Bilingual | Full zh/en parity, one-click switch |
 
 </details>
@@ -85,7 +85,7 @@ log(`smoke result: ${JSON.stringify(r)}`)
 return r
 ```
 
-> **How to run it (important):** this is a **Workflow script**, not a standalone Node script — `export`/`meta`/`phase`/`agent`/`log` are global symbols injected by the Workflow runtime. **Running it with `node hello.js` immediately throws `phase is not defined` (on Windows and macOS alike).** The correct way: inside a Claude Code session with the **feature flag enabled** (`CLAUDE_CODE_WORKFLOWS=1 claude`, or set it in the `env` of `~/.claude/settings.json`), just ask Claude to execute it — e.g. say "ultrawork: run this workflow", and Claude invokes the built-in Workflow tool.
+> **How to run it (important):** this is a **Workflow script**, not a standalone Node script — `export`/`meta`/`phase`/`agent`/`log` are global symbols injected by the Workflow runtime. **Running it with `node hello.js` immediately throws `phase is not defined` (on Windows and macOS alike).** The correct way: inside a Claude Code session with the **feature flag enabled** (`CLAUDE_CODE_WORKFLOWS=1 claude`, or set it in the `env` of `~/.claude/settings.json`), just ask Claude to execute it — e.g. include the keyword `workflow` in your message (like "run this workflow"), and Claude invokes the built-in Workflow tool.
 >
 > Real return (`schema` forces structure; `sum` is the integer `4`, not a string): `{"message":"…","sum":4,"runtimeConfirmed":true}` (Run `wf_dacbd480-d5d`, 1 agent / 26,338 tokens / 5.5s).
 

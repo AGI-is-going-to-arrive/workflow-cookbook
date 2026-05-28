@@ -4,24 +4,22 @@
 
 ---
 
-## 4.1 前置：确认 Workflow 已开启
+## 4.1 前置：先确认「能用」
 
-Workflow 还是实验性功能，由环境变量 `CLAUDE_CODE_WORKFLOWS` 管着开关。开工前先确认它在你这次会话里是开着的。
+第 01 章 §1.5 把这件事拆成了「能用 / 会用」两层。动手前，先确认「能用」这层——最稳的办法就是显式开 `CLAUDE_CODE_WORKFLOWS=1`。
 
 ```bash
 # 启动时临时开启（当前会话生效）
 CLAUDE_CODE_WORKFLOWS=1 claude
 ```
 
-或者写进 `~/.claude/settings.json` 里，让它长期开着：
+或者写进 `~/.claude/settings.json`，让它长期开着：
 
 ```json
-{
-  "env": { "CLAUDE_CODE_WORKFLOWS": "1" }
-}
+{ "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }
 ```
 
-想确认它有没有生效，最直接的办法就是看这个环境变量。本书写作的这次会话里，它**确实在，而且就是 `1`**：
+想确认有没有生效，最直接的就是看这个环境变量。本书写作的这次会话里，它**确实在、就是 `1`**：
 
 ```text
 CLAUDE_CODE_WORKFLOWS = 1
@@ -29,9 +27,11 @@ CLAUDE_CODE_WORKFLOWS = 1
 
 <div class="callout tip">
 
-要是拿不准，直接在对话里说一句「ultrawork：跑一个最小工作流确认运行时」就行。功能开着，Claude 就能调用 Workflow 工具；没开，它会告诉你这工具用不了。
+**两个 0 成本的确认法**：① 直接在对话里说一句「跑个最小 workflow 确认运行时」——句子里带了 `workflow` 这个词，Claude 就会去调 Workflow 工具：开着就能跑，没开它会告诉你用不了。② 敲 `/effort`，看滑块里有没有 `ultracode` 这一格——有，就说明 workflow 已经「能用」了（道理见 §1.6）。
 
 </div>
+
+至于「会用」——想让 Claude **默认就主动**编排，可以 `/effort ultracode` 一次设定、整场常驻（细节见第 01 章 §1.6）。本章的脚本都直接调 Workflow 工具来跑，不依赖这个常驻设定。
 
 ---
 
@@ -80,7 +80,7 @@ return r
 
 <div class="callout warn">
 
-**这是 Workflow 脚本，不是 Node 脚本——新手第一坑。** `meta`/`phase`/`agent`/`log`/`budget`/`args` 都是 Workflow **运行时注入的全局符号**（`_grounding.md` B 节：「运行时注入，无需 import」）。你把这段存成 `hello.js`、用 `node hello.js` 单跑，Node 压根没有这些全局，立马就给你抛 `ReferenceError: phase is not defined`——**Windows、macOS、Linux 三平台一模一样**（这跟操作系统没关系，纯粹是因为 Node 根本没有 Workflow 运行时这一层）。它只能在**开了 `CLAUDE_CODE_WORKFLOWS=1` 的 Claude Code 会话里**、由 Claude 调用内置 Workflow 工具来跑（见 4.1：直接对 Claude 说一句「ultrawork：跑这个」）。本书实测就是这么把它跑通的：runtime 确认、schema 强制 `sum=4` 为**数字**、约 2.6 万 token / 约 5.5 秒（真实回执和用量见 4.3、4.4）。
+**这是 Workflow 脚本，不是 Node 脚本——新手第一坑。** `meta`/`phase`/`agent`/`log`/`budget`/`args` 都是 Workflow **运行时注入的全局符号**（`_grounding.md` B 节：「运行时注入，无需 import」）。你把这段存成 `hello.js`、用 `node hello.js` 单跑，Node 压根没有这些全局，立马就给你抛 `ReferenceError: phase is not defined`——**Windows、macOS、Linux 三平台一模一样**（这跟操作系统没关系，纯粹是因为 Node 根本没有 Workflow 运行时这一层）。它只能在**开了 `CLAUDE_CODE_WORKFLOWS=1` 的 Claude Code 会话里**、由 Claude 调用内置 Workflow 工具来跑（见 §4.1：在消息里带上 `workflow` 这个词即可）。本书实测就是这么把它跑通的：runtime 确认、schema 强制 `sum=4` 为**数字**、约 2.6 万 token / 约 5.5 秒（真实回执和用量见 4.3、4.4）。
 
 </div>
 

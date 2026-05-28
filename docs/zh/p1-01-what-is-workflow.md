@@ -109,7 +109,7 @@ export const meta = {
 
 <div class="callout warn">
 
-**脚本里不能用 `Date.now()`、`Math.random()`、无参 `new Date()`**——一用就报错。为什么？1.6 节「续传」会细讲：这三个家伙每次结果都不一样，会打破「同样的脚本必然跑出同样的结果」这个前提，断点续传就废了。要时间戳？用 `args` 传进来。要随机性？拿 agent 的下标（index）去改提示词。
+**脚本里不能用 `Date.now()`、`Math.random()`、无参 `new Date()`**——一用就报错。为什么？1.7 节「续传」会细讲：这三个家伙每次结果都不一样，会打破「同样的脚本必然跑出同样的结果」这个前提，断点续传就废了。要时间戳？用 `args` 传进来。要随机性？拿 agent 的下标（index）去改提示词。
 
 </div>
 
@@ -166,7 +166,7 @@ You will be notified when it completes. Use /workflows to watch live progress.
 这里头有几条**真实**信息值得记住：
 
 - **`Task ID`**：这次后台任务的 ID。
-- **`Run ID`**（形如 `wf_...`）：这次运行的标识，断点续传时要用（见 1.6 节）。
+- **`Run ID`**（形如 `wf_...`）：这次运行的标识，断点续传时要用（见 1.7 节）。
 - **脚本落盘路径**：每次调用，运行时都会把你的脚本**存成磁盘上的一个文件**。想改了再试？直接 `Write`/`Edit` 那个文件，再带上 `{ scriptPath: ... }` 重新调用就行，不用把整段脚本再发一遍。
 - **`/workflows`**：一个斜杠命令，实时盯着进度树看。
 
@@ -194,44 +194,71 @@ sequenceDiagram
 
 ---
 
-## 1.5 怎样触发一个 Workflow
+## 1.5 怎样让 Claude 用上 Workflow
 
-有两条路径：
+要让 Claude 真去跑一个 Workflow，得先分清**两件事**——它俩老被混在一起，是新手最大的困惑来源：
 
-1. **关键词 `ultrawork`。** 你的消息里只要带上 `ultrawork`，Claude Code 就会收到一条系统提示，告诉它「用户已经选了多 Agent 编排」，于是它被允许调用 Workflow 工具。社区给这个特性起的外号「ultrawork」也是这么来的。
-2. **直接调用 Workflow 工具。** 比如你明确说「跑一个工作流 / 用多 agent 编排 / 把 agent 扇出去」，或者你用了某个内部会触发它的技能、斜杠命令，又或者你点名要跑某个具名工作流。
+1. **能用**：Workflow 这个工具，在不在 Claude 的工具箱里？
+2. **会用**：工具在箱子里了，怎么让 Claude 这一次（或这一整场）真的拿它来编排？
 
-不管走哪条路，都得先过两道前提：功能被**显式打开**，而且 Claude Code 版本**够新**。先说最常被忘的那道——开关。
+打个比方：**能用**是「厨房里有没有这口锅」，**会用**是「你这顿饭要不要用它」。两件事，分开管，下面分两层说。
 
-### 功能标志：`CLAUDE_CODE_WORKFLOWS`
+### 第一层 · 能用：`CLAUDE_CODE_WORKFLOWS`
 
-Workflow 是个**默认关闭、需要手动打开**的实验性功能，由环境变量 `CLAUDE_CODE_WORKFLOWS` 控制。写这本书的会话环境里，这个变量**确实存在，而且值是 `1`**（实测确认）：
+工具在不在你的工具箱里，由环境变量 `CLAUDE_CODE_WORKFLOWS` 加一个服务端开关共同决定。写这本书的会话里，这个变量确实在、值就是 `1`（实测）：
 
 ```text
 CLAUDE_CODE_WORKFLOWS = 1
 ```
 
-开启方式通常有两种：
+读 2.1.154 客户端的真实逻辑，可用性分三种情况：
+
+- 显式设 `CLAUDE_CODE_WORKFLOWS=1` → **工具可用**（最稳，推荐这样）；
+- 显式设 `=0` → **强制关闭**；
+- 干脆不设 → 看一个服务端开关；它开着的话，**非 Pro 账户默认就是开的**。
+
+<div class="callout info">
+
+**想稳，就自己显式设 `=1`。** 上面那个「服务端开关」是 Anthropic 灰度控制的，你左右不了、它也可能随版本和账户变。显式设 `CLAUDE_CODE_WORKFLOWS=1`，等于把「能不能用」从「赌服务端」变成「我说了算」。
+
+</div>
+
+两种设法：
 
 ```bash
-# 方式一：启动时设置（当前会话生效）
+# 启动时设（当前会话生效）
 CLAUDE_CODE_WORKFLOWS=1 claude
 
-# 方式二：写入 ~/.claude/settings.json 的 env 段（持久生效）
-{
-  "env": { "CLAUDE_CODE_WORKFLOWS": "1" }
-}
+# 或写进 ~/.claude/settings.json 的 env 段（长期生效）
+{ "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }
 ```
 
 <div class="callout warn">
 
-**为什么默认不开？** 因为一个 Workflow 可能一下扇出几十个 subagent、烧掉一大把 token。拿一个开关把它挡在后面，相当于提醒你「你得清楚自己在干嘛」。工具定义里也反复强调这条纪律：**只有用户明确选了多 Agent 编排，才去调用 Workflow**——别光凭「这任务好像并行一下会更快」就擅自启动。
+**为什么要有这道开关？** 一个 Workflow 可能一下扇出几十个 subagent、烧掉一大把 token。拿开关挡在前面，是提醒你「清楚自己在干嘛」。工具定义也反复强调：**只有用户明确选了多 Agent 编排，Claude 才去调 Workflow**——别光凭「这任务并行一下好像更快」就擅自启动。
+
+</div>
+
+### 第二层 · 会用：四种「让 Claude 去编排」的方式
+
+工具在箱子里之后，下面任意一种都能让 Claude 这次去用它。这是 2.1.154 客户端注入给模型的官方清单（逐条实测自客户端二进制）：
+
+| 方式 | 触发范围 | 说明 |
+|---|---|---|
+| 消息里带 `workflow` / `workflows` 关键词 | **单次** | Claude 收到系统提示「该用 Workflow 工具」。最轻的触发。 |
+| `/effort ultracode` | **本会话常驻** | 让 Claude 默认就给每个像样的任务编排 workflow，推理同时提到 xhigh。详见 §1.6。 |
+| 用自己的话直接要求 | 单次 | 比如「跑个 workflow」「把 agent 扇出去」「用多 agent 编排这件事」。 |
+| 技能 / 斜杠命令 | 单次 | 某些 skill、slash command 的指令里就写了要用 Workflow，调用它即触发。（注：你或脚本还能**直接调 Workflow 工具**、跑**具名工作流** `{ name: 'xxx' }`——那是程序化发起，不在这份「让模型 opt-in」清单里。） |
+
+<div class="callout warn">
+
+**`ultrawork` 不再是触发词了。** 早期社区流传「在输入框打 `ultrawork` 就能触发」，但在 2.1.154 官方客户端里，`ultrawork` 只作为一个**内部事件名**（`ultrawork_request`）存在，**你打它不会触发任何东西**。现在官方的触发关键词是 `workflow` / `workflows`。（另：第三方系统 oh-my-openagent 确实拿 `ultrawork` 当入口词，那是它自己的实现，跟官方 Claude Code 无关——第 23 章会讲到。）
 
 </div>
 
 ### 版本前提：Claude Code 得够新
 
-Workflow 是较晚才加进 Claude Code 的工具，老版本里根本没有。本书的实测环境是 **v2.1.150**，工具完整可用。据社区和用户反馈，大约 **2.1.148** 前后开始提供——但**确切的起始版本本书没有独立核实**，当个大致下限就行。查你当前的版本：
+Workflow 是较晚才加进 Claude Code 的工具，老版本里根本没有。本书的实测横跨 **v2.1.150 到 v2.1.154**：Part I–IV 的基础机制多在 2.1.150 跑通，`/effort` 与 ultracode 这套（§1.6）实测于 **v2.1.154**。据社区反馈大约 **2.1.148** 前后开始提供，但**确切起始版本本书没独立核实**，当个大致下限就行。查你当前版本：
 
 ```bash
 claude --version
@@ -265,7 +292,73 @@ return {
 
 ---
 
-## 1.6 三个让它「与众不同」的运行时特性
+## 1.6 `/effort` 与 ultracode：让 Claude 默认主动编排
+
+上一节那张表里，`/effort ultracode` 是唯一「本会话常驻」的方式。它值得单独讲——因为它牵出了 Claude Code 的整套 **effort（用力程度）体系**。
+
+### `/effort`：一个调「用多大力」的旋钮
+
+`/effort` 是个斜杠命令，给当前会话定 Claude「用多大力气」思考。2.1.154 里它有七个挡（实测自客户端，每挡的官方说明如下）：
+
+| 挡位 | 官方说明（原文直译） | 一句话理解 |
+|---|---|---|
+| `low` | 快速、直接的实现 | 赶时间的简单活 |
+| `medium` | 均衡，带标准测试 | 日常 |
+| `high` | 全面实现，带广泛测试 | **Opus 4.8 默认这挡** |
+| `xhigh` | 延伸推理 + 彻底分析 | 官方建议「最难的任务」用它 |
+| `max` | 最大能力 + 最深推理 | 推理最深 |
+| `ultracode` | **xhigh + 动态工作流编排（仅本会话）** | 见下 |
+| `auto` | 用你模型的默认挡 | 交给系统 |
+
+用法就是 `/effort xhigh` 这样敲。Opus 4.8 上来默认 `high`；最难啃的任务，官方在启动横幅里直接建议 `/effort xhigh`。
+
+### ultracode 是什么——先破一个误会
+
+很多人以为 ultracode 是「比 max 还猛的最强挡」。**不是。** 翻 2.1.154 客户端解析 effort 的真实代码，选 ultracode，推理挡其实被设成了 `xhigh`（不是 max）：
+
+```javascript
+// 2.1.154 客户端解析 /effort 参数的真实逻辑（节选；变量名可读化，
+// 原始压缩代码见 assets/transcripts/effort-ultracode-r10.md）
+if (effort === "ultracode" && workflowsAvailable())
+    return { value: "xhigh" };   // ← ultracode 的推理深度 = xhigh
+```
+
+换句话说：
+
+<div class="callout info">
+
+**论推理深度，`max` 比 `ultracode` 更深。** ultracode 用的是 xhigh 那一挡的推理，它换来的是另一样东西——**让 Claude 默认就主动给每个像样的任务编排 workflow**（官方叫 "standing dynamic-workflow orchestration"）。开了 ultracode，Claude 收到的常驻指令是：「把 Workflow 工具用在每一个像样的任务上，别图快图省。」
+
+</div>
+
+所以二者分工，一句话记住：
+
+- **`max`** = 要它**想得最深**（单脑深挖一个难题）。
+- **`ultracode`** = 要它**默认就多开 agent 编排**（xhigh 推理 + 主动扇出）。
+
+任务要是「一个脑子使劲想就能解」，`max` 往往比 `ultracode` 更对路；任务要是「拆开并行、交叉验证更划算」，才轮到 `ultracode`。
+
+### 三个必须知道的约束
+
+1. **仅本会话，不留底。** ultracode 在客户端里反复被标 "this session only"——关了窗口就没了，不写进 settings。其他挡（low~max）选了会存下来、下次还在。
+2. **能在 `/effort` 里选到 ultracode，就说明 workflow 已经「能用」了。** 上面代码里那个 `workflowsAvailable()` 门控意味着：**只有 workflow 可用时，滑块里才会出现 `ultracode` 这一格**。所以它本身就是个现成的「能不能用」判据——看得到这格，§1.5 的第一层就过了。
+3. **环境变量会盖过你的选择。** 设了 `CLAUDE_CODE_EFFORT_LEVEL`（比如 `=max`），它会**强制覆盖** `/effort` 里选的挡，界面提示 "clear it and ultracode takes over"（清掉它 ultracode 才接管）。写这本书的会话恰好锁在 `CLAUDE_CODE_EFFORT_LEVEL=max`，所以专门点一句，免得你也被绊住。
+
+<div class="callout info">
+
+**彩蛋：`ultrathink`。** 跟 `workflow` 关键词同一套机制——消息里带上 `ultrathink`，会让 Claude「这一轮想得更深」（官方原文："requesting deeper reasoning on this turn"）。它只管「这一轮多想」，不碰 workflow 编排，别和 ultracode 搞混。
+
+</div>
+
+<div class="callout warn">
+
+**当心静默降级。** effort 挡位会被你当前模型的能力悄悄打折：选了某个模型撑不住的高挡，客户端会**不报错地降到它能跑的挡**（官方代码原文提到 "after any silent downgrade"）。所以「我选了 max」不等于「真按 max 在跑」——还得看模型撑不撑得住。
+
+</div>
+
+---
+
+## 1.7 三个让它「与众不同」的运行时特性
 
 除了「确定性 + 结构化」，Workflow 还有三个工程上特别要紧的特性。正是它们，让它真正做到了可复用、可测试、可分享。
 
@@ -287,7 +380,7 @@ return {
 
 ---
 
-## 1.7 它不是什么：先划清边界
+## 1.8 它不是什么：先划清边界
 
 刚上手的人，最容易把 Workflow 跟 Claude Code 别的扩展机制搞混。这里先快速划一下界，第 03 章会用一张完整的「定位矩阵」详细对比。
 
@@ -302,9 +395,10 @@ return {
 
 ---
 
-## 1.8 本章小结
+## 1.9 本章小结
 
-- Workflow 是 Claude Code 内置工具，用**纯 JavaScript 脚本**确定性编排 subagent，由 `CLAUDE_CODE_WORKFLOWS=1` 门控，可用 `ultrawork` 关键词或直接调用触发。
+- Workflow 是 Claude Code 内置工具，用**纯 JavaScript 脚本**确定性编排 subagent。分两层用它：**能用**由 `CLAUDE_CODE_WORKFLOWS=1` 门控（最稳的开法）；**会用**靠 `workflow`/`workflows` 关键词、`/effort ultracode`（本会话常驻）、自然语言或具名工作流触发——`ultrawork` 已不再是触发词。
+- `/effort` 有七挡（low/medium/high/xhigh/max/ultracode/auto）；**ultracode = xhigh 推理 + 默认主动编排（仅本会话）**，论推理深度不如 max，胜在「默认就多开 agent」。
 - 脚本 = **经线**（`meta` 纯字面量 + `phase`）+ **纬线**（`agent` / `parallel` / `pipeline` / `log` / `workflow`）。
 - `agent(prompt, { schema })` 派发 subagent 并返回**已验证的结构化对象**；schema 不匹配会自动重试。
 - Workflow 工具**异步**：立即返回 `taskId` / `runId`，结果在完成通知里；用 `/workflows` 看实时进度。

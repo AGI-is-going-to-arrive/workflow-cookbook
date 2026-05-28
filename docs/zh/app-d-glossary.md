@@ -10,12 +10,17 @@
 
 | 术语（中 / 英） | 定义 | 定位 |
 |---|---|---|
-| **Workflow / 工作流** | Claude Code 的多 agent 编排原语：用一段 JS 脚本确定性地派发、串联多个 subagent。特性昵称 **ultrawork**。 | [第 1 章](#/zh/p1-01) |
-| **ultrawork** | Workflow 特性的昵称/触发关键词之一；消息中含此词可触发工作流。 | [附录 A · A.12](#/zh/app-a) |
+| **Workflow / 工作流** | Claude Code 的多 agent 编排原语：用一段 JS 脚本确定性地派发、串联多个 subagent。 | [第 1 章](#/zh/p1-01) |
+| **`workflow` / `workflows`（触发关键词）** | 消息里带上这个词，Claude 收到「该用 Workflow 工具」的系统提示——2.1.154 官方的触发关键词。 | [第 1 章 · §1.5](#/zh/p1-01) |
+| **ultrawork（已弃用为触发词）** | 早期社区昵称；2.1.154 官方二进制里它**仅作内部事件名** `ultrawork_request`，用户输入**不再触发**任何东西。触发请改用 `workflow`/`workflows`。（第三方 oh-my-openagent 仍用此词作入口，与官方无关。） | [附录 A · A.12](#/zh/app-a) |
+| **`/effort`** | 斜杠命令，定本会话 Claude「用多大力」：七挡 `low/medium/high/xhigh/max/ultracode/auto`。Opus 4.8 默认 `high`。 | [第 1 章 · §1.6](#/zh/p1-01) |
+| **ultracode** | `/effort` 的一个挡位 = **xhigh 推理 + 默认主动编排 workflow（仅本会话）**。论推理深度不及 `max`，胜在「默认就多开 agent」。只在 workflow 可用时才出现在 `/effort` 里。 | [第 1 章 · §1.6](#/zh/p1-01) |
+| **ultrathink** | 与 `workflow` 同机制的关键词：消息里带上它，让 Claude「这一轮想得更深」，不涉及 workflow 编排。 | [第 1 章 · §1.6](#/zh/p1-01) |
+| **CLAUDE_CODE_EFFORT_LEVEL** | 环境变量，**强制覆盖** `/effort` 的会话选择（值为 `unset`/`auto` 时不覆盖）。 | [第 1 章 · §1.6](#/zh/p1-01) |
 | **确定性编排 / deterministic orchestration** | 由代码（而非模型自由发挥）决定「派几个 agent、按什么顺序、如何汇合」的编排方式，区别于纯提示词驱动。 | [第 2 章](#/zh/p1-02) |
 | **subagent / 子智能体** | 由 `agent()` 派出去的一个独立干活单元，有自己的上下文和真实的工具权限；它「吐出的最后一段文本就是返回值」。 | [第 1 章](#/zh/p1-01) |
 | **主循环 / main loop** | 你正在跟它对话的这个 Claude 会话；Workflow 工具调用就是它发起的，而且它跟所有工作流**共用一个 token 预算池**。 | [第 9 章](#/zh/p2-09) |
-| **CLAUDE_CODE_WORKFLOWS** | 控制开关的环境变量；得设成 `1`，Workflow 特性才会打开。 | [附录 A · A.12](#/zh/app-a) |
+| **CLAUDE_CODE_WORKFLOWS** | 控制「能不能用」的环境变量：`1` 是**最可靠的用户侧开法**（设了之后可用性仍取服务端 flag，默认 true）、`0` 强制关、不设则看服务端 flag（非 Pro 账户默认开）。 | [附录 A · A.12](#/zh/app-a) |
 | **CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS** | 关联的实验性标志（Agent Teams）；与 Workflow 同属实验能力族。 | [接地事实表](#/zh/p1-01) |
 | **CLAUDE_CODE_SUBAGENT_MODEL** | 用户/CI 级的环境变量；只要一设上，它就**覆盖一切 per-call `model`**（脚本里写的 `opts.model`/`phases[].model` 都被静默忽略）。实测本会话设成 `claude-opus-4-7[1m]`，5 个带不同 model 选项的 agent 全跑了 Opus（Run `wf_9c94951d-58c`）。 | [附录 E · R4 模型解析记录](#/zh/app-e) |
 | **ANTHROPIC_DEFAULT_HAIKU_MODEL / SONNET / OPUS** | 用户/CI 级的环境变量；把对应的**模型别名**整体重映射到你指定的模型。它跟 `CLAUDE_CODE_SUBAGENT_MODEL` 叠在一起，就是「两层模型覆盖」——本会话两层都指向 Opus，所以脚本里写 `model: 'haiku'` 实跑的还是 Opus（Run `wf_e8cb23ff-829`）。 | [附录 A · A.4](#/zh/app-a) |
@@ -141,9 +146,9 @@
 
 - **A**：`agent()`（[D.4](#d4-核心原语agent-parallel-pipeline)）、`agentType`（[D.5](#d5-agent-选项opts)）、`agent_count`（[D.8](#d8-用量模式与生态)）、adversarial verification（[D.8](#d8-用量模式与生态)）、`args`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`async_launched`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`ANTHROPIC_DEFAULT_*_MODEL`（[D.1](#d1-顶层概念)）
 - **B**：barrier / 屏障（[D.4](#d4-核心原语agent-parallel-pipeline)）、`budget`（[D.6](#d6-预算与规模)）
-- **C**：cache hit（[D.8](#d8-用量模式与生态)）、concurrency limit（[D.6](#d6-预算与规模)）、`CLAUDE_CODE_WORKFLOWS`（[D.1](#d1-顶层概念)）、`CLAUDE_CODE_SUBAGENT_MODEL`（[D.1](#d1-顶层概念)）
+- **C**：cache hit（[D.8](#d8-用量模式与生态)）、concurrency limit（[D.6](#d6-预算与规模)）、`CLAUDE_CODE_WORKFLOWS`（[D.1](#d1-顶层概念)）、`CLAUDE_CODE_SUBAGENT_MODEL`（[D.1](#d1-顶层概念)）、`CLAUDE_CODE_EFFORT_LEVEL`（[D.1](#d1-顶层概念)）
 - **D**：deterministic orchestration（[D.1](#d1-顶层概念)）、determinism dual-layer ban / 确定性双层防护（[D.8](#d8-用量模式与生态)）、dogfooding（[D.8](#d8-用量模式与生态)）、`duration_ms`（[D.8](#d8-用量模式与生态)）
-- **E**：`error`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
+- **E**：`error`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`/effort`（[D.1](#d1-顶层概念)）、effort levels / 用力挡位（[D.1](#d1-顶层概念)）
 - **I**：`isolation`（[D.7](#d7-嵌套与隔离)）
 - **J**：judge panel（[D.8](#d8-用量模式与生态)）
 - **L**：`label`（[D.5](#d5-agent-选项opts)）、`log`（[D.3](#d3-脚本元数据与阶段)）、loop-until-dry（[D.8](#d8-用量模式与生态)）
@@ -153,9 +158,9 @@
 - **R**：`resumeFromRunId`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、resume 缓存键 / resume cache key（[D.8](#d8-用量模式与生态)）、`runId`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、replayability（[D.8](#d8-用量模式与生态)）、`remote_launched`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、rubric（[D.8](#d8-用量模式与生态)）
 - **S**：`schema`（[D.5](#d5-agent-选项opts)）、StructuredOutput 工具（[D.5](#d5-agent-选项opts)）、`script` / `scriptPath`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、script size cap / 脚本体积上限（[D.6](#d6-预算与规模)）、stage（[D.4](#d4-核心原语agent-parallel-pipeline)）、`stallMs`（[D.6](#d6-预算与规模)）、`status`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、subagent（[D.1](#d1-顶层概念)）、`sessionUrl`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、sync timeout / VM 同步超时（[D.6](#d6-预算与规模)）
 - **T**：`taskId`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`<task-notification>`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、thunk（[D.4](#d4-核心原语agent-parallel-pipeline)）、`tool_uses` / `total_tokens`（[D.8](#d8-用量模式与生态)）、`transcriptDir`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
-- **U**：ultrawork（[D.1](#d1-顶层概念)）
+- **U**：ultracode（[D.1](#d1-顶层概念)）、ultrathink（[D.1](#d1-顶层概念)）、ultrawork（已弃用为触发词，[D.1](#d1-顶层概念)）
 - **V**：VM 同步超时 / sync timeout（[D.6](#d6-预算与规模)）
-- **W**：Workflow（[D.1](#d1-顶层概念)）、`workflow()`（[D.7](#d7-嵌套与隔离)）、workflow-subagent（[D.5](#d5-agent-选项opts)）、`WorkflowInput` / `WorkflowOutput`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`WorkflowAgentCapError` / `WorkflowBudgetExceededError`（[D.6](#d6-预算与规模)）、`whenToUse`（[D.3](#d3-脚本元数据与阶段)）、worktree（[D.7](#d7-嵌套与隔离)）、warning（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
+- **W**：Workflow（[D.1](#d1-顶层概念)）、`workflow`/`workflows` 关键词（[D.1](#d1-顶层概念)）、`workflow()`（[D.7](#d7-嵌套与隔离)）、workflow-subagent（[D.5](#d5-agent-选项opts)）、`WorkflowInput` / `WorkflowOutput`（[D.2](#d2-调用与返回workflowinput-workflowoutput)）、`WorkflowAgentCapError` / `WorkflowBudgetExceededError`（[D.6](#d6-预算与规模)）、`whenToUse`（[D.3](#d3-脚本元数据与阶段)）、worktree（[D.7](#d7-嵌套与隔离)）、warning（[D.2](#d2-调用与返回workflowinput-workflowoutput)）
 
 > 配套阅读：字段语义查 [附录 A · API 完整参考](#/zh/app-a)；坑与排错查 [附录 B · 陷阱与排错](#/zh/app-b)；正向清单查 [附录 C · 最佳实践清单](#/zh/app-c)。
 

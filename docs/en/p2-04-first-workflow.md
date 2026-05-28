@@ -4,9 +4,9 @@
 
 ---
 
-## 4.1 Prerequisite: Confirm Workflow Is Enabled
+## 4.1 Prerequisite: Confirm It's Available
 
-Workflow is still an experimental feature, gated by the environment variable `CLAUDE_CODE_WORKFLOWS`. Before you start, make sure it's on in your session.
+Chapter 01 §1.5 split this into two layers: **available** vs. **will use.** Before you start, confirm the **available** layer — and the most reliable way is to set `CLAUDE_CODE_WORKFLOWS=1` explicitly.
 
 ```bash
 # Enable temporarily at launch (effective for the current session)
@@ -16,9 +16,7 @@ CLAUDE_CODE_WORKFLOWS=1 claude
 Or write it into `~/.claude/settings.json` to keep it on for good:
 
 ```json
-{
-  "env": { "CLAUDE_CODE_WORKFLOWS": "1" }
-}
+{ "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }
 ```
 
 The most direct way to check it's in effect is to look at the environment variable. In this book's writing session it **does exist, and equals `1`**:
@@ -29,9 +27,11 @@ CLAUDE_CODE_WORKFLOWS = 1
 
 <div class="callout tip">
 
-If you're not sure, just say it in the conversation: "ultrawork: run a minimal workflow to confirm the runtime." If the feature is on, Claude can call the Workflow tool; if it's not, it'll tell you the tool is unavailable.
+**Two 0-cost confirmation methods:** ① Just say it in the conversation — "run a minimal workflow to confirm the runtime." The sentence carries the word `workflow`, so Claude reaches for the Workflow tool: if it's on, it runs; if not, it tells you the tool is unavailable. ② Type `/effort` and check whether the picker has an `ultracode` slot — if it does, workflows are already **available** (the reasoning is in §1.6).
 
 </div>
+
+As for **will use** — if you want Claude to **orchestrate proactively by default**, you can set `/effort ultracode` once and it stays on for the whole session (details in Chapter 01 §1.6). The scripts in this chapter all call the Workflow tool directly, and don't depend on that standing setting.
 
 ---
 
@@ -80,7 +80,7 @@ Line by line (echoing Chapter 01's "warp and weft"):
 
 <div class="callout warn">
 
-**This is a Workflow script, not a Node script — a beginner's first pothole.** `meta`/`phase`/`agent`/`log`/`budget`/`args` are all globals **injected by the Workflow runtime** (`_grounding.md` section B: "injected at runtime, no import needed"). Save this as `hello.js`, run `node hello.js` on its own, and Node — which has none of these globals — throws `ReferenceError: phase is not defined` right away. **This is identical on Windows, macOS, and Linux** (it has nothing to do with the OS; it's that Node simply has no Workflow runtime layer). It only runs inside a Claude Code session with `CLAUDE_CODE_WORKFLOWS=1` enabled, executed by Claude through the built-in Workflow tool (see 4.1: just say "ultrawork: run this"). This book's testing ran it exactly that way: runtime confirmed, schema forced `sum=4` as a **number**, ~26k tokens / ~5.5 seconds (see the real receipt and usage in 4.3 and 4.4).
+**This is a Workflow script, not a Node script — a beginner's first pothole.** `meta`/`phase`/`agent`/`log`/`budget`/`args` are all globals **injected by the Workflow runtime** (`_grounding.md` section B: "injected at runtime, no import needed"). Save this as `hello.js`, run `node hello.js` on its own, and Node — which has none of these globals — throws `ReferenceError: phase is not defined` right away. **This is identical on Windows, macOS, and Linux** (it has nothing to do with the OS; it's that Node simply has no Workflow runtime layer). It only runs inside a Claude Code session with `CLAUDE_CODE_WORKFLOWS=1` enabled, executed by Claude through the built-in Workflow tool (see 4.1: just include the word `workflow` in your message). This book's testing ran it exactly that way: runtime confirmed, schema forced `sum=4` as a **number**, ~26k tokens / ~5.5 seconds (see the real receipt and usage in 4.3 and 4.4).
 
 </div>
 

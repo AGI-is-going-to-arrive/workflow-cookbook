@@ -50,6 +50,8 @@ const results = await pipeline(
 
 这就意味着：**社区那些靠提示词苦苦撑着的编排纪律，现在能用代码一次性焊死。**
 
+而到了 **v2.1.154**，它甚至不再「悄悄」——Claude Code 把它正式接进了 `/effort` 体系：一句 `/effort ultracode`，就让 Claude 在整场会话里默认主动用它来编排（详见 [第 01 章 §1.6](#/zh/p1-01)）。从「藏在功能标志后面的隐藏工具」，到「`/effort` 滑块上一个显眼的、会话级的 opt-in 入口」——当然，前提是 Workflow 工具本身已经可用。
+
 ---
 
 ## 这本书是什么，不是什么
@@ -91,14 +93,15 @@ const results = await pipeline(
 >
 > | 项 | 值 |
 > |---|---|
-> | Claude Code 版本 | **v2.1.150**（原生二进制） |
+> | Claude Code 版本 | **v2.1.150 – v2.1.154**（原生二进制；基础机制多测于 2.1.150，`/effort`·ultracode 一套测于 2.1.154） |
 > | 功能标志 | `CLAUDE_CODE_WORKFLOWS=1`（已确认存在于会话环境） |
-> | 主模型 | Opus 4.7（1M 上下文） |
-> | subagent 模型 | `claude-opus-4-7[1m]`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） |
+> | effort 体系 | `/effort` 七挡 `low/medium/high/xhigh/max/ultracode/auto`；**ultracode = xhigh + 主动编排（仅本会话）** |
+> | 主模型 | Opus 4.7（1M）；`/effort`·ultracode 实测会话为 Opus 4.8（1M） |
+> | subagent 模型 | `claude-opus-4-7[1m]`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定；R10 会话为 `claude-opus-4-8[1m]`） |
 > | 关联标志 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
 > | 实测时间 | 2026 年 5 月 |
 >
-> Workflow 现在还是个**实验性、需显式开启**的功能。不同版本的具体行为（并发上限、预算语义、续传细节）可能会变。书里会标出关键行为的来源，方便你在自己的版本上复核。
+> 用 Workflow 前，先确认它在你的会话里**可用**（显式 `CLAUDE_CODE_WORKFLOWS=1` 最可靠；详见 [第 01 章 §1.5](#/zh/p1-01)）。不同版本的具体行为（并发上限、预算语义、续传细节）可能会变。书里会标出关键行为的来源，方便你在自己的版本上复核。
 
 ---
 

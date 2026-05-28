@@ -2,7 +2,7 @@
 
 > This appendix is the book's API quick reference, compiled against the type definitions `sdk-tools.d.ts` (the `WorkflowInput` / `WorkflowOutput` interfaces) in Claude Code's official distribution, the Workflow tool definition, and this machine's real run records (see [Appendix E](#/en/app-e)).
 >
-> Applicable version: Claude Code v2.1.150 (`CLAUDE_CODE_WORKFLOWS=1`, with this book's test session running main-loop model Opus 4.7 (1M)). The feature is experimental and fields may evolve across versions — your local type definitions are the final authority.
+> Applicable version: Claude Code v2.1.150 (base API; `CLAUDE_CODE_WORKFLOWS=1`, main-loop model Opus 4.7 (1M)); the `/effort` · ultracode · gating in §A.12 was tested on **v2.1.154**. The feature is experimental and fields may evolve across versions — your local type definitions are the final authority.
 
 ---
 
@@ -351,9 +351,25 @@ const n = input.n ?? 1   // now you can safely read fields
 
 ## A.12 Triggering and Gating [Official]
 
-- **Gating**: the environment variable `CLAUDE_CODE_WORKFLOWS=1`.
-- **Triggering**: ① a message containing the `ultrawork` keyword; ② calling the Workflow tool directly; ③ a named workflow / a skill or slash command that triggers it.
-- **Live progress**: the slash command `/workflows`.
+Two layers (**available** vs. **will use**), don't conflate them (details in [Chapter 01 §1.5–1.6](#/en/p1-01)):
+
+**Layer 1 · Available (is the Workflow tool in the toolbox)**: decided by `CLAUDE_CODE_WORKFLOWS` + the server-side flag `tengu_workflows_enabled` + account tier (2.1.154 client logic `FX5`).
+- `CLAUDE_CODE_WORKFLOWS=1` → **the most reliable user-side way to enable it** (once set, availability still follows the server-side flag `tengu_workflows_enabled`, which defaults to true); `=0` → force off; unset → falls back to the server-side flag, and when that's on, non-Pro accounts are on by default.
+- The server-side flag is a growthbook gate Anthropic controls and the user can't, so to guarantee availability, set `=1` explicitly.
+
+**Layer 2 · Will use (get Claude to orchestrate this turn / this session)** — the official opt-in list (injected into the model by the 2.1.154 client, each item verified against the binary):
+- ① a message containing the `workflow` / `workflows` keyword (**this turn**);
+- ② `/effort ultracode` (**standing, this session** + reasoning bumped to xhigh; details in [Chapter 01 §1.6](#/en/p1-01));
+- ③ the user asking in their own words ("run a workflow" / "fan out agents" / "orchestrate this with subagents");
+- ④ a skill / slash command (whose instructions call for Workflow). (Note: a **direct Workflow-tool call** `Workflow({ scriptPath })` and a **named workflow** `{ name }` are programmatic launches, not part of this "model opt-in" injected list.)
+
+**Live progress**: the slash command `/workflows`.
+
+<div class="callout warn">
+
+**`ultrawork` is no longer a trigger.** In the official 2.1.154 binary `ultrawork` exists only as the internal event name `ultrawork_request` (the `normalizeAttachmentForAPI` type whitelist); typing it as a user **triggers nothing.** The official trigger keywords are now `workflow` / `workflows`. Evidence in [`assets/transcripts/effort-ultracode-r10.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/effort-ultracode-r10.md). (The third-party oh-my-openagent does use `ultrawork`/`ulw`, but that's its own implementation, unrelated to official Claude Code.)
+
+</div>
 
 ---
 

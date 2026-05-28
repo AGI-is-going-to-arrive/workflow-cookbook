@@ -8,7 +8,7 @@
 
 ## 25.1 From "One-off Script" to "Named Workflow"
 
-Remember that sentence from Chapter 01 §1.6:
+Remember that sentence from Chapter 01 §1.7:
 
 > You can file a validated workflow script into `.claude/workflows/` and later reuse it like a named command with `{ name: 'my-workflow' }`.
 

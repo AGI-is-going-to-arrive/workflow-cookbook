@@ -31,7 +31,7 @@
 
 ## 这本书讲什么
 
-Claude Code 的 **Workflow** 特性（功能标志 `CLAUDE_CODE_WORKFLOWS`，社区昵称 *ultrawork*）是一个用 JavaScript 脚本**确定性编排多 Agent** 的引擎。它不是 MCP，不是 Skills，不是 Subagents，也不是 Agent Teams——而是一种全新的、**可复用、可测试、可分享**的工程流水线。
+Claude Code 的 **Workflow** 特性（由功能标志 `CLAUDE_CODE_WORKFLOWS` 控制可用性；工具可用时，v2.1.154 起还能用 `/effort ultracode` 让 Claude 本会话默认主动编排）是一个用 JavaScript 脚本**确定性编排多 Agent** 的引擎。它不是 MCP，不是 Skills，不是 Subagents，也不是 Agent Teams——而是一种全新的、**可复用、可测试、可分享**的工程流水线。
 
 本书从零到一带你：理解它的本质定位 → 掌握 `agent()`/`parallel()`/`pipeline()`/`schema` 全部 API → 实战 7 个真实运行的配方 → 解锁对抗验证 / 循环到干 / 预算 / 续传等进阶模式 → 横评四大社区系统并提取精华 → 构建属于你自己的 Workflow 库 → 掌握从意图到上线的创作、校验与调试全流程。
 
@@ -45,7 +45,7 @@ Claude Code 的 **Workflow** 特性（功能标志 `CLAUDE_CODE_WORKFLOWS`，社
 | 正文章节 | **29 章 + 6 篇附录**（六部 · 认知/基础/食谱/进阶/生态/创作 + 附录 A–F） |
 | 全书篇幅 | 中文正文 14 万+ 汉字 ｜ `docs/zh` ↔ `docs/en` **36 篇逐篇对照** |
 | 真实 Workflow 运行 | **23 个唯一 Run ID**（R4 基线 17 + R5 应用级 3 + R6 应用级 3；原始记录见 [`assets/transcripts/`](assets/transcripts)） |
-| 实测环境 | Claude Code **v2.1.150**，`CLAUDE_CODE_WORKFLOWS=1`，Opus 4.7 (1M) |
+| 实测环境 | Claude Code **v2.1.150 – v2.1.154**，`CLAUDE_CODE_WORKFLOWS=1`，Opus 4.7 / 4.8 (1M) |
 | 双语 | 中英完全对照，一键切换 |
 
 </details>
@@ -85,7 +85,7 @@ log(`smoke result: ${JSON.stringify(r)}`)
 return r
 ```
 
-> **如何运行（重要）**：这是一段 **Workflow 脚本**，不是独立的 Node 脚本——`export`/`meta`/`phase`/`agent`/`log` 都是 Workflow 运行时注入的全局符号。**用 `node hello.js` 跑会立刻报 `phase is not defined`（Windows / macOS 皆然）。** 正确方式：在**已开启功能标志**的 Claude Code 会话里（`CLAUDE_CODE_WORKFLOWS=1 claude`，或写入 `~/.claude/settings.json` 的 `env`），直接让 Claude 执行它——例如对它说「ultrawork：跑这个工作流」，由 Claude 调用内置的 Workflow 工具运行。
+> **如何运行（重要）**：这是一段 **Workflow 脚本**，不是独立的 Node 脚本——`export`/`meta`/`phase`/`agent`/`log` 都是 Workflow 运行时注入的全局符号。**用 `node hello.js` 跑会立刻报 `phase is not defined`（Windows / macOS 皆然）。** 正确方式：在**已开启功能标志**的 Claude Code 会话里（`CLAUDE_CODE_WORKFLOWS=1 claude`，或写入 `~/.claude/settings.json` 的 `env`），直接让 Claude 执行它——例如在消息里带上 `workflow` 这个关键词（如「跑这个 workflow」），由 Claude 调用内置的 Workflow 工具运行。
 >
 > 真实返回（`schema` 强制结构化，`sum` 为整数 `4` 而非字符串）：`{"message":"…","sum":4,"runtimeConfirmed":true}`（Run `wf_dacbd480-d5d`，1 agent / 26,338 token / 5.5s）。
 

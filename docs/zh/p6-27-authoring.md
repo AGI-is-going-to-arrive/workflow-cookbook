@@ -331,8 +331,8 @@ flowchart LR
 
 校验过了，正式真跑。三件事要心里有数：
 
-1. **门控**：必须在 `CLAUDE_CODE_WORKFLOWS=1` 的会话里，Workflow 工具才能用。
-2. **怎么调**：脚本落盘后用 `Workflow({ scriptPath: '...' })` 触发（`scriptPath` 的优先级高于内联 `script` 和具名 `name`）。也可以在消息里带个 `ultrawork` 关键词来触发。
+1. **门控**：先确认 Workflow 工具可用——最可靠的做法是显式 `CLAUDE_CODE_WORKFLOWS=1`（详见 [第 01 章 §1.5](#/zh/p1-01)）。
+2. **怎么调**：脚本落盘后用 `Workflow({ scriptPath: '...' })` 触发（`scriptPath` 的优先级高于内联 `script` 和具名 `name`）。也可以在消息里带个 `workflow`/`workflows` 关键词来触发（`ultrawork` 已不再是触发词，见 [第 01 章 §1.5](#/zh/p1-01)）。
 3. **返回是异步的**：Workflow 工具**立即返回** `taskId` 和 `runId`（形如 `wf_...`），**不阻塞**。真正跑完时，由 `<task-notification>` 回传 `usage` 和 `result`。
 
 ```bash

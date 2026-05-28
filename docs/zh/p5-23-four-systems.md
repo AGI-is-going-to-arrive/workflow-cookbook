@@ -155,7 +155,7 @@ function onStop() {
 
 **几处看得见摸得着的形态**：
 
-入口是一个正则关键词。`keyword-detector/constants.ts` 用 `/\b(ultrawork|ulw)\b/i` 去匹配用户消息，匹配上就唤起整套编排——它跟原生 Workflow 的昵称 `ultrawork` 同名，并不是巧合。
+入口是一个正则关键词。`keyword-detector/constants.ts` 用 `/\b(ultrawork|ulw)\b/i` 去匹配用户消息，匹配上就唤起整套编排——它跟原生 Workflow 的**早期社区昵称** `ultrawork` 同名，并不是巧合（该词在官方 v2.1.154 已不再是触发词，仅存内部事件名 `ultrawork_request`）。
 
 它注册的内置角色正好是 **10 个**（`src/agents/types.ts` 里的 `BuiltinAgentName` 联合）：
 
