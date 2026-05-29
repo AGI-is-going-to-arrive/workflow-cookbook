@@ -2,7 +2,7 @@
 
 > 本附录是全书的 API 速查，对照 Claude Code 官方分发包的类型定义 `sdk-tools.d.ts`（`WorkflowInput` / `WorkflowOutput` 接口）、Workflow 工具定义原文，以及本机真实运行记录（见 [附录 E](#/zh/app-e)）整理而成。
 >
-> 适用版本：Claude Code v2.1.150（基础 API；`CLAUDE_CODE_WORKFLOWS=1`，主循环 Opus 4.7 (1M)）；§A.12 的 `/effort`·ultracode·门控实测于 **v2.1.154**。功能为实验性，字段可能随版本演进——以你本机的类型定义为最终依据。
+> 适用版本：**Claude Code v2.1.154+（官方最低要求）**；本书的 API 形态多取自 v2.1.150–v2.1.156 的实测与二进制核查，核心不变量已在 **v2.1.156** 复核（`claude --version` 实测；主循环 Opus 4.8 (1M)，`CLAUDE_CODE_WORKFLOWS=1`，见 [`examples-r11.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r11.md)）。这是官方的 **research preview** 特性，字段可能随版本演进——以你本机的类型定义为最终依据。
 
 ---
 
@@ -147,7 +147,7 @@ export const meta = {
 
 `meta.phases[]` 里每一项都可以带一个 `model`。**它在运行时到底是什么语义，本书无法独立核实**：官方工具描述说得含含糊糊（像是「某阶段用特定模型 override 时加上」），第三方资料又说它**纯展示用、运行时根本不读**——这两种说法本书都不敢断言。
 
-根上的原因是，本书实测会话设了环境变量 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`，它**覆盖一切 per-call model**：在 `wf_9c94951d-58c` 里，5 个分别标了 `haiku` / `inherit` / `opus` / 省略 / 「在标了 `model:'haiku'` 的阶段内」的 agent，**全部跑成了 Opus**。所以这一会话里，本书**无法**把 `phases[].model` 和 `opts.model` 各自的效果拆开来看。
+根上的原因是，跑这个探针的会话设了环境变量 `CLAUDE_CODE_SUBAGENT_MODEL`，它**覆盖一切 per-call model**：在 `wf_9c94951d-58c`（**早期 4.7 会话**，`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`）里，5 个分别标了 `haiku` / `inherit` / `opus` / 省略 / 「在标了 `model:'haiku'` 的阶段内」的 agent，**全部跑成了 Opus**。所以这一会话里，本书**无法**把 `phases[].model` 和 `opts.model` 各自的效果拆开来看。（另一条独立环境事实：R11 复核会话的该变量是 `claude-opus-4-8[1m]`，即 Opus 4.8——见 [附录 E · E.2](#/zh/app-e)；本节这个覆盖结论与具体型号无关，4.7、4.8 两个会话都成立。）
 
 <div class="callout warn">
 
@@ -266,10 +266,10 @@ budget.remaining()  // number：max(0, total - spent())；未设目标时为 Inf
 
 ### `workflow(nameOrRef, args?)`【官方】【实测】
 
-内联跑另一个工作流（具名的，或者给个 `{ scriptPath }`）。它跟主工作流**共享**并发上限 / agent 计数 / 中止信号 / token 预算。本书实测（`wf_2b04881f-6a9`）：
+内联跑另一个工作流（具名的，或者给个 `{ scriptPath }`）。它跟主工作流**共享**并发上限 / agent 计数 / 中止信号 / token 预算。本书实测：
 
-- `workflow({ scriptPath }, { n: 21 })` 把子工作流内联跑起来、**args 也透传过去**（子返回 `doubled: 42`）。
-- 给一个不认识的具名，它会抛错、顺便把已注册的具名工作流列出来：`bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`。
+- `workflow({ scriptPath }, { n: 21 })` 把子工作流内联跑起来、**args 也透传过去**（子返回 `doubled: 42`，`wf_2b04881f-6a9`，v2.1.150）。
+- 给一个不认识的具名，它会抛错、顺便把**已注册的具名工作流**列出来。**v2.1.156 实测，注册表里只剩 `deep-research` 一个**——报错原文 `Available: deep-research`（`wf_03e38250-1bb`），与官方文档「Claude Code 只自带 `/deep-research` 这一个 bundled workflow」完全吻合。早期 v2.1.150 这里列的是五件套 `bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`（`wf_2b04881f-6a9`），但那批在 v2.1.156 已**不在**注册表了，详见 [A.13.1](#a131-内置具名工作流注册表的版本漂移实测)。
 - **嵌套仅一层**：在子工作流里再调 `workflow()` 就抛错，原文：
 
 ```text
@@ -353,11 +353,17 @@ const n = input.n ?? 1   // 现在可安全读字段
 
 分两层（**能用** vs **会用**），别混（详见 [第 01 章 §1.5–1.6](#/zh/p1-01)）：
 
-**第一层 · 能用（Workflow 工具在不在工具箱里）**：由 `CLAUDE_CODE_WORKFLOWS` + 服务端 flag `tengu_workflows_enabled` + 账户类型决定（2.1.154 客户端逻辑 `FX5`）。
-- `CLAUDE_CODE_WORKFLOWS=1` → **最可靠的用户侧开法**（设了之后可用性仍取服务端 flag `tengu_workflows_enabled`，默认 true）；`=0` → 强制关；不设 → 看服务端 flag，开则非 Pro 账户默认开。
-- 服务端 flag 由 Anthropic 灰度控制、用户左右不了，故要确定可用就显式设 `=1`。
+**第一层 · 能用（Workflow 工具在不在工具箱里）**。这一层本身又有「台面」和「底层」两副面孔，**官方台面优先**：
 
-**第二层 · 会用（让 Claude 这次／本会话去编排）**——官方 opt-in 清单（2.1.154 客户端注入给模型，逐条实测自二进制）：
+*官方台面入口（你该怎么做，信源=官方文档）*：
+- ① 确认版本：`claude --version` ≥ **v2.1.154**（官方最低要求）；
+- ② 确认账户：**所有付费档都可用**，Anthropic API、以及 Amazon Bedrock / Google Cloud Vertex AI / Microsoft Foundry 上也都可用；**Pro 用户需在 `/config` 里找到 "Dynamic workflows" 这一行手动打开**。【官方】
+
+*底层 flag（原理层 / power-user，信源=客户端二进制 + 本机 `printenv`）*：可用性在客户端逻辑函数 **`FX5`** 里由 `CLAUDE_CODE_WORKFLOWS` + 服务端 flag `tengu_workflows_enabled` + 账户类型共同决定。
+- `CLAUDE_CODE_WORKFLOWS=1` → power-user 的显式开关（本书会话 `printenv` 实测 `=1` 且工具可用）；`=0` → 强制关；不设 → 看服务端 flag。
+- **务必看清分层**：这是从客户端二进制读出来的**底层机制**，**官方面向用户的入口是 `/config`**——不是「设了 `=1` 才算开」。两者并存、官方台面优先；`=1` 只是底层那一把更直接的开关，方便 CI / power-user 显式锁定。
+
+**第二层 · 会用（让 Claude 这次／本会话去编排）**——官方 opt-in 清单（客户端注入给模型，逐条实测自二进制）：
 - ① 消息含 `workflow` / `workflows` 关键词（**单次**）；
 - ② `/effort ultracode`（**本会话常驻** + 推理提到 xhigh；详见 [第 01 章 §1.6](#/zh/p1-01)）；
 - ③ 用户用自己的话直接要求（"run a workflow" / "fan out agents" / "orchestrate this with subagents"）；
@@ -373,14 +379,37 @@ const n = input.n ?? 1   // 现在可安全读字段
 
 ---
 
-## A.13 并发与规模【官方】
+## A.13 运行时与限制（并发 / 规模 / 行为约束）【官方】
+
+下表对齐官方文档的 **"Behavior and limits"** 表（信源 `code.claude.com/docs/en/workflows`），并补上本书从 input-schema / 实测拿到的两条（脚本体积、嵌套层数）：
 
 | 限制 | 值 | 口径 |
 |---|---|---|
-| 单工作流同时运行 agent | `min(16, CPU 核心数 − 2)`，超出**排队**（非报错） | 【官方】 |
-| 单工作流 `agent()` 总数上限 | **1000**（失控循环兜底 "runaway-loop backstop"） | 【官方】 |
+| 运行中插入用户输入 | **不行**——一个 run 跑起来后中途**不能**塞用户输入；**只有 agent 的权限提示能暂停它**。需要阶段间签收，就把每个阶段拆成**独立 workflow** | 【官方】 |
+| 脚本对文件系统 / shell 的访问 | **脚本本身没有**——读写文件、跑命令全由 **agent** 干，脚本只负责编排（这也解释了 A.3「脚本体里 `require`/`process`/`fetch` 全 `undefined`」那条实测） | 【官方】（+ [A.3](#a3-脚本结构与执行环境) 实测佐证） |
+| 单工作流同时运行 agent | **最多 16 个并发**（CPU 核心少的机器更少；合上二进制下限即 `min(16, max(2, 核心 − 2))`），超出**排队**（非报错） | 【官方】（下限 `max(2,…)` 见 [A.14](#a14-第三方未核实清单谨慎) 二进制确认） |
+| 单 run `agent()` 总数上限 | **1000**（失控循环兜底 "runaway-loop backstop"） | 【官方】 |
 | 脚本体积上限 | **524288 字节（512KB）**（input-schema 的 `script.maxLength`） | 【官方】 |
 | `workflow()` 嵌套层数 | **1 层**（子工作流内再调 `workflow()` 抛错） | 【官方】【实测】 |
+
+> 前两行（运行中不能插入输入、脚本无直接 fs/shell 访问）是官方 behavior & limits 表的原话，本书在此显式引用、不做改写。第三、四行的并发上限 16 与单 run 1000 agent 同样是官方表里的数；本书另在 [A.14 顶部实测升级表](#a14-第三方未核实清单谨慎)里给出并发**下限** `max(2, 核心−2)` 的二进制确认（强于第三方声称、非 runtime 触发）。
+
+---
+
+## A.13.1 内置具名工作流注册表的版本漂移【实测】
+
+`workflow({ name })`（以及 `Workflow({ name })`）能调的「具名工作流」分两块：你自己放在 `.claude/workflows/` 里的，和 Claude Code **自带**的。自带这部分**在不同版本里变过**，这是本书实测出来的一处关键漂移，值得单独记一笔：
+
+| 版本 | 内置具名工作流注册表（实测） | 证据 |
+|---|---|---|
+| **v2.1.156（当前）** | **仅 `deep-research`** | `wf_03e38250-1bb`：调一个不存在的名字，报错原文 `Available: deep-research` |
+| v2.1.150（早期） | `bughunt`, `bughunt-lite`, `deep-research`, `plan-hunter`, `review-branch`（五件套） | `wf_2b04881f-6a9` |
+
+- **以 v2.1.156 为准**：内置注册表**只剩 `deep-research`**，与官方文档一致——官方只把 `/deep-research` 列为 bundled workflow（多角度 fan-out 检索 → 抓取并交叉核对 → 对每条论断投票 → 输出带引用、已过滤的报告；**需 WebSearch 工具可用**）。【官方】
+- 早期 v2.1.150 那四个（`bughunt` / `bughunt-lite` / `plan-hunter` / `review-branch`）**现已不在注册表**——更像早期的实验性内置，**不要再依赖它们**。书里凡以「调内置 `bughunt`」为前提的写法都已重定位为「自建工作流」（见 [第 15 章 · Bug 猎手](#/zh/p3-15)）。
+- 你**自己**保存的工作流也会变成 `/` 命令、和 bundled 的一起出现在自动补全里——这条是稳的，不受上面漂移影响。【官方】
+
+> 一句话：**别把「自带具名工作流」当成稳定 API 面**。v2.1.156 能稳稳依赖的内置只有 `deep-research`；其它要么自己写、要么放进 `.claude/workflows/` 自己管。
 
 ---
 

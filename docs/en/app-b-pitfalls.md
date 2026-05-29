@@ -2,7 +2,7 @@
 
 > This appendix turns the potholes you're most likely to step in while writing Workflows into a quick-to-look-up, accurate reference. Each entry runs **symptom → cause → fix**: first what you'll see and when it shows up, then the underlying why, and finally a fix you can copy straight in.
 >
-> The API basis for all claims is in [Appendix A](#/en/app-a); the behavioral basis comes from the real runs listed in [Appendix E](#/en/app-e). Applicable version: Claude Code v2.1.150 (`CLAUDE_CODE_WORKFLOWS=1`).
+> The API basis for all claims is in [Appendix A](#/en/app-a); the behavioral basis comes from the real runs listed in [Appendix E](#/en/app-e). Applicable version: Claude Code v2.1.154+ (the official minimum); this book's runs span v2.1.150 → v2.1.156, with the core invariants re-verified on v2.1.156 (see `assets/transcripts/examples-r11.md`). Enable via `CLAUDE_CODE_WORKFLOWS=1` (the underlying feature flag; Pro accounts flip it on manually in the official `/config` "Dynamic workflows" row).
 
 ---
 

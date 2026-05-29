@@ -74,13 +74,13 @@ const result = await workflow(
 **「args 透传」和「未知具名工作流抛错」这两件事都已实测**（Run `wf_2b04881f-6a9`）。这次探针里：
 
 - **scriptPath 子调用 + args 透传**：父工作流用 `workflow({ scriptPath }, { n: 21 })` 调一个子脚本，子脚本里 `args.n` 读到 `21`、返回 `doubled: 42`——args **原样传进了子工作流**，没被字符串化，也没丢字段。
-- **未知具名抛错**：你调一个不存在的名字，运行时会抛错，并**把当前所有已注册的具名工作流列出来**，原文：
+- **未知具名抛错**：你调一个不存在的名字，运行时会抛错，并**把当前所有已注册的具名工作流列出来**。**v2.1.156 实测**（Run `wf_03e38250-1bb`），这份清单已经收窄到只剩一个内置：
 
   ```text
-  workflow('definitely-no-such-workflow-xyz'): no workflow with that name. Available: bughunt, bughunt-lite, deep-research, plan-hunter, review-branch
+  workflow('definitely-no-such-workflow-xyz-r11'): no workflow with that name. Available: deep-research
   ```
 
-  这跟第 16 章 `agentType` 给个未知值就抛错、并列出可用 agent，是**同一种「校验 + 列清单」**的友好设计——你名字拼错了，运行时直接告诉你有哪些能选。（你机器上的「可用具名工作流」清单可能不一样，取决于内置的、以及 `.claude/workflows/` 里装了什么。）
+  这跟第 16 章 `agentType` 给个未知值就抛错、并列出可用 agent，是**同一种「校验 + 列清单」**的友好设计——你名字拼错了，运行时直接告诉你有哪些能选。注意这份内置清单**已与官方文档对齐**：官方只把 `/deep-research` 列为 bundled workflow，所以 `Available:` 后面也就只剩它。（早期 v2.1.150 这里列的是五件套 `bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`（Run `wf_2b04881f-6a9`），那批在 v2.1.156 已不在注册表——详见 [附录 A.13.1](#/zh/app-a)。当然，你机器上的清单还会带上你自己装在 `.claude/workflows/` 里的工作流。）
 
 </div>
 

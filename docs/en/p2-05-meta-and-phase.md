@@ -188,7 +188,7 @@ Per `_grounding.md`'s grounding facts:
 - **`meta.phases[].model`** — written inside the `phases` array (e.g., `{ title: 'Verify', model: 'haiku' }`). The official tool description's wording for it is **vague** ("add it when overriding a phase to a specific model"); and because `CLAUDE_CODE_SUBAGENT_MODEL` overrode every per-call model this session (see `_grounding.md` A2, Run ID `wf_9c94951d-58c`), we **could not independently isolate** whether it has any runtime effect.
 - **agent `opts.model`** — a per-**call** override; the official definition clearly states "**omitted, it inherits the main loop model.**" This is the **only** model knob with clear official semantics.
 
-When neither is written, the agent inherits the main loop model — **this book's tested session**'s main loop is Opus 4.7 (set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`, see `_grounding.md` section A; a fact of the book's session, not a general Workflow guarantee).
+When neither is written, the agent inherits the main loop model — **the earlier session these examples ran in** had Opus 4.7 as its main loop (set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`, see `_grounding.md` section A; a fact of that session, not a general Workflow guarantee). The R11 re-verification session switched to Opus 4.8 (`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-8[1m]`, confirmed by `printenv`) — but whichever model the main loop is, the conclusion "an agent with no `model` inherits the main loop model" stays the same.
 
 <div class="callout warn">
 
@@ -481,7 +481,7 @@ Model is where `meta` the warp and `agent()` the weft **meet**, worth sorting ou
 
 ```mermaid
 flowchart TD
-    A["Main loop model<br/>(this book's tested session: Opus 4.7)"] --> C["agent(opts.model)<br/>per-call override<br/>(the only reliable knob)"]
+    A["Main loop model<br/>(earlier session: Opus 4.7; R11 re-verify: 4.8)"] --> C["agent(opts.model)<br/>per-call override<br/>(the only reliable knob)"]
     C --> E["final effective model"]
     B["meta.phases[].model<br/>intent label · runtime effect undetermined"] -. "masked by CLAUDE_CODE_SUBAGENT_MODEL<br/>this session, couldn't isolate" .-> E
     style E fill:#2d6
@@ -490,7 +490,7 @@ flowchart TD
 
 From broad to narrow:
 
-1. **Write no `agent({ model })`** → the agent inherits the **main loop model.** Per `_grounding.md`: "(agent's) `opts.model`, omitted, inherits the main loop model." **This book's tested session**'s main loop is Opus 4.7 (this is a fact of the book's session, not a general Workflow guarantee).
+1. **Write no `agent({ model })`** → the agent inherits the **main loop model.** Per `_grounding.md`: "(agent's) `opts.model`, omitted, inherits the main loop model." **The earlier session these examples ran in** had Opus 4.7 as its main loop (a fact of that session, not a general Workflow guarantee; the R11 re-verification session was Opus 4.8 — the conclusion is model-independent).
 2. **Specify on `agent({ model })`** → the only reliable override. The finest granularity, precisely controlling what model **this one** agent uses, overriding the "inherit main loop" default. Take a workflow that first "cheaply fans out massively to find leads" and then "expensively reviews closely" — **the correct approach is to implement `model` on each agent** — while **also** marking the same intent on `phases`, so the permission dialog and the script reader can see the cost structure at a glance:
 
 ```javascript
@@ -682,7 +682,7 @@ triage-and-fix
 - **`meta` fields**: required `name` / `description` (introduce yourself); optional `whenToUse` (the workflow list's "when to use"), `phases` (phase ticks, each `{title, detail?, model?}`). Note: **top-level `meta.model` is NOT a confirmed meta field in the tool definition and its semantics are unverified** (§5.3, §5.6).
 - **`phase(title)`** switches the global current-phase cursor, and subsequent `agent()` groups under it; `meta.phases[].title` and `phase('...')` are tied by **exact string match** — one letter of difference in case or spacing scrambles the progress tree (§5.4–5.5).
 - **The iron law for concurrency**: sequential scripts use the global `phase()`, `parallel`/`pipeline` switch to each agent's `opts.phase` for explicit grouping, avoiding racing the global cursor (§5.5.1).
-- **Model: the only reliable knob is `agent()`'s `model`** (omitted, inherits the main loop; this session's main loop is Opus 4.7). `meta.phases[].model` is just an "intent label" whose **standalone runtime effect is undetermined** — the official wording is vague, and this session couldn't isolate it because `CLAUDE_CODE_SUBAGENT_MODEL` overrode it (`wf_9c94951d-58c`). **To genuinely make a phase use a model, write `model` on every `agent()` in that phase, don't mark it only on phases** (§5.3.3, §5.6).
+- **Model: the only reliable knob is `agent()`'s `model`** (omitted, inherits the main loop; the earlier session these examples ran in had Opus 4.7, the R11 re-verification session was Opus 4.8 — the conclusion is model-independent). `meta.phases[].model` is just an "intent label" whose **standalone runtime effect is undetermined** — the official wording is vague, and this session couldn't isolate it because `CLAUDE_CODE_SUBAGENT_MODEL` overrode it (`wf_9c94951d-58c`). **To genuinely make a phase use a model, write `model` on every `agent()` in that phase, don't mark it only on phases** (§5.3.3, §5.6).
 - **`/workflows`** renders `meta.name` (root) / `phases[].title` (groups, taking shape in advance) / `agent`'s `label` (leaves) into a live progress tree; **`log()`** prints a human-readable narration line above the tree — one shapes, one narrates (§5.7).
 
 The warp is tensioned. In the next chapter, we turn our full attention to the **weft** that shuttles through it and does the real work — taking apart every option of `agent(prompt, opts)` (`label`, `schema`, `phase`, `model`, `isolation`, `agentType`) down to the bottom, to see a subagent's whole life from dispatch to return.

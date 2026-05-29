@@ -2,7 +2,7 @@
 
 > 这份附录把写 Workflow 时最容易踩的坑整理成一张查得快、对得准的速查表。每条都按 **症状 → 原因 → 解法** 来写：先说你会看到啥、啥时候出现，再讲清楚底下为啥这样，最后给一段能直接抄走的改法。
 >
-> 所有论断的 API 依据见 [附录 A](#/zh/app-a)，行为依据来自 [附录 E](#/zh/app-e) 列出的真实运行。适用版本：Claude Code v2.1.150（`CLAUDE_CODE_WORKFLOWS=1`）。
+> 所有论断的 API 依据见 [附录 A](#/zh/app-a)，行为依据来自 [附录 E](#/zh/app-e) 列出的真实运行。适用版本：Claude Code v2.1.154+（官方最低）；本书实测跨 v2.1.150 → v2.1.156，核心不变量已在 v2.1.156 复核（见 `assets/transcripts/examples-r11.md`）。开启 `CLAUDE_CODE_WORKFLOWS=1`（底层特性标志；Pro 账户在官方 `/config` 的 "Dynamic workflows" 行手动开启）。
 
 ---
 

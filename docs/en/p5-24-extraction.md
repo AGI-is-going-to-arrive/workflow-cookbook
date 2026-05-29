@@ -474,7 +474,7 @@ The fourth case comes from OmO (built on opencode). Its gem got deconstructed cl
 >
 > **Essence two (Category delegation)**: OmO dispatches not by model name but by **semantic intent** (`category`) — the LLM only declares "what category of thing this is," and the runtime maps it to a concrete model. Boiled down to one sentence: "make 'which model does it' a hot-swappable mapping table, instead of a hard-coding scattered through the prompts."
 
-**Adapting essence one: reproduce 'the planner can't touch code' with `schema` + role separation.** Native Workflow's script body has no FS/Node API, so an agent can't write host files directly anyway; but "the planner may not emit code" can be physically guaranteed with a strict `schema` that **only lets plan fields show up** — `additionalProperties: false` makes the planner **structurally** unable to smuggle in a diff/patch, and a **separate executor stage** then consumes that plan:
+**Adapting essence one: reproduce 'the planner only produces a plan' with `schema` + role separation.** First, get one boundary straight: native Workflow's **script body** has no FS/Node API, but **leaf agents have full IO** (Read/Write/Bash) — so an agent **can** write host files, and that's exactly the side effect OmO's "tool-layer throw" intercepts. A `schema` can't reproduce that interception: it only **constrains the planner's return structure at the tool-call layer.** `additionalProperties: false` makes the planner **structurally** unable to smuggle in a diff/patch field, but it **can't stop the planner from separately calling Write/Bash.** So "the planner physically can't write code" is something `schema` alone **cannot give you** — to truly weld it shut you must **restrict that planner agent's tools/permissions** (e.g. swap in an `agentType` without Write/Bash), or **simply take no side-effecting action on the planning stage's output** and pass it downstream as pure data. What `schema` really does here is back up that second approach: guarantee what you pass on is a **clean plan**, and a **separate executor stage** then consumes it:
 
 ```javascript
 // (illustrative, not run) — OmO tool-layer guardrail → a schema-constrained planner / executor separation
@@ -488,7 +488,9 @@ export const meta = {
 }
 
 // Key: additionalProperties:false makes any field beyond "the plan" (like diff/patch) fail validation
-// This is OmO's "tool-layer throw" equivalent in native Workflow — moving the guardrail from "intercept the tool call" forward to "constrain the product's shape"
+// Note it's only a "product-shape" approximation of OmO's "tool-layer throw": it constrains the return structure,
+// it can't stop the agent from separately calling Write/Bash. Real physical interception needs restricting the
+// planner's tools/permissions, or taking no side-effecting action on the plan (see above)
 const PLAN_SCHEMA = {
   type: 'object',
   additionalProperties: false,                         // physical wall: only the fields listed below count
@@ -665,22 +667,32 @@ Walk this worksheet and what you get isn't "copied prompts" but a Workflow you *
 
 ---
 
-## 24.7 Official Built-in Workflows: Five Ready-Made Templates That Need No Peeling
+## 24.7 Early Built-in Workflows: Five Ready-Made Templates That Need No Peeling
 
-The hardest step in the art of extraction taught earlier in this chapter is always **stripping the host** — the gems of the four community systems all grow on a host layer of "prompts + Hooks + state files," and you must first peel them off that host before you can weld them onto the native skeleton. But there's a class of templates that skips this step from the start: the five named workflows Claude Code ships officially. They **are native Workflow** to begin with, with no host to peel. So they're the cleanest things to learn from — you can see the skeleton of the quality routine "independent multi-perspective → adversarial verification → synthesize-and-close" right out in the open, without first doing a peeling operation. This section takes these five templates apart one by one, which happens to back up this chapter's methodology from another angle: the only thing transferable is the pattern, and the official built-ins put the pattern in front of you in its purest form.
+The hardest step in the art of extraction taught earlier in this chapter is always **stripping the host** — the gems of the four community systems all grow on a host layer of "prompts + Hooks + state files," and you must first peel them off that host before you can weld them onto the native skeleton. But there's a class of templates that skips this step from the start: early v2.1.150's built-in registry **shipped five named workflows.** They **are native Workflow** to begin with, with no host to peel. So they're the cleanest things to learn from — you can see the skeleton of the quality routine "independent multi-perspective → adversarial verification → synthesize-and-close" right out in the open, without first doing a peeling operation. This section takes these five templates apart one by one, which happens to back up this chapter's methodology from another angle: the only thing transferable is the pattern, and these built-in workflows put the pattern in front of you in its purest form.
+
+<div class="callout warn">
+
+**A version fact up front, or the rest will mislead you.** These "five built-ins" are the truth of the **early v2.1.150** registry (Runs `wf_2b04881f-6a9` / `wf_28a5d455-300` both listed the five-tool set). But **as of v2.1.156, the built-in named-workflow registry holds only `deep-research`** (Run `wf_03e38250-1bb`, verbatim `Available: deep-research`), exactly matching the official docs' "Claude Code includes `/deep-research` as a built-in workflow" (the only bundled one). In other words: in this section, **the only built-in you can still invoke directly today is `deep-research`**; the four others — `bughunt` / `bughunt-lite` / `plan-hunter` / `review-branch` — are **no longer in the registry and can no longer be relied on** (see [Appendix A.13.1](#/en/app-a)). So why still dissect all five? Because this section's value was never "teaching you to call a built-in," but "teaching you to **reverse-engineer reusable patterns** from a clean native workflow" — these five old registration blurbs happen to lay out five of the most typical quality skeletons in the open, making them excellent **blueprints for your own build.** Wherever the four retired names come up below, read them as a **design reference to the early built-ins**, not as a command you can `workflow('bughunt')` into running today.
+
+</div>
 
 ### What We Can and Cannot See
 
 Every claim in this section stands on three **documented** foundations, and no fourth:
 
-1. **The five names the runtime attests to itself.** Call a named workflow that doesn't exist in a script and the runtime throws, **listing the entire registry of built-ins.** What this book's real run (Run `wf_28a5d455-300`) got back verbatim is:
+1. **The registry the runtime attests to itself (note it has changed across versions).** Call a named workflow that doesn't exist in a script and the runtime throws, **listing the registry of built-ins as it stood then.** This is harder evidence than any documentation — but it's a **version-dependent** snapshot, and this book has captured two:
 
    ```
+   // Early v2.1.150 (Run wf_28a5d455-300) — the five-tool set
    Error: workflow('___nonexistent_child_workflow___'): no workflow with that name.
    Available: bughunt, bughunt-lite, deep-research, plan-hunter, review-branch
+
+   // v2.1.156 (Run wf_03e38250-1bb) — only one left, matching the official bundled set
+   workflow('definitely-no-such-workflow-xyz-r11'): no workflow with that name. Available: deep-research
    ```
 
-   This is harder evidence than any documentation — the built-in named workflows are **exactly these five**, no more and no fewer.
+   So "exactly which built-ins exist" has **no cross-version hard answer**: v2.1.150 had the five-tool set, v2.1.156 narrowed to just `deep-research` (matching the official docs' "only `/deep-research` is bundled"). What this section dissects is **the skeletons of those five early templates** — only `deep-research` is callable today; read the other four as a design reference (see [Appendix A.13.1](#/en/app-a)).
 
 2. **One line of registration blurb in the official skill list.** Each built-in workflow carries a one-sentence architecture summary in the skill list (each subsection below **excerpts the architectural points of this blurb** as its basis for judgment, with the methodology anchored in `examples-r8.md` §7). Note this is an **architecture summary** of official text, not verbatim source code — among them, only `bughunt`'s architectural points have a cross-checking anchor in this book's ground-truth source (§7, "e.g. bughunt = self-respawning finder pool + 5-vote adversarial verification + pigeonhole early-exit + synthesis"); the **exact wording of the other four is subject to the skill blurbs actually listed by your local `/workflows`**, and this section makes no guarantee about the verbatim wording.
 
@@ -688,15 +700,17 @@ Every claim in this section stands on three **documented** foundations, and no f
 
 <div class="callout warn">
 
-**One iron law, applicable throughout.** In this book's grounding tiers (see `_grounding.md` A2), regarding these five built-in workflows, **the only thing confirmed by real testing is the layer of "they exist"** — that is, the five names listed in the error above. Their **internal architecture (how the finder pool respawns, how many votes count as confirmed, how the judges score) has neither an official tool definition, nor can it be read line-by-line in source, nor has this book reproduced it.** So every dissection of "how it runs internally" below leans only on **that one line of registration blurb + general pattern knowledge**, labeled "**based on the official skill description + behavioral observation, not line-by-line source.**" Use it to build intuition and distill skeletons — but don't take the numbers in it (3 rapid, 5 votes, 4 judges) as verified implementation facts. The skeleton code below is the same deal: all of it is **this book's speculative example implementation**, labeled "(illustrative, not run)."
+**One iron law, applicable throughout.** In this book's grounding tiers (see `_grounding.md` A2), regarding these five early built-in workflows, **the only thing real testing confirmed is the layer of "they once existed in the registry"** — that is, the five names listed in v2.1.150's error (and as of v2.1.156, only `deep-research` of those five remains). Their **internal architecture (how the finder pool respawns, how many votes count as confirmed, how the judges score) never had an official tool definition, can't be read line-by-line in source, and was never reproduced by this book.** So every dissection of "how it runs internally" below leans only on **that one line of registration blurb + general pattern knowledge**, labeled "**based on the official skill description + behavioral observation, not line-by-line source.**" Use it to build intuition, distill skeletons, and as a blueprint for your own build — but don't take the numbers in it (3 rapid, 5 votes, 4 judges) as verified implementation facts, and don't expect to invoke `bughunt`/`plan-hunter`/`review-branch` today. The skeleton code below is the same deal: all of it is **this book's speculative example implementation**, labeled "(illustrative, not run)."
 
 </div>
 
 Why can't even the source be read? Because Claude Code's CLI is a bundled artifact, and the built-in workflows' scripts don't live under `~/.claude`; this book grepped the CLI install directory for these signature strings (`self-respawning`, `pigeonhole`, `MVP-first`) with **zero hits** (basis in `examples-r8.md` §7). Not being able to read the source is exactly why this section exists: to teach you to **reverse-engineer reusable patterns from behavior and the official blurb** — which is itself the most practical way to "steal from" someone. Whenever you face any good tool whose source you can't see, this is exactly what you'll have to do.
 
-### Five Built-ins, Five Patterns
+### Five Early Templates, Five Patterns
 
-#### 1. `bughunt` — Self-respawning finder pool + adversarial refutation
+> Reminder: of the five below, **the only built-in still callable today is `deep-research`**; `bughunt` / `bughunt-lite` / `plan-hunter` / `review-branch` were v2.1.150 early built-ins, retired by v2.1.156 (see the top of this section and [Appendix A.13.1](#/en/app-a)), dissected here as **blueprints for your own build.**
+
+#### 1. `bughunt` — Self-respawning finder pool + adversarial refutation (early built-in, now retired)
 
 **Official skill description (architecture summary, not source code)**:
 > Multi-agent bug sweep of the current branch. Self-respawning finder pool (3 rapid + deep-until-dry-streak) streams into 5-vote adversarial verification with pigeonhole early-exit, then synthesis.
@@ -742,7 +756,7 @@ The skeleton's three gears are cleanly separated: the **finder pool** finds (eac
 
 </div>
 
-#### 2. `bughunt-lite` — The same skeleton, minus the "self-respawning" layer
+#### 2. `bughunt-lite` — The same skeleton, minus the "self-respawning" layer (early built-in, now retired)
 
 **Official skill description (architecture summary, not source code)**:
 > Lighter bug sweep — fixed 3-rapid+2-deep finders stream into 5-vote adversarial verification (pigeonhole early-exit), then synthesis. Simpler than bughunt: no self-respawning, no dry-streak.
@@ -775,7 +789,7 @@ const confirmed = await verifyAdversarially(suspects)   // the same refutation p
 
 The design lesson here: **get the verification layer (refutation + synthesis) solid first, then make the discovery layer gear-shiftable — use the fixed pool for cheap scenarios, bring in self-respawning only for the high-risk ones.** The verification skeleton gets reused; the discovery strategy stays pluggable.
 
-#### 3. `deep-research` — Fan-out retrieval + citation checking
+#### 3. `deep-research` — Fan-out retrieval + citation checking (**still the only built-in on v2.1.156**)
 
 **Official skill description (architecture summary, not source code)**:
 > Deep research harness — fan-out web searches, fetch sources, adversarially verify claims, synthesize a cited report.
@@ -820,7 +834,7 @@ The key discipline: **the retrieval agent handles "searching and fetching," the 
 
 </div>
 
-#### 4. `plan-hunter` — Multi-perspective drafts + judge-panel voting + graft synthesis
+#### 4. `plan-hunter` — Multi-perspective drafts + judge-panel voting + graft synthesis (early built-in, now retired)
 
 **Official skill description (architecture summary, not source code)**:
 > Exhaustive planning harness. Generates 4 independent draft plans (MVP-first, risk-first, dependency-first, user-first), scores them with 4 parallel judges, picks the winner by vote, then synthesizes a polished final plan grafting in the best ideas from runners-up.
@@ -865,7 +879,7 @@ Two engineering disciplines: **① "independence" must be done with concurrency 
 
 </div>
 
-#### 5. `review-branch` — Multi-dimension review + item-by-item adversarial verification
+#### 5. `review-branch` — Multi-dimension review + item-by-item adversarial verification (early built-in, now retired)
 
 **Official skill description (architecture summary, not source code)**:
 > Thoroughly review the current branch for bugs, simplicity, architecture, dead code, best practices, and pattern consistency. Each finding is adversarially verified before reporting.
@@ -897,9 +911,9 @@ return verified.filter(Boolean).filter(f => !f.refuted)
 
 The lesson: **the easiest trap in a review task is "one agent does it all."** Split the dimensions and fan them out, and each dimension's agent has focused attention and a single-purpose prompt, bumping recall up a notch right away; then use adversarial verification to pull accuracy back up. This is exactly the real practice of this book's Chapter 11 multi-dimension PR review (Run `wf_4c5caabb-b73`, 4 agents, converging 26 issues down to 16), as well as Chapter 10 sharded review.
 
-### Looking Across: The Same "Quality Routine" Shared by All Five Built-ins
+### Looking Across: The Same "Quality Routine" Shared by All Five Early Templates
 
-Put the five built-ins side by side and you find they aren't five tools each off doing its own thing, but **five takes on the same quality philosophy.** This routine has three fixed actions:
+Put these five templates side by side (whether or not they're still in the registry today) and you find they aren't five tools each off doing its own thing, but **five takes on the same quality philosophy.** This routine has three fixed actions:
 
 ```mermaid
 flowchart LR
@@ -907,13 +921,13 @@ flowchart LR
   B --> C["③ synthesize-and-close<br/>(tally & dedupe / graft highlights / cited report)"]
 ```
 
-| Built-in workflow | ① independent multi-perspective | ② adversarial verification | ③ synthesize-and-close |
+| Template workflow | ① independent multi-perspective | ② adversarial verification | ③ synthesize-and-close |
 |---|---|---|---|
-| `bughunt` | Self-respawning finder pool | Five-vote adversarial refutation + pigeonhole | Synthesis |
-| `bughunt-lite` | Fixed finder pool (3+2) | Five-vote adversarial refutation + pigeonhole | Synthesis |
-| `deep-research` | Fan-out multi-path retrieval | Item-by-item claim checking | Cited report |
-| `plan-hunter` | Four-perspective independent drafts | Four-judge voting | Graft the runners-up's highlights |
-| `review-branch` | Six-dimension division-of-labor review | Item-by-item adversarial verification | Confluence and report |
+| `bughunt` (early built-in, retired) | Self-respawning finder pool | Five-vote adversarial refutation + pigeonhole | Synthesis |
+| `bughunt-lite` (early built-in, retired) | Fixed finder pool (3+2) | Five-vote adversarial refutation + pigeonhole | Synthesis |
+| `deep-research` (**still the only built-in on v2.1.156**) | Fan-out multi-path retrieval | Item-by-item claim checking | Cited report |
+| `plan-hunter` (early built-in, retired) | Four-perspective independent drafts | Four-judge voting | Graft the runners-up's highlights |
+| `review-branch` (early built-in, retired) | Six-dimension division-of-labor review | Item-by-item adversarial verification | Confluence and report |
 
 Why does this routine keep showing up? Because a single agent has two flaws you can't train away: **① narrow vision** (one agent can't cover every angle, so it's bound to miss); **② it makes things up** (it has a strong pull toward "report something / vouch for itself," so false positives are bound to creep in). The three actions treat one ailment each, then close out:
 
@@ -923,7 +937,7 @@ Why does this routine keep showing up? Because a single agent has two flaws you 
 
 <div class="callout tip">
 
-**This is the most valuable lesson you can steal from the official templates: quality isn't piled up by "making the agent try harder," it's forced out by 'structure.'** When you design any workflow that "needs a trustworthy product," you can build the skeleton along these three steps: first get clear on **which perspectives need concurrent coverage** (①), then get clear on **what adversarial mechanism you'll filter false positives with** (②), and finally **hand the deterministic close-out to code** (③). `agent()` handles judgment, `parallel()`/`pipeline()` handle orchestration, schema handles constraining shape, and ordinary JavaScript handles tallying and control flow — the five built-ins are all different assemblies of this same set of building blocks.
+**This is the most valuable lesson you can steal from these five templates: quality isn't piled up by "making the agent try harder," it's forced out by 'structure.'** When you design any workflow that "needs a trustworthy product," you can build the skeleton along these three steps: first get clear on **which perspectives need concurrent coverage** (①), then get clear on **what adversarial mechanism you'll filter false positives with** (②), and finally **hand the deterministic close-out to code** (③). `agent()` handles judgment, `parallel()`/`pipeline()` handle orchestration, schema handles constraining shape, and ordinary JavaScript handles tallying and control flow — these five templates are all different assemblies of this same set of building blocks (even the four retired from the registry, the skeletons still transfer just fine).
 
 </div>
 

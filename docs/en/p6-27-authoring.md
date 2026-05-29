@@ -386,7 +386,13 @@ flowchart LR
 
 </div>
 
-That wraps a full authoring pipeline: intent → list → meta → primitive → schema → validate → real run → iterate. But one frequent question is still hanging — **for all this, do I need MCP?**
+### The Closer: Once It Runs Clean, Press `s` to Save It as a Command
+
+Iterate until you're happy, and this pipeline still needs one **official closer**: **settle** the workflow you've gotten working, so next time you don't start over from `{ script }`. The official move is the lightest possible — press **`s`** in the `/workflows` view, and the script behind this run is **saved as a `/` command**, into autocomplete, alongside `/deep-research`, ready for `/<name>` reuse next time (terminal-side mechanics in [The Official Control Panel §5](#/en/p2-ops)).
+
+As a script author, you've spent this stretch polishing on disk with `scriptPath` (§27.7–§27.8); once it runs clean there are two destinations, pick by need: **light** — press `s` to save it as a command, ad-hoc settling, zero config; **heavy** — file this `.js` into `.claude/workflows/` and call it with `{ name }`, from then on versioned, parameterized, regression-tested, shared with the team. The latter is the proper way to "build your own workflow library," covered in [Chapter 25](#/en/p5-25) — which picks up exactly from this chapter's `scriptPath` iteration loop.
+
+That wraps a full authoring pipeline: intent → list → meta → primitive → schema → validate → real run → iterate → save as a command. But one frequent question is still hanging — **for all this, do I need MCP?**
 
 ---
 
@@ -509,7 +515,7 @@ Boiling "from a one-sentence need to a re-runnable workflow" down into a reusabl
 - **⑤ Define schema** (§27.5): JSON Schema → tool-call-layer validation → returns a validated object (no `JSON.parse`) → retries on mismatch. Can't write the schema = intent isn't clear.
 - **⑥ Validate** (§27.6): `validate-workflow.mjs` as a zero-cost local lint, detailed in Chapter 28.
 - **⑦ Real run** (§27.7): `CLAUDE_CODE_WORKFLOWS=1`, `Workflow({ scriptPath })` returns `runId` asynchronously; orchestration itself is 0 tokens (`wf_59bf3654-183`).
-- **⑧ Iterate** (§27.8): `resumeFromRunId` reuses the longest unchanged `agent()` prefix, returning cache in milliseconds with 0 new tokens (`wf_9c94951d-58c`); same session only, stop the previous run before resuming.
+- **⑧ Iterate + close** (§27.8): `resumeFromRunId` reuses the longest unchanged `agent()` prefix, returning cache in milliseconds with 0 new tokens (`wf_9c94951d-58c`); same session only, stop the previous run before resuming. Once it runs clean, the official closer — press `s` to save it as a `/` command (light), or file the `.js` into `.claude/workflows/` and call it with `{ name }` (heavy, see [Chapter 25](#/en/p5-25)).
 - **⑨ Do I need MCP** (§27.9): **mostly no** (4 of 6 official examples use zero MCP, and the book's three examples all use zero MCP); a default subagent holds 0 `mcp__` tools but has `ToolSearch` to load on demand; context7 was measured working end-to-end (`wf_d8aa0772-ced`). The conclusion is "available when needed," not a selling point.
 
 What comes after the authoring process is "validation & debugging" — once the script is written, how do you reliably pin down problems both before and after it crashes?

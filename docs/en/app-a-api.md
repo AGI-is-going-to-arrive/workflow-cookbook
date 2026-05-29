@@ -2,7 +2,7 @@
 
 > This appendix is the book's API quick reference, compiled against the type definitions `sdk-tools.d.ts` (the `WorkflowInput` / `WorkflowOutput` interfaces) in Claude Code's official distribution, the Workflow tool definition, and this machine's real run records (see [Appendix E](#/en/app-e)).
 >
-> Applicable version: Claude Code v2.1.150 (base API; `CLAUDE_CODE_WORKFLOWS=1`, main-loop model Opus 4.7 (1M)); the `/effort` · ultracode · gating in §A.12 was tested on **v2.1.154**. The feature is experimental and fields may evolve across versions — your local type definitions are the final authority.
+> Applicable version: **Claude Code v2.1.154+ (the official minimum)**; the book's API shapes are drawn mostly from runtime testing and binary checks across v2.1.150–v2.1.156, with the core invariants re-checked on **v2.1.156** (`claude --version` verified; main-loop model Opus 4.8 (1M), `CLAUDE_CODE_WORKFLOWS=1`, see [`examples-r11.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r11.md)). This is an official **research preview** feature, and fields may evolve across versions — your local type definitions are the final authority.
 
 ---
 
@@ -147,7 +147,7 @@ export const meta = {
 
 Each item in `meta.phases[]` may carry a `model`. **Its runtime semantics this book cannot independently verify**: the official tool description is vaguely worded (something like "add it when a phase overrides with a specific model"), while third-party material claims it is **display-only, not read at runtime** — and this book can assert neither.
 
-The root cause is that this book's test session set the environment variable `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`, which **overrides every per-call model**: in `wf_9c94951d-58c`, five agents marked respectively `haiku` / `inherit` / `opus` / omitted / "inside a phase whose entry said `model:'haiku'`" **all ran as Opus**. So in this session this book **cannot** tease apart the effects of `phases[].model` and `opts.model`.
+The root cause is that the session running this probe set the environment variable `CLAUDE_CODE_SUBAGENT_MODEL`, which **overrides every per-call model**: in `wf_9c94951d-58c` (an **early 4.7 session**, `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`), five agents marked respectively `haiku` / `inherit` / `opus` / omitted / "inside a phase whose entry said `model:'haiku'`" **all ran as Opus**. So in this session this book **cannot** tease apart the effects of `phases[].model` and `opts.model`. (A separate, independent environment fact: in the R11 re-verification session that variable was `claude-opus-4-8[1m]`, i.e. Opus 4.8 — see [Appendix E · E.2](#/en/app-e); this override conclusion is independent of the specific model, holding in both the 4.7 and the 4.8 session.)
 
 <div class="callout warn">
 
@@ -266,10 +266,10 @@ budget.remaining()  // number: max(0, total - spent()); Infinity when no target 
 
 ### `workflow(nameOrRef, args?)` [Official] [Verified]
 
-Run another workflow inline (named, or `{ scriptPath }`). It shares the concurrency limit / agent count / abort signal / token budget. This book's run (`wf_2b04881f-6a9`):
+Run another workflow inline (named, or `{ scriptPath }`). It shares the concurrency limit / agent count / abort signal / token budget. This book's runs:
 
-- `workflow({ scriptPath }, { n: 21 })` runs the child inline and **passes `args` through** (the child returned `doubled: 42`).
-- An unknown name throws and lists the registered named workflows: `bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`.
+- `workflow({ scriptPath }, { n: 21 })` runs the child inline and **passes `args` through** (the child returned `doubled: 42`, `wf_2b04881f-6a9`, v2.1.150).
+- An unknown name throws and lists the **registered named workflows**. **Verified on v2.1.156, the registry holds only `deep-research`** — verbatim `Available: deep-research` (`wf_03e38250-1bb`), exactly matching the official docs' "Claude Code includes `/deep-research` as a built-in workflow" (the only bundled one). Early v2.1.150 listed a five-tool set here — `bughunt, bughunt-lite, deep-research, plan-hunter, review-branch` (`wf_2b04881f-6a9`) — but that batch is **no longer** in the registry on v2.1.156; see [A.13.1](#a131-the-built-in-named-workflow-registry-version-drift-verified).
 - **Nesting is one level only**: a child that calls `workflow()` throws, verbatim:
 
 ```text
@@ -353,11 +353,17 @@ const n = input.n ?? 1   // now you can safely read fields
 
 Two layers (**available** vs. **will use**), don't conflate them (details in [Chapter 01 §1.5–1.6](#/en/p1-01)):
 
-**Layer 1 · Available (is the Workflow tool in the toolbox)**: decided by `CLAUDE_CODE_WORKFLOWS` + the server-side flag `tengu_workflows_enabled` + account tier (2.1.154 client logic `FX5`).
-- `CLAUDE_CODE_WORKFLOWS=1` → **the most reliable user-side way to enable it** (once set, availability still follows the server-side flag `tengu_workflows_enabled`, which defaults to true); `=0` → force off; unset → falls back to the server-side flag, and when that's on, non-Pro accounts are on by default.
-- The server-side flag is a growthbook gate Anthropic controls and the user can't, so to guarantee availability, set `=1` explicitly.
+**Layer 1 · Available (is the Workflow tool in the toolbox)**. This layer itself has a "surface" face and an "under-the-hood" face — and the **official surface comes first**:
 
-**Layer 2 · Will use (get Claude to orchestrate this turn / this session)** — the official opt-in list (injected into the model by the 2.1.154 client, each item verified against the binary):
+*The official surface entry (what you should do, source = official docs)*:
+- ① Check the version: `claude --version` ≥ **v2.1.154** (the official minimum);
+- ② Check the account: **available on all paid plans**, with Anthropic API access, and on Amazon Bedrock / Google Cloud Vertex AI / Microsoft Foundry too; **Pro users must turn it on manually from the "Dynamic workflows" row in `/config`.** [Official]
+
+*The underlying flag (mechanism layer / power-user, source = client binary + local `printenv`)*: availability is decided inside the client logic function **`FX5`** by `CLAUDE_CODE_WORKFLOWS` + the server-side flag `tengu_workflows_enabled` + account tier.
+- `CLAUDE_CODE_WORKFLOWS=1` → an explicit power-user switch (this book's session `printenv` measured `=1` with the tool available); `=0` → force off; unset → falls back to the server-side flag.
+- **Be clear about the layering**: this is the **under-the-hood mechanism** read out of the client binary, and **the official user-facing entry is `/config`** — it is not "only enabled once you set `=1`." Both coexist, with the official surface taking priority; `=1` is just the more direct switch at the underlying layer, handy for CI / power-users to lock things in explicitly.
+
+**Layer 2 · Will use (get Claude to orchestrate this turn / this session)** — the official opt-in list (injected into the model by the client, each item verified against the binary):
 - ① a message containing the `workflow` / `workflows` keyword (**this turn**);
 - ② `/effort ultracode` (**standing, this session** + reasoning bumped to xhigh; details in [Chapter 01 §1.6](#/en/p1-01));
 - ③ the user asking in their own words ("run a workflow" / "fan out agents" / "orchestrate this with subagents");
@@ -373,14 +379,37 @@ Two layers (**available** vs. **will use**), don't conflate them (details in [Ch
 
 ---
 
-## A.13 Concurrency and Scale [Official]
+## A.13 Runtime & Limits (Concurrency / Scale / Behavior Constraints) [Official]
+
+The table below aligns with the official docs' **"Behavior and limits"** table (source `code.claude.com/docs/en/workflows`), plus two rows this book takes from the input-schema / testing (script size, nesting depth):
 
 | Limit | Value | Tier |
 |---|---|---|
-| Agents running at once per workflow | `min(16, CPU cores − 2)`, the rest **queue** (not an error) | [Official] |
-| Total `agent()` cap per workflow | **1000** (runaway-loop backstop) | [Official] |
+| Mid-run user input | **Not allowed** — once a run starts you **cannot** inject user input mid-run; **only an agent's permission prompt can pause it.** For sign-off between stages, split each stage into its own **separate workflow** | [Official] |
+| Script access to filesystem / shell | **The script itself has none** — agents read/write files and run commands; the script only orchestrates (this is also what's behind A.3's verified "`require`/`process`/`fetch` are all `undefined` in the script body") | [Official] (+ [A.3](#a3-script-structure-and-execution-environment) verified corroboration) |
+| Agents running at once per workflow | **Up to 16 concurrent** (fewer on machines with limited CPU cores; with the binary lower bound folded in, `min(16, max(2, cores − 2))`), the rest **queue** (not an error) | [Official] (the `max(2, …)` floor is binary-confirmed in [A.14](#a14-third-party-unverified-list-caution)) |
+| Total `agent()` cap per run | **1000** (runaway-loop backstop) | [Official] |
 | Script size cap | **524288 bytes (512KB)** (the `script.maxLength` of the input-schema) | [Official] |
 | `workflow()` nesting depth | **1 level** (calling `workflow()` again inside a sub-workflow throws) | [Official] [Verified] |
+
+> The first two rows (no mid-run input, the script has no direct fs/shell access) are verbatim from the official behavior & limits table, cited here as-is without rewording. The third and fourth rows — the 16-concurrency cap and the 1000-agent-per-run cap — are likewise the official table's numbers; this book separately gives the binary-confirmed concurrency **lower bound** `max(2, cores − 2)` in the [verification-upgrade table at the top of A.14](#a14-third-party-unverified-list-caution) (stronger than a third-party claim, not runtime-triggered).
+
+---
+
+## A.13.1 The Built-in Named-Workflow Registry: Version Drift [Verified]
+
+The "named workflows" you can invoke via `workflow({ name })` (and `Workflow({ name })`) come in two parts: the ones you put in `.claude/workflows/` yourself, and the ones Claude Code **bundles**. That bundled part **has changed across versions** — a key drift this book measured first-hand, worth a separate note:
+
+| Version | Built-in named-workflow registry (verified) | Evidence |
+|---|---|---|
+| **v2.1.156 (current)** | **`deep-research` only** | `wf_03e38250-1bb`: calling a name that doesn't exist throws verbatim `Available: deep-research` |
+| v2.1.150 (early) | `bughunt`, `bughunt-lite`, `deep-research`, `plan-hunter`, `review-branch` (a five-tool set) | `wf_2b04881f-6a9` |
+
+- **Go by v2.1.156**: the built-in registry holds **only `deep-research`**, matching the official docs — which list only `/deep-research` as a bundled workflow (fans out web searches across angles → fetches and cross-checks the sources → votes on each claim → returns a cited, filtered report; **needs the WebSearch tool available**). [Official]
+- The four from early v2.1.150 (`bughunt` / `bughunt-lite` / `plan-hunter` / `review-branch`) are **no longer in the registry** — more like early experimental built-ins; **don't depend on them anymore.** Anywhere the book assumed "call the built-in `bughunt`" has been re-anchored to "build your own workflow" (see [Chapter 15 · Bug Hunter](#/en/p3-15)).
+- Workflows **you** save also become `/` commands and show up in autocomplete alongside the bundled ones — that point is stable, unaffected by the drift above. [Official]
+
+> In one line: **don't treat "bundled named workflows" as a stable API surface.** The only built-in you can reliably depend on at v2.1.156 is `deep-research`; for anything else, write your own or manage it under `.claude/workflows/`.
 
 ---
 

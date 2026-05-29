@@ -20,9 +20,9 @@
 | **确定性编排 / deterministic orchestration** | 由代码（而非模型自由发挥）决定「派几个 agent、按什么顺序、如何汇合」的编排方式，区别于纯提示词驱动。 | [第 2 章](#/zh/p1-02) |
 | **subagent / 子智能体** | 由 `agent()` 派出去的一个独立干活单元，有自己的上下文和真实的工具权限；它「吐出的最后一段文本就是返回值」。 | [第 1 章](#/zh/p1-01) |
 | **主循环 / main loop** | 你正在跟它对话的这个 Claude 会话；Workflow 工具调用就是它发起的，而且它跟所有工作流**共用一个 token 预算池**。 | [第 9 章](#/zh/p2-09) |
-| **CLAUDE_CODE_WORKFLOWS** | 控制「能不能用」的环境变量：`1` 是**最可靠的用户侧开法**（设了之后可用性仍取服务端 flag，默认 true）、`0` 强制关、不设则看服务端 flag（非 Pro 账户默认开）。 | [附录 A · A.12](#/zh/app-a) |
+| **CLAUDE_CODE_WORKFLOWS** | 控制「能不能用」的**底层**环境变量。官方面向用户的开法是 `/config` 的 "Dynamic workflows" 行（Pro 必走）；这个 flag 是 power-user 的显式开关：`1` 可用（仍取服务端 flag，默认 true）、`0` 强制关、不设则看服务端 flag（非 Pro 默认开）——它不取代 `/config`。 | [附录 A · A.12](#/zh/app-a) |
 | **CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS** | 关联的实验性标志（Agent Teams）；与 Workflow 同属实验能力族。 | [接地事实表](#/zh/p1-01) |
-| **CLAUDE_CODE_SUBAGENT_MODEL** | 用户/CI 级的环境变量；只要一设上，它就**覆盖一切 per-call `model`**（脚本里写的 `opts.model`/`phases[].model` 都被静默忽略）。实测本会话设成 `claude-opus-4-7[1m]`，5 个带不同 model 选项的 agent 全跑了 Opus（Run `wf_9c94951d-58c`）。 | [附录 E · R4 模型解析记录](#/zh/app-e) |
+| **CLAUDE_CODE_SUBAGENT_MODEL** | 用户/CI 级的环境变量；只要一设上，它就**覆盖一切 per-call `model`**（脚本里写的 `opts.model`/`phases[].model` 都被静默忽略）。跑该探针的早期会话（Run `wf_9c94951d-58c`）设成 `claude-opus-4-7[1m]`，5 个带不同 model 选项的 agent 全跑了 Opus；R11 复核会话该变量是 `claude-opus-4-8[1m]`（覆盖结论与型号无关）。 | [附录 E · R4 模型解析记录](#/zh/app-e) |
 | **ANTHROPIC_DEFAULT_HAIKU_MODEL / SONNET / OPUS** | 用户/CI 级的环境变量；把对应的**模型别名**整体重映射到你指定的模型。它跟 `CLAUDE_CODE_SUBAGENT_MODEL` 叠在一起，就是「两层模型覆盖」——本会话两层都指向 Opus，所以脚本里写 `model: 'haiku'` 实跑的还是 Opus（Run `wf_e8cb23ff-829`）。 | [附录 A · A.4](#/zh/app-a) |
 
 ---

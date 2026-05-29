@@ -188,7 +188,7 @@ export const meta = {
 - **`meta.phases[].model`** —— 写在 `phases` 数组里(如 `{ title: 'Verify', model: 'haiku' }`)。官方工具描述对它的措辞**含糊**(「某阶段用特定模型 override 时加上」);本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖一切 per-call model(见 `_grounding.md` A2,Run ID `wf_9c94951d-58c`)**未能独立隔离**它到底有没有运行时效果。
 - **agent `opts.model`** —— 按**单次调用**覆盖;官方明确「**省略则继承主循环模型**」。这是**唯一**有官方明确语义的模型旋钮。
 
-两者都不写时,agent 继承主循环模型——**本书实测会话**的主循环是 Opus 4.7(由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 指定,见 `_grounding.md` A 节;这是本书会话的事实,不是 Workflow 通用保证)。
+两者都不写时,agent 继承主循环模型——**本章这些示例所在的早期会话**主循环是 Opus 4.7(由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 指定,见 `_grounding.md` A 节;这是那次会话的事实,不是 Workflow 通用保证)。R11 复核会话已换成 Opus 4.8(`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-8[1m]`,printenv 实测)——但无论主循环是哪个型号,「`agent` 不写 `model` 则继承主循环模型」这一结论都不变。
 
 <div class="callout warn">
 
@@ -481,7 +481,7 @@ agent_count = 6   tool_uses = 8   total_tokens = 158982   duration_ms = 26743
 
 ```mermaid
 flowchart TD
-    A["主循环模型<br/>(本书实测会话:Opus 4.7)"] --> C["agent(opts.model)<br/>按单次调用覆盖<br/>(唯一可靠旋钮)"]
+    A["主循环模型<br/>(早期会话:Opus 4.7;R11复核:4.8)"] --> C["agent(opts.model)<br/>按单次调用覆盖<br/>(唯一可靠旋钮)"]
     C --> E["最终生效模型"]
     B["meta.phases[].model<br/>意图标注 · 运行时效果未定"] -. "本会话被 CLAUDE_CODE_SUBAGENT_MODEL<br/>覆盖,无法独立隔离" .-> E
     style E fill:#2d6
@@ -490,7 +490,7 @@ flowchart TD
 
 从宽到窄理解:
 
-1. **不写 `agent({ model })`** → agent 继承**主循环模型**。据 `_grounding.md`:「(`agent` 的)`opts.model` 省略则继承主循环模型」。**本书实测会话**的主循环是 Opus 4.7(这是本书会话的事实,非 Workflow 通用保证)。
+1. **不写 `agent({ model })`** → agent 继承**主循环模型**。据 `_grounding.md`:「(`agent` 的)`opts.model` 省略则继承主循环模型」。**本章示例所在的早期会话**主循环是 Opus 4.7(这是那次会话的事实,非 Workflow 通用保证;R11 复核会话为 Opus 4.8,结论与型号无关)。
 2. **在 `agent({ model })` 上指定** → 唯一可靠的覆盖。最细的粒度,精确控制**这一个** agent 用什么模型,盖掉「继承主循环」这个默认。比如一个先「廉价地海量扇出找线索」、再「昂贵地精审」的工作流,**正确做法是在每个 agent 上落实 `model`**——同时**也**在 `phases` 上标注同样的意图,让权限对话框和读脚本的人一眼看清成本结构:
 
 ```javascript
@@ -682,7 +682,7 @@ triage-and-fix
 - **`meta` 字段**:必填 `name` / `description`(自报家门);可选 `whenToUse`(工作流列表的「何时用」)、`phases`(阶段刻度,每项 `{title, detail?, model?}`)。注意:**顶层 `meta.model` 并非工具定义里已确认的 meta 字段,语义未核实**(5.3、5.6)。
 - **`phase(title)`** 切换全局当前阶段游标,其后 `agent()` 归入该组;`meta.phases[].title` 与 `phase('...')` 按**字符串精确匹配**关联——大小写、空格差一个字就会让进度树错乱(5.4–5.5)。
 - **并发场景的铁律**:顺序脚本用全局 `phase()`,`parallel`/`pipeline` 里改用每个 agent 的 `opts.phase` 显式归组,避免抢全局游标(5.5.1)。
-- **模型:唯一可靠的旋钮是 `agent()` 的 `model`**(省略则继承主循环;本会话主循环 Opus 4.7)。`meta.phases[].model` 只是「意图标注」,**运行时是否单独生效未定**——官方措辞含糊,且本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖(`wf_9c94951d-58c`)无法独立隔离。**要某阶段真用某模型,就在该阶段每个 `agent()` 上写 `model`,别只标在 phases 上**(5.3.3、5.6)。
+- **模型:唯一可靠的旋钮是 `agent()` 的 `model`**(省略则继承主循环;本章示例的早期会话主循环 Opus 4.7,R11 复核会话为 Opus 4.8——结论与型号无关)。`meta.phases[].model` 只是「意图标注」,**运行时是否单独生效未定**——官方措辞含糊,且本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖(`wf_9c94951d-58c`)无法独立隔离。**要某阶段真用某模型,就在该阶段每个 `agent()` 上写 `model`,别只标在 phases 上**(5.3.3、5.6)。
 - **`/workflows`** 把 `meta.name`(根)/ `phases[].title`(分组,预先成形)/ `agent` 的 `label`(叶子)渲染成实时进度树;**`log()`** 在树上方打一行人类可读的叙述——一个塑形,一个叙事(5.7)。
 
 经线已张紧。下一章,我们把目光全部投向那根穿梭其间、真正干活的**纬线**——把 `agent(prompt, opts)` 的每一个选项(`label`、`schema`、`phase`、`model`、`isolation`、`agentType`)拆到见底,看清一个 subagent 从派发到返回的完整一生。

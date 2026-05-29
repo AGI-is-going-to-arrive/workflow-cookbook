@@ -1,8 +1,8 @@
 # 附录 E · 信源索引
 
-> 这是一本「事实优先」的书。本附录把全书所依据的**真实信源**逐一列出，分五类：①官方类型定义；②实测环境与版本；③本书自跑的真实运行（含 Run ID 与覆盖的机制）；④四大社区系统的源码仓库；⑤参考解读（注明「参考、非照抄」）。
+> 这是一本「事实优先」的书。本附录把全书所依据的**真实信源**逐一列出，分六类：①官方文档（`code.claude.com/docs/en/workflows`）；②官方类型定义；③实测环境与版本；④本书自跑的真实运行（含 Run ID 与覆盖的机制）；⑤四大社区系统的源码仓库；⑥参考解读（注明「参考、非照抄」）。
 >
-> 凡书中关于 API 字段/行为/数字的论断，都应能回溯到本附录的某一条。若某处与你本机实测不符，**以你本机的类型定义与运行为准**——这是实验性特性，字段可能随版本演进。
+> 凡书中关于 API 字段/行为/数字的论断，都应能回溯到本附录的某一条。**真值优先级：官方文档 / 官方类型定义 ≥ 本机实测 Run ID > 第三方资料。** 若某处与你本机实测不符，**以官方文档与你本机的类型定义/运行为准**——这是官方的 **research preview** 特性，字段可能随版本演进。
 
 ---
 
@@ -10,15 +10,34 @@
 
 <div class="callout info">
 
-**本书是独立写作的第三方实践手册，不隶属于 Anthropic，也非官方文档。** 全书内容基于三类公开/可复现的事实来源：
+**本书是独立写作的第三方实践手册，不隶属于 Anthropic。** 这个特性官方现已正式收录为 **Dynamic workflows（research preview）**，文档在 [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)——本书把它作为**一级权威信源**对齐；但本书本身仍是第三方实践总结、不是官方文档。全书内容基于四类公开/可复现的事实来源：
 
+0. **官方文档**——Claude Code 官方的 Dynamic workflows 页面（特性定名、版本要求、付费档/Bedrock/Vertex/Foundry 可用性、`/config` 启用、behavior & limits、bundled `/deep-research` 等，均以此为准）；
 1. **公开分发包与类型定义**——Claude Code 的 npm 分发包及其内含的工具类型定义；
 2. **产品行为分析**——在真实 Claude Code 会话中观察到的环境变量、工具回执、完成通知；
-3. **真实运行**——我们亲自在本机跑出的工作流。[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) 的表是**第一批 10 次完成记录**；[§E.3.1](#e31-r4-真实运行实测复现第三方声称) 增补 R4 批次（运行 #11–#19），再加 R3 基线复验组——至 R4 期合计 **19 条运行记录（18 完成 + 1 因 30s 同步超时 failed）/ 17 个唯一 Run ID**（续传复用已有 Run ID、提交即被拒者不计为独立 ID）。其后 R5、R6 两轮又各跑了 3 个应用级工作流（review-spa / dead-code-scan / feedback-themes），并入后**全书 curated 真实运行共 23 个唯一 Run ID**（R4 17 + R5 3 + R6 3）。所有用量/返回值原样记录在 `assets/transcripts/`。
+3. **真实运行**——我们亲自在本机跑出的工作流。[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) 的表是**第一批 10 次完成记录**；[§E.3.1](#e31-r4-真实运行实测复现第三方声称) 增补 R4 批次（运行 #11–#19），再加 R3 基线复验组——至 R4 期合计 **19 条运行记录（18 完成 + 1 因 30s 同步超时 failed）/ 17 个唯一 Run ID**（续传复用已有 Run ID、提交即被拒者不计为独立 ID）。其后 R5、R6 两轮又各跑了 3 个应用级工作流（review-spa / dead-code-scan / feedback-themes），并入后**全书 curated 真实运行共 23 个唯一 Run ID**（R4 17 + R5 3 + R6 3）。R7–R11 各轮另有一批**验证用探针**（如 R11 的 `wf_03e38250-1bb` / `wf_614e6e6b-c6f` / `wf_71b563fd-37a`，在 v2.1.156 上复核了运行时不变量与 Opus 4.8 环境），按本书惯例**只作核实、不并入 curated-23 头条计数**（与 R7/R8/R9 探针同处理）。所有用量/返回值原样记录在 `assets/transcripts/`。
 
 凡**未实跑、仅作示意**的脚本，正文已明确标注「（示意，未实跑）」。凡引用真实数据，均注明 Run ID 与出处。我们**不编造** API、参数或输出。
 
 </div>
+
+---
+
+## E.0.1 官方文档（一级权威信源 · R11 新增）
+
+特性官方现已正式收录，文档页面是本书最高优先级的信源之一。
+
+| 信源 | 状态 | 用途（书中据此对齐的事实） |
+|---|---|---|
+| [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)（"Orchestrate subagents at scale with dynamic workflows"） | 特性定名 **Dynamic workflows**，状态 **research preview**；本轮抓取于 2026-05-29 | 版本要求 **v2.1.154+**；**所有付费档可用**（含 Anthropic API、Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry），**Pro 在 `/config` 的 "Dynamic workflows" 行手动开启**；触发关键词 `workflow`/`workflows`（误触发按 `alt+w`）；`/effort ultracode`（xhigh + 自动编排）；运行时与限制（运行中不能插入输入、脚本无直接 fs/shell 访问、最多 16 并发、单 run 1000 agent）；续传限同一会话（`/workflows` 里按 `p`）、**退出 Claude Code 后下个会话从头重跑**（"the next session starts the workflow fresh"）；**bundled 只有 `/deep-research`**（需 WebSearch 可用） |
+
+<div class="callout info">
+
+**这页文档怎么改变了本书的信源分级**：在它发布之前，社区（含本书早期草稿与下方 §E.5 的第三方解读）一度把这个特性描述为「官方文档未收录的隐藏工具」。**那个前提现在已经不成立**——特性是官方正式特性，措辞与可用性、启用方式、运行约束一律**以这页官方文档为准**。本书相对官方文档的增量价值，落在官方没细讲的**实测层**：具名工作流注册表的版本漂移（[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) / [附录 A · A.13.1](#/zh/app-a)）、序列化陷阱、`parallel` 同步 throw 会崩整个 run、worktree 落盘行为等——这些是「官方文档 + 本机实测」叠加出来的，不与官方冲突，而是把官方没展开的角落补全。
+
+</div>
+
+> 关于官方「续传」段落的两条已确证点：① **续传限同一会话**（停掉的 run 在 `/workflows` 里选中按 `p` 续传，已完成的 agent 返回缓存结果、其余实跑）；② **退出 Claude Code 后，下个会话会从头重新开始这个 workflow**（官方原文 "the next session starts the workflow fresh"）——即续传不跨会话存活。
 
 ---
 
@@ -45,14 +64,15 @@
 
 | 事实 | 实测值 | 性质 |
 |---|---|---|
-| Claude Code 版本 | **v2.1.150** | 取自分发包 `package.json` |
+| Claude Code 版本 | **v2.1.156**（≥ 官方最低 v2.1.154；早期基础机制测于 v2.1.150） | `claude --version` 实测 |
 | 门控环境变量 | `CLAUDE_CODE_WORKFLOWS=1` | 实测会话环境变量存在 |
+| effort 锁定 | `CLAUDE_CODE_EFFORT_LEVEL=max` | 实测环境变量 |
 | 关联实验标志 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | 实测环境变量 |
-| subagent 模型 | `claude-opus-4-7[1m]`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） | 实测环境变量 |
+| subagent 模型 | `claude-opus-4-8[1m]`（**Opus 4.8**，由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） | 实测环境变量（`examples-r11.md` R11-P4） |
 | 运行月份 | 2026-05 | transcripts 记录时间 |
 | 返回性质 | 始终异步：回执先到（`taskId`/`runId`），结果随 `<task-notification>` 到达 | 类型定义 + 实测 |
 
-> 这些是**本书写作时的实测快照**。实验性特性会演进——读到本书时若版本已变，请以你本机实测为准。
+> 这些是**本书写作时的实测快照**。research preview 特性会演进——读到本书时若版本已变，请以你本机实测为准。
 
 ---
 
@@ -145,9 +165,9 @@
 |---|---|---|
 | 「AI 超元域」博客（社区解读） | 对 Workflow 特性的早期社区解读与视角 | **参考**：背景动机与术语认知；案例一律原创，不照抄 |
 | 相关讲解视频 | 社区对多 agent 编排的讲解 | **参考**：建立直觉；具体数字以本书实跑为准 |
-| **`claude-code-workflow-creator`**（第三方 GitHub 仓库） | 某 YouTuber 为其视频 `c0gVowvMR-g` 配套的仓库，**非 Claude/Anthropic 官方出品**。含 `references/api-reference.md`、`references/patterns.md`、6 个示例工作流、3 个模板、`scripts/validate-workflow.mjs`（提交前 lint）。 | **借鉴思路、不当权威**：借鉴它对 `CLAUDE_CODE_WORKFLOWS` 的组织方式来增强本书；**绝不照抄其文本、绝不把其声称当真值**。它的声称里能被本书实测复现的（如 meta 保留键被拒、`isolation:'remote'` 禁用、30000ms 同步超时、`model` 无提交校验），已升级为实测事实并标注 Run ID（见 [E.3.1](#e31-r4-真实运行实测复现第三方声称)）；不能复现的（错误类名、`stallMs` 等）一律标「社区第三方资料声称，本书未独立实测」。其自带的 `validate-workflow.mjs` 本书**已实跑确认行为**（见 [E.3.1](#e31-r4-真实运行实测复现第三方声称)）。 |
+| **`claude-code-workflow-creator`**（第三方 GitHub 仓库） | 某 YouTuber 为其视频 `c0gVowvMR-g` 配套的仓库，**非 Claude/Anthropic 官方出品**。含 `references/api-reference.md`、`references/patterns.md`、6 个示例工作流、3 个模板、`scripts/validate-workflow.mjs`（提交前 lint）。 | **借鉴思路、不当权威**：**凡涉及特性的定名、启用、可用性、运行约束，现一律以官方文档（[E.0.1](#e01-官方文档一级权威信源-r11-新增)）为准**；这个第三方仓库只作思路启发，**绝不照抄其文本、绝不把其声称当真值**。它的声称里能被本书实测复现的（如 meta 保留键被拒、`isolation:'remote'` 禁用、30000ms 同步超时、`model` 无提交校验），已升级为实测事实并标注 Run ID（见 [E.3.1](#e31-r4-真实运行实测复现第三方声称)）；不能复现、官方也未提的（错误类名、`stallMs` 等）一律标「社区第三方资料声称，本书未独立实测」。其自带的 `validate-workflow.mjs` 本书**已实跑确认行为**（见 [E.3.1](#e31-r4-真实运行实测复现第三方声称)）。 |
 | 视频 `c0gVowvMR-g`（上述仓库的配套视频） | 该 YouTuber 讲解多 agent 编排/工作流的视频 | **不引述内容**：该视频页面为 SPA，**取不到字幕**，故本书不引用其任何具体表述；仅记录其与上述第三方仓库的配套关系。 |
-| **zenn 文章（`lumichy`，日文社区解读·R8 新增）** | Zenn 作者 lumichy 对 ultrawork 的解读（约 2500–3000 字 + 7 图），标题「MCPとSkillsに続く第3の革命：Claude Code Workflowがultraworkで Agentをコードに焼き付ける」。文中称「官方文档未收录（2025 年 5 月时）」，评论区另称 v2.1.150 需 `export DISABLE_GROWTHBOOK=1` 才启用。**非 Claude/Anthropic 官方出品。** | **辩证参考、不当真值**：其涉及 API 形态/字段的表述，一律以官方类型定义（[E.1](#e1-官方类型定义api-字段的权威来源)）与本机实跑（[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制)）为准，与本书实测冲突处以本书为准；其环境/UX 类声称（如「v2.1.150 需设 `DISABLE_GROWTHBOOK`」）列入**待测清单**，未经本书实测复现前一律标「第三方声称、未核实」。完整辩证核实记录见 `assets/transcripts/examples-r8.md` §6。 |
+| **zenn 文章（`lumichy`，日文社区解读·R8 新增）** | Zenn 作者 lumichy 对 ultrawork 的解读（约 2500–3000 字 + 7 图），标题「MCPとSkillsに続く第3の革命：Claude Code Workflowがultraworkで Agentをコードに焼き付ける」。**写于官方文档发布之前**，文中称「官方文档未收录（2025 年 5 月时）」，评论区另称 v2.1.150 需 `export DISABLE_GROWTHBOOK=1` 才启用。**非 Claude/Anthropic 官方出品。** | **辩证参考、不当真值**：① 文中「官方文档未收录」是其写作时点的状态，**现已过时**——特性已正式收录于 [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)（见 [E.0.1](#e01-官方文档一级权威信源-r11-新增)），启用与可用性一律以官方为准；② 其涉及 API 形态/字段的表述，以官方类型定义（[E.1](#e1-官方类型定义api-字段的权威来源)）与本机实跑（[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制)）为准，与本书实测冲突处以本书为准；③ 其环境/UX 类声称（如「v2.1.150 需设 `DISABLE_GROWTHBOOK`」）列入**待测清单**，未经本书实测复现前一律标「第三方声称、未核实」。完整辩证核实记录见 `assets/transcripts/examples-r8.md` §6。 |
 
 > 之所以把它们单列并反复强调「非照抄」：本书的承诺是**事实优先 + 原创真实**。参考资料可以启发理解，但不能替代「亲手跑一遍、记录真实数字」——后者才是本书每一个论断的底座。**特别地，`claude-code-workflow-creator` 是第三方 YouTuber 仓库而非官方**：本书只借它的思路，凡其声称均须经本书实测复现才升级为事实，否则显式标注「未核实」。
 
@@ -160,18 +180,21 @@
 ```mermaid
 flowchart TD
   A["书中某处的论断"] --> B{属于哪类?}
+  B -->|特性定名/启用/可用性/运行约束| Z["官方文档 (E.0.1)"]
   B -->|API 字段语义| C["附录 A → 本机 sdk-tools.d.ts (E.1)"]
   B -->|门控/触发/模型| D["实测环境快照 (E.2)"]
   B -->|具体用量/返回值| E["对应 Run ID → assets/transcripts/ (E.3)"]
   B -->|生态系统特性| F["四大系统源码仓库 (E.4)"]
-  C --> G["以你本机类型定义为最终依据"]
+  Z --> G["以官方文档为最高优先级"]
+  C --> G
   D --> G
   E --> H["数字未经修改，可逐条复算"]
   F --> H
 ```
 
+- **特性定名/启用/可用性/运行约束** → [E.0.1](#e01-官方文档一级权威信源-r11-新增) 的官方文档（最高优先级）。
 - **API 字段** → [附录 A](#/zh/app-a)，并以你本机 `sdk-tools.d.ts` 为最终依据。
-- **环境/版本** → [E.2](#e2-实测环境与版本行为论断的依据) 的实测快照（实验特性会演进，以本机为准）。
+- **环境/版本** → [E.2](#e2-实测环境与版本行为论断的依据) 的实测快照（research preview 特性会演进，以本机为准）。
 - **用量/返回值** → 顺着 Run ID 翻 [E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) 指向的 transcript 文件，所有数字原样保留、可复算。
 - **生态精华** → [E.4](#e4-四大社区系统生态借鉴的源码仓库) 的源码仓库 + 第五部。
 

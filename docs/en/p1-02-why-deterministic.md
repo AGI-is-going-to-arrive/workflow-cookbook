@@ -1,6 +1,6 @@
 # Chapter 02 · Why Deterministic Orchestration
 
-> In the last chapter we nailed down *what* Workflow is: a single pure-JavaScript script that deterministically orchestrates any number of subagents. This chapter we step back and ask a more fundamental question — **before Workflow existed, how did people orchestrate multiple agents?**
+> In the last chapter we nailed down *what* Workflow is: a single pure-JavaScript script that deterministically orchestrates hundreds of subagents. This chapter we step back and ask a more fundamental question — **before Workflow existed, how did people orchestrate multiple agents?**
 >
 > The answer: with prompts, with runtime patches, with state written to disk while "praying" the model remembers. These approaches are clever, and they hit a field full of potholes. Only by prying each pothole open, one at a time, will you really see that "deterministic orchestration" isn't a flashy new toy — it's a cure for a class of **real pain**.
 

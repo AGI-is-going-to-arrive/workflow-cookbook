@@ -6,13 +6,23 @@
 
 ---
 
-## 25.1 From "One-off Script" to "Named Workflow"
+## 25.1 Two Roads to a Library: Official Surface First, On-disk Scripts Second
 
-Remember that sentence from Chapter 01 §1.7:
+"Build your own workflow library" sounds like a big project, but the entry the official docs left for ordinary users is as light as it gets — **finish a run you're happy with, press one key, and it's in the library.** Lay out the two roads first, and you'll know which one you're on.
 
-> You can file a validated workflow script into `.claude/workflows/` and later reuse it like a named command with `{ name: 'my-workflow' }`.
+**Road one · the official surface (where most people start).** You had Claude run a workflow, you liked the result, and you want one-key reuse — in the `/workflows` view, press **`s`**, and the script behind this run is **saved as a `/` command**: it shows up in the **autocomplete** list when you type `/`, **alongside** the bundled `/deep-research`, and next time you just type `/<the name you gave it>` to run it again (official wording: your saved workflows become `/` commands and appear in autocomplete). This road **doesn't make you touch any file or configure any directory** — the terminal-side mechanics of pressing `s` have a hands-on walkthrough in [The Official Control Panel §5](#/en/p2-ops). For most people, a "library" is just a stack of these, accreted one `s` at a time.
 
-That's the starting point of a "library." First let's sort out the difference between the three calling forms — they map to the three mutually exclusive (by priority) entry fields of `WorkflowInput` (source: `assets/_grounding.md` section B):
+**Road two · on-disk scripts (power-user / advanced).** Once you've accreted enough and want to manage them properly — version, parameterize, write regression tests, share with the team — you file validated scripts as **files** into `.claude/workflows/` and reuse them like named commands with `{ name: 'my-workflow' }` (this is exactly that sentence from Chapter 01 §1.7). This road cashes the plain fact "a script is a file" into a full set of engineering practices — everything from 25.2 onward is about it.
+
+**How do the two roads relate?** They're the "light" and "heavy" ends of the same thing: the official surface (press `s`) lets you **turn a single run into a reusable command with zero friction**, good for ad-hoc settling; on-disk scripts (`.claude/workflows/` + `{ name }`) let you **manage those commands as code**, good for running a library systematically. Beginners start on road one and transition naturally to road two when they need versioning/parameters/tests/sharing.
+
+> The rest of this chapter is mostly about **road two** — because the substantive questions ("how to organize, name, parameterize, test, share") all live on the on-disk side. The surface-side `s`-to-save is already simple enough; The Official Control Panel covers it and that's that.
+
+---
+
+### The three calling entries: `script` / `name` / `scriptPath`
+
+On road two, first sort out the difference between the three calling forms — they map to the three mutually exclusive (by priority) entry fields of `WorkflowInput` (source: `assets/_grounding.md` section B):
 
 | Entry field | Meaning | Applicable stage |
 |---|---|---|
@@ -437,6 +447,7 @@ Start from this scaffold and your library has, from day one: clear grouping, a s
 
 ## 25.9 Chapter Summary
 
+- **Two roads to a library**: road one · the official surface — press `s` on a run you like to save it as a `/` command, into autocomplete, alongside `/deep-research` (zero files, zero config; where most people start); road two · on-disk scripts — file validated scripts into `.claude/workflows/` and reuse with `{ name }` (power-user; versioning/parameters/tests/sharing all live here). Beginners transition from road one to road two.
 - **The library's foundation is "a script is a file"**: explore with `{ script }` → land and iterate with `{ scriptPath }` (highest priority) → reuse with `{ name }` after settling. `name` is for the people who use it, `scriptPath` is for the people who write it.
 - **Directory structure**: under `.claude/workflows/` group by "recipe type" (review/loop/research), put drafts and fixtures under `_`-prefixed directories, one file per workflow with `filename = meta.name`, and `README.md` as the index. Project-level travels with the repo, user-level across projects.
 - **Naming conventions**: `name` uses `action-object` kebab-case with no stale words; `description` states "what it does + how big" in one line (shown in the permission dialog); `whenToUse` helps you pick. `meta` must be a pure literal, and the description can't interpolate.

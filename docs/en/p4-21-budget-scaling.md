@@ -181,7 +181,7 @@ flowchart TD
 
 ## 21.4 Pattern 2: Dynamic Downgrade — Use a Cheap Model When the Budget Is Tight
 
-The second pattern uses `agent()`'s `model` option (`_grounding.md` section B): **when the budget is ample, use a strong model (inheriting the main loop model; this book's tested session is Opus 4.7); when the budget is tight, downgrade some agents to `'haiku'`** — trading quality for coverage.
+The second pattern uses `agent()`'s `model` option (`_grounding.md` section B): **when the budget is ample, use a strong model (inheriting the main loop model; this book's earlier example session was Opus 4.7, the R11 re-verification session was Opus 4.8); when the budget is tight, downgrade some agents to `'haiku'`** — trading quality for coverage.
 
 `agent()`'s `model` option: omit it and it inherits the main loop model (the recommended default); you can also override it explicitly. Simple tasks on `'haiku'` can cut cost substantially.
 

@@ -6,7 +6,7 @@
 
 ---
 
-All three example scripts live under `assets/examples/`, and all three were **actually run** in the same session (`CLAUDE_CODE_WORKFLOWS=1`, Claude Code v2.1.150, main loop Opus 4.7 (1M)); the run records sit in `assets/transcripts/examples-r5.md`. Each occupies one orchestration shape:
+All three example scripts live under `assets/examples/`, and all three were **actually run** in the same session (`CLAUDE_CODE_WORKFLOWS=1`, Claude Code v2.1.150, main loop Opus 4.7 (1M)); the run records sit in `assets/transcripts/examples-r5.md` (R11 re-verified on v2.1.156: the core mechanics of these orchestration shapes still hold, see `assets/transcripts/examples-r11.md`). Each occupies one orchestration shape:
 
 ```mermaid
 flowchart LR

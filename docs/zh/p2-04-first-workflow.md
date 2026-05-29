@@ -6,7 +6,13 @@
 
 ## 4.1 前置：先确认「能用」
 
-第 01 章 §1.5 把这件事拆成了「能用 / 会用」两层。动手前，先确认「能用」这层——最稳的办法就是显式开 `CLAUDE_CODE_WORKFLOWS=1`。
+第 01 章 §1.5 把这件事拆成了「能用 / 会用」两层。动手前，先确认「能用」这层。
+
+**第 0 步：版本够不够。** 动态工作流（Dynamic workflows，官方现为 research preview）要求 **Claude Code v2.1.154+**——先 `claude --version` 看一眼，低了就先升级。本书实测跨 v2.1.150 → v2.1.156，核心机制在 v2.1.156 复核仍成立。
+
+**官方台面入口（用户该怎么开）。** 所有付费档都能用动态工作流（Anthropic API / Amazon Bedrock / Google Cloud Vertex AI / Microsoft Foundry 亦可）；**Pro 用户需要在 `/config` 里找到 "Dynamic workflows" 这一行手动打开**。这是面向用户的官方开法。
+
+**底层特性标志（原理层 / power-user）。** 在原理层，这个能力由环境变量 `CLAUDE_CODE_WORKFLOWS` 控制——`=1` 可作 power-user 的显式开关：
 
 ```bash
 # 启动时临时开启（当前会话生效）——下面是 macOS / Linux 写法
@@ -21,11 +27,15 @@ CLAUDE_CODE_WORKFLOWS=1 claude
 { "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }
 ```
 
-想确认有没有生效，最直接的就是看这个环境变量。本书写作的这次会话里，它**确实在、就是 `1`**：
+<div class="callout info">
+
+**两个开法什么关系？** 官方面向用户的入口是 `/config`（Pro 在那行手动打开）；`CLAUDE_CODE_WORKFLOWS=1` 是从客户端读出的**底层特性标志**，适合 power-user 显式开关。两者并存、官方优先——别把 `=1` 当成「唯一或最权威」的开法。本书 R11 复核会话里 `printenv` 实测它**确实在、就是 `1`**，且 Workflow 工具可用，与「在场即可用」一致：
 
 ```text
 CLAUDE_CODE_WORKFLOWS = 1
 ```
+
+</div>
 
 <div class="callout tip">
 
@@ -34,6 +44,12 @@ CLAUDE_CODE_WORKFLOWS = 1
 </div>
 
 至于「会用」——想让 Claude **默认就主动**编排，可以 `/effort ultracode` 一次设定、整场常驻（细节见第 01 章 §1.6）。本章的脚本都直接调 Workflow 工具来跑，不依赖这个常驻设定。
+
+<div class="callout tip">
+
+**新手别被「写脚本」三个字劝退——这段脚本不用你手写，是 Claude 替你写的。** 官方给普通用户设计的入口，是一条很顺的闭环：你**用大白话**说一句带 `workflow` 的需求（比如「跑个 workflow 把这仓库的 TODO 扫一遍归类」）→ **Claude 替你把这段编排脚本写出来** → 开跑前弹一次审批、你过一眼（拿不准就 `View raw script` 看原文）→ 跑 →（满意的话）按一个键就把它**存成一条 `/` 命令**，下次直接复用。所以本章下面那些脚本，你**读懂**就够了——真正动手时，是 Claude 写、你审、你存。这条闭环的台面操作（每个键怎么按、审批 4 个选项是什么、按 `s` 存命令）在[《官方操作面板》](#/zh/p2-ops)有照着就能上手的完整演示；本章专注「脚本本身长什么样、怎么读懂它、怎么迭代它」。
+
+</div>
 
 ---
 
@@ -82,7 +98,7 @@ return r
 
 <div class="callout warn">
 
-**这是 Workflow 脚本，不是 Node 脚本——新手第一坑。** `meta`/`phase`/`agent`/`log`/`budget`/`args` 都是 Workflow **运行时注入的全局符号**（`_grounding.md` B 节：「运行时注入，无需 import」）。你把这段存成 `hello.js`、用 `node hello.js` 单跑，Node 压根没有这些全局，立马就给你抛 `ReferenceError: phase is not defined`——**Windows、macOS、Linux 三平台一模一样**（这跟操作系统没关系，纯粹是因为 Node 根本没有 Workflow 运行时这一层）。它只能在**开了 `CLAUDE_CODE_WORKFLOWS=1` 的 Claude Code 会话里**、由 Claude 调用内置 Workflow 工具来跑（见 §4.1：在消息里带上 `workflow` 这个词即可）。本书实测就是这么把它跑通的：runtime 确认、schema 强制 `sum=4` 为**数字**、约 2.6 万 token / 约 5.5 秒（真实回执和用量见 4.3、4.4）。
+**这是 Workflow 脚本，不是 Node 脚本——新手第一坑。** `meta`/`phase`/`agent`/`log`/`budget`/`args` 都是 Workflow **运行时注入的全局符号**（`_grounding.md` B 节：「运行时注入，无需 import」）。你把这段存成 `hello.js`、用 `node hello.js` 单跑，Node 压根没有这些全局，立马就给你抛 `ReferenceError: phase is not defined`——**Windows、macOS、Linux 三平台一模一样**（这跟操作系统没关系，纯粹是因为 Node 根本没有 Workflow 运行时这一层）。它只能在**工作流可用的 Claude Code 会话里**、由 Claude 调用内置 Workflow 工具来跑（官方台面入口是 `/config` 的 "Dynamic workflows" 行；power-user 也可显式 `CLAUDE_CODE_WORKFLOWS=1`——两层细节见 [第 01 章 §1.5](#/zh/p1-01)）；触发只需在消息里带上 `workflow` 这个词（见 §4.1）。本书实测就是这么把它跑通的：runtime 确认、schema 强制 `sum=4` 为**数字**、约 2.6 万 token / 约 5.5 秒（真实回执和用量见 4.3、4.4）。
 
 </div>
 
@@ -265,13 +281,16 @@ schema: { type: 'object', properties: { sum: { type: 'number' } }, required: ['s
 
 ## 4.8 本章小结
 
-- 用 `CLAUDE_CODE_WORKFLOWS=1` 把功能打开；拿不准就让 Claude 跑个最小工作流确认一下。
-- 它是 **Workflow 脚本，不是 Node 脚本**：`meta`/`phase`/`agent`/`log` 都是运行时注入的全局，`node hello.js` 会在三平台一致地报 `phase is not defined`，只能由 Claude 在 `CLAUDE_CODE_WORKFLOWS=1` 会话里跑。
+- 先确认工作流在你会话里可用：官方台面入口是 `/config` 的 "Dynamic workflows" 行（Pro 必走），power-user 也可显式 `CLAUDE_CODE_WORKFLOWS=1`（两层见 [§1.5](#/zh/p1-01)）；拿不准就让 Claude 跑个最小工作流确认一下。
+- 它是 **Workflow 脚本，不是 Node 脚本**：`meta`/`phase`/`agent`/`log` 都是运行时注入的全局，`node hello.js` 会在三平台一致地报 `phase is not defined`，只能由 Claude 在工作流可用的会话里跑。
 - 启动 Workflow **当场返回回执**（`WorkflowOutput`：`taskId`/`runId`/`scriptPath`/`transcriptDir`；`status` 只有 `async_launched`/`remote_launched`），结果在**完成通知**里；用 `/workflows` 看实时进度。
 - 真实基线：单 agent ≈ 5.5s / 2.6 万 token；`schema` 保证返回类型（`sum` 是数字 4，不是字符串）。
 - 迭代靠「脚本即文件」这个闭环：改盘上的 `.js` + `scriptPath` 重跑；加 `resumeFromRunId` 复用缓存。
+- 官方闭环的**收尾**：跑通一个满意的 run，在 `/workflows` 视图里按 `s` 就能把它**存成一条 `/` 命令**，下次直接复用——「构建你自己的 workflow」对新手最自然的入口就是这条（攒成一个库见 [第 25 章](#/zh/p5-25)）。
 - 新手四坑：① 在 `meta` 里算值（必须纯字面量）；② schema 漏了 `required`；③ 把它当同步调用、以为立刻就能拿到结果；④ 语法错误，进 `error` 字段、不启动。
 
 基础篇走到这儿，你已经能跑通、读懂、迭代一个 Workflow 了。接下来三章（05/06/07）把经线（`meta`/`phase`）、纬线核心（`agent()`）和结构化输出（`schema`）一个个讲透，第 08 章再把并发模型钉死。
+
+> 跑起来之后，怎么看进度、怎么停、怎么把满意的 run 按 `s` 存成 `/` 命令？终端里这一整套操作面见[《官方操作面板》](#/zh/p2-ops)。
 
 > 继续阅读：[第 05 章 · meta 与 phase：经线](#/zh/p2-05)

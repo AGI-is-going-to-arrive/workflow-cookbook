@@ -1,8 +1,8 @@
 # Appendix E · Sources
 
-> This is a "facts-first" book. This appendix lists, one by one, the **real sources** the whole book rests on, in five categories: ① official type definitions; ② tested environment and version; ③ the book's own real runs (with Run IDs and the mechanisms covered); ④ the source repositories of the four community systems; ⑤ reference readings (noted as "reference, not copied").
+> This is a "facts-first" book. This appendix lists, one by one, the **real sources** the whole book rests on, in six categories: ① official documentation (`code.claude.com/docs/en/workflows`); ② official type definitions; ③ tested environment and version; ④ the book's own real runs (with Run IDs and the mechanisms covered); ⑤ the source repositories of the four community systems; ⑥ reference readings (noted as "reference, not copied").
 >
-> Any claim in the book about an API field/behavior/number should trace back to one of this appendix's entries. If something disagrees with your local testing, **defer to your local type definitions and runs** — this is an experimental feature, and fields may evolve across versions.
+> Any claim in the book about an API field/behavior/number should trace back to one of this appendix's entries. **Truth priority: official docs / official type definitions ≥ local Run-ID testing > third-party material.** If something disagrees with your local testing, **defer to the official docs and your local type definitions/runs** — this is an official **research preview** feature, and fields may evolve across versions.
 
 ---
 
@@ -10,15 +10,34 @@
 
 <div class="callout info">
 
-**This book is an independently written third-party practice manual, not affiliated with Anthropic, nor official documentation.** Its entire content is based on three classes of public/reproducible fact sources:
+**This book is an independently written third-party practice manual, not affiliated with Anthropic.** The feature is now officially documented as **Dynamic workflows (research preview)** at [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows) — which this book aligns to as a **first-tier authoritative source**; but the book itself remains a third-party practice summary, not official documentation. Its entire content is based on four classes of public/reproducible fact sources:
 
+0. **Official documentation** — Claude Code's official Dynamic workflows page (the feature's name, version requirement, paid-plan/Bedrock/Vertex/Foundry availability, `/config` enablement, behavior & limits, the bundled `/deep-research`, etc., all defer to it);
 1. **The public distribution and type definitions** — Claude Code's npm distribution and the tool type definitions it contains;
 2. **Product-behavior analysis** — environment variables, tool receipts, and completion notifications observed in real Claude Code sessions;
-3. **Real runs** — the workflows we ran ourselves on this machine. The table in [E.3](#e3-real-run-records-first-batch-10-completed-runs-9-unique-run-ids-and-the-mechanisms-covered) is the **first batch of 10 completed runs**; [§E.3.1](#e31-r4-real-runs-reproducing-third-party-claims) adds the R4 batch (runs #11–#19), plus an R3 baseline-reverification group — through the R4 round that totals **19 run records (18 completed + 1 failed on a 30s sync timeout) / 17 unique Run IDs** (a resume reusing an existing Run ID, and submit-time rejections, are not counted as separate IDs). Afterward, rounds R5 and R6 each ran 3 more application-level workflows (review-spa / dead-code-scan / feedback-themes), bringing the book's **curated real-run corpus to 23 unique Run IDs** (R4 17 + R5 3 + R6 3). All usage/return values are recorded verbatim in `assets/transcripts/`.
+3. **Real runs** — the workflows we ran ourselves on this machine. The table in [E.3](#e3-real-run-records-first-batch-10-completed-runs-9-unique-run-ids-and-the-mechanisms-covered) is the **first batch of 10 completed runs**; [§E.3.1](#e31-r4-real-runs-reproducing-third-party-claims) adds the R4 batch (runs #11–#19), plus an R3 baseline-reverification group — through the R4 round that totals **19 run records (18 completed + 1 failed on a 30s sync timeout) / 17 unique Run IDs** (a resume reusing an existing Run ID, and submit-time rejections, are not counted as separate IDs). Afterward, rounds R5 and R6 each ran 3 more application-level workflows (review-spa / dead-code-scan / feedback-themes), bringing the book's **curated real-run corpus to 23 unique Run IDs** (R4 17 + R5 3 + R6 3). Rounds R7–R11 each added a batch of **verification probes** (e.g. R11's `wf_03e38250-1bb` / `wf_614e6e6b-c6f` / `wf_71b563fd-37a`, which re-verified the runtime invariants and the Opus 4.8 environment on v2.1.156); by this book's convention they serve **verification only and are not folded into the headline curated-23 count** (handled the same as the R7/R8/R9 probes). All usage/return values are recorded verbatim in `assets/transcripts/`.
 
 Any script that was **not actually run, serving only as illustration**, is clearly marked "(illustrative, not run)" in the text. Any citation of real data notes the Run ID and provenance. We **do not fabricate** APIs, parameters, or outputs.
 
 </div>
+
+---
+
+## E.0.1 Official Documentation (First-tier Authoritative Source · added in R11)
+
+The feature is now officially documented, and that docs page is one of the book's highest-priority sources.
+
+| Source | Status | Use (facts the book aligns to it) |
+|---|---|---|
+| [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows) ("Orchestrate subagents at scale with dynamic workflows") | Feature named **Dynamic workflows**, status **research preview**; fetched 2026-05-29 this round | Version requirement **v2.1.154+**; **available on all paid plans** (incl. Anthropic API, Amazon Bedrock, Google Cloud Vertex AI, Microsoft Foundry), **Pro turns it on from the "Dynamic workflows" row in `/config`**; trigger keywords `workflow`/`workflows` (`alt+w` to ignore a false trigger); `/effort ultracode` (xhigh + automatic orchestration); runtime & limits (no mid-run input, the script has no direct fs/shell access, up to 16 concurrent, 1,000 agents per run); resume within the same session (`p` in `/workflows`), **after exiting Claude Code the next session starts the workflow fresh** ("the next session starts the workflow fresh"); **the only bundled workflow is `/deep-research`** (needs WebSearch available) |
+
+<div class="callout info">
+
+**How this docs page changes the book's source tiers**: before it shipped, the community (including this book's early drafts and the third-party readings in §E.5 below) sometimes described the feature as "a hidden tool not in the official docs." **That premise no longer holds** — it is an official feature, and its naming, availability, enablement, and runtime constraints all **defer to this official docs page.** This book's incremental value over the official docs lives in the **tested layer** the docs don't detail: the version drift of the named-workflow registry ([E.3](#e3-real-run-records-first-batch-10-completed-runs-9-unique-run-ids-and-the-mechanisms-covered) / [Appendix A · A.13.1](#/en/app-a)), serialization traps, a synchronous `throw` in `parallel` failing the whole run, worktree on-disk behavior, and so on — these layer "official docs + local testing" together; they don't conflict with the docs, they fill in the corners the docs leave unexpanded.
+
+</div>
+
+> Two confirmed points about the official "resume" paragraph: ① **resume works within the same session** (select a stopped run in `/workflows` and press `p`; completed agents return cached results, the rest run for real); ② **after you exit Claude Code, the next session starts the workflow fresh** (official wording: "the next session starts the workflow fresh") — i.e. resume does not survive across sessions.
 
 ---
 
@@ -45,14 +64,15 @@ The following environment facts were **verified by testing** in real Claude Code
 
 | Fact | Tested value | Nature |
 |---|---|---|
-| Claude Code version | **v2.1.150** | Taken from the distribution's `package.json` |
+| Claude Code version | **v2.1.156** (≥ the official minimum v2.1.154; early base mechanisms tested on v2.1.150) | `claude --version` verified |
 | Gating environment variable | `CLAUDE_CODE_WORKFLOWS=1` | Tested session environment variable present |
+| effort lock | `CLAUDE_CODE_EFFORT_LEVEL=max` | Tested environment variable |
 | Related experimental flag | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | Tested environment variable |
-| subagent model | `claude-opus-4-7[1m]` (set by `CLAUDE_CODE_SUBAGENT_MODEL`) | Tested environment variable |
+| subagent model | `claude-opus-4-8[1m]` (**Opus 4.8**, set by `CLAUDE_CODE_SUBAGENT_MODEL`) | Tested environment variable (`examples-r11.md` R11-P4) |
 | Run month | 2026-05 | The transcripts' recording time |
 | Return nature | Always async: the receipt arrives first (`taskId`/`runId`), the result via `<task-notification>` | Type definitions + testing |
 
-> These are a **tested snapshot at the time of this book's writing.** Experimental features evolve — if the version has changed by the time you read this, defer to your local testing.
+> These are a **tested snapshot at the time of this book's writing.** Research preview features evolve — if the version has changed by the time you read this, defer to your local testing.
 
 ---
 
@@ -145,9 +165,9 @@ The following third-party readings served as **background reference** and **pers
 |---|---|---|
 | The "AI Meta-Domain" blog (community reading) | An early community reading of and perspective on the Workflow feature | **Reference**: background motivation and terminology understanding; cases are all original, not copied |
 | Related explainer videos | The community's explanations of multi-agent orchestration | **Reference**: building intuition; specific numbers defer to this book's real runs |
-| **`claude-code-workflow-creator`** (third-party GitHub repo) | A YouTuber's companion repo to their video `c0gVowvMR-g`, **not official Claude/Anthropic output.** Contains `references/api-reference.md`, `references/patterns.md`, 6 example workflows, 3 templates, `scripts/validate-workflow.mjs` (a pre-submit lint). | **Borrow ideas, not authority**: borrow its way of organizing `CLAUDE_CODE_WORKFLOWS` to enrich this book; **never copy its text, never treat its claims as truth.** Those of its claims this book could reproduce by testing (e.g. meta reserved keys rejected, `isolation:'remote'` disabled, the 30000ms sync timeout, `model` not validated at submit) have been promoted to tested facts with Run IDs (see [E.3.1](#e31-r4-real-runs-reproducing-third-party-claims)); those it couldn't (error class names, `stallMs`, etc.) are all marked "a community third-party source claims this; this book did not independently verify it." Its bundled `validate-workflow.mjs`, this book **did run to confirm its behavior** (see [E.3.1](#e31-r4-real-runs-reproducing-third-party-claims)). |
+| **`claude-code-workflow-creator`** (third-party GitHub repo) | A YouTuber's companion repo to their video `c0gVowvMR-g`, **not official Claude/Anthropic output.** Contains `references/api-reference.md`, `references/patterns.md`, 6 example workflows, 3 templates, `scripts/validate-workflow.mjs` (a pre-submit lint). | **Borrow ideas, not authority**: **anything touching the feature's naming, enablement, availability, or runtime constraints now defers to the official docs ([E.0.1](#e01-official-documentation-first-tier-authoritative-source-added-in-r11))**; this third-party repo serves only as idea inspiration — **never copy its text, never treat its claims as truth.** Those of its claims this book could reproduce by testing (e.g. meta reserved keys rejected, `isolation:'remote'` disabled, the 30000ms sync timeout, `model` not validated at submit) have been promoted to tested facts with Run IDs (see [E.3.1](#e31-r4-real-runs-reproducing-third-party-claims)); those it couldn't reproduce and the official docs don't mention either (error class names, `stallMs`, etc.) are all marked "a community third-party source claims this; this book did not independently verify it." Its bundled `validate-workflow.mjs`, this book **did run to confirm its behavior** (see [E.3.1](#e31-r4-real-runs-reproducing-third-party-claims)). |
 | The video `c0gVowvMR-g` (the above repo's companion video) | The YouTuber's video explaining multi-agent orchestration/workflows | **Content not quoted**: the video page is a SPA, **captions cannot be retrieved**, so this book quotes none of its specific statements; only its companion relationship to the above third-party repo is recorded. |
-| **The zenn article (`lumichy`, Japanese community reading · added in R8)** | Zenn author lumichy's reading of ultrawork (~2,500–3,000 chars + 7 images), titled "MCPとSkillsに続く第3の革命：Claude Code Workflowがultraworkで Agentをコードに焼き付ける." It says "not in the official docs (as of May 2025)," and a comment additionally claims v2.1.150 needs `export DISABLE_GROWTHBOOK=1` to enable it. **Not official Claude/Anthropic output.** | **Dialectical reference, not truth**: any statement about API shape/fields defers to the official type definitions ([E.1](#e1-official-type-definitions-the-authoritative-source-for-api-fields)) and this book's real runs ([E.3](#e3-real-run-records-first-batch-10-completed-runs-9-unique-run-ids-and-the-mechanisms-covered)), with this book winning any conflict; its environment/UX claims (e.g. "v2.1.150 needs `DISABLE_GROWTHBOOK`") go onto a **to-test list**, marked "a third-party claim, unverified" until this book reproduces them by testing. Full dialectical verification record in `assets/transcripts/examples-r8.md` §6. |
+| **The zenn article (`lumichy`, Japanese community reading · added in R8)** | Zenn author lumichy's reading of ultrawork (~2,500–3,000 chars + 7 images), titled "MCPとSkillsに続く第3の革命：Claude Code Workflowがultraworkで Agentをコードに焼き付ける." **Written before the official docs shipped**, it says "not in the official docs (as of May 2025)," and a comment additionally claims v2.1.150 needs `export DISABLE_GROWTHBOOK=1` to enable it. **Not official Claude/Anthropic output.** | **Dialectical reference, not truth**: ① its "not in the official docs" line reflects its writing-time status and is **now outdated** — the feature is officially documented at [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows) (see [E.0.1](#e01-official-documentation-first-tier-authoritative-source-added-in-r11)), and enablement/availability defer to the official docs; ② any statement about API shape/fields defers to the official type definitions ([E.1](#e1-official-type-definitions-the-authoritative-source-for-api-fields)) and this book's real runs ([E.3](#e3-real-run-records-first-batch-10-completed-runs-9-unique-run-ids-and-the-mechanisms-covered)), with this book winning any conflict; ③ its environment/UX claims (e.g. "v2.1.150 needs `DISABLE_GROWTHBOOK`") go onto a **to-test list**, marked "a third-party claim, unverified" until this book reproduces them by testing. Full dialectical verification record in `assets/transcripts/examples-r8.md` §6. |
 
 > The reason they're listed separately and "not copied" is repeatedly stressed: this book's promise is **facts-first + original and real.** Reference material can inspire understanding but cannot replace "running it by hand and recording the real numbers" — the latter is the foundation of every claim in this book. **In particular, `claude-code-workflow-creator` is a third-party YouTuber's repo, not official**: this book borrows only its ideas, and any of its claims must be reproduced by this book's own testing before being promoted to fact, otherwise explicitly marked "unverified."
 
@@ -160,18 +180,21 @@ If you want to verify any number or field in the book, follow this chain:
 ```mermaid
 flowchart TD
   A["a claim somewhere in the book"] --> B{which category?}
+  B -->|feature name/enablement/availability/runtime constraints| Z["official docs (E.0.1)"]
   B -->|API field semantics| C["Appendix A → local sdk-tools.d.ts (E.1)"]
   B -->|gating/triggering/model| D["tested environment snapshot (E.2)"]
   B -->|specific usage/return value| E["the corresponding Run ID → assets/transcripts/ (E.3)"]
   B -->|ecosystem feature| F["the four systems' source repositories (E.4)"]
-  C --> G["defer to your local type definitions"]
+  Z --> G["official docs take top priority"]
+  C --> G
   D --> G
   E --> H["numbers unmodified, recomputable item by item"]
   F --> H
 ```
 
+- **Feature name/enablement/availability/runtime constraints** → [E.0.1](#e01-official-documentation-first-tier-authoritative-source-added-in-r11)'s official docs (top priority).
 - **API fields** → [Appendix A](#/en/app-a), with your local `sdk-tools.d.ts` as the final authority.
-- **Environment/version** → [E.2](#e2-tested-environment-and-version-the-basis-for-behavioral-claims)'s tested snapshot (experimental features evolve, defer to local).
+- **Environment/version** → [E.2](#e2-tested-environment-and-version-the-basis-for-behavioral-claims)'s tested snapshot (research preview features evolve, defer to local).
 - **Usage/return values** → follow the Run ID to the transcript file pointed to by [E.3](#e3-real-run-records-first-batch-10-completed-runs-9-unique-run-ids-and-the-mechanisms-covered); all numbers are kept verbatim and recomputable.
 - **Ecosystem gems** → [E.4](#e4-the-four-community-systems-the-source-repositories-for-ecosystem-borrowing)'s source repositories + Part V.
 

@@ -22,17 +22,17 @@
 
 > 它们为什么这么干？因为很长一段时间里，Claude Code 根本没给你「用代码编排 Agent」的原生能力。
 >
-> 现在，有了。
+> 现在，官方把它正式做出来了。
 
 ---
 
-## CLAUDE_CODE_WORKFLOWS：被悄悄加入的确定性引擎
+## 官方刚正式发布的确定性引擎：Dynamic workflows
 
-Claude Code 在 `CLAUDE_CODE_WORKFLOWS` 这个功能标志（feature flag）后面，藏了一个叫 **Workflow** 的内置工具。它干的事，一句话说清楚：
+Claude Code 官方刚推出了一个叫**动态工作流（Dynamic workflows）**的能力，状态是 **research preview（研究预览）**，文档已正式收录在 [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)。它干的事，一句话说清楚：
 
-> **用一段纯 JavaScript 脚本，确定性地编排任意多个 subagent——支持流水线、并发、阶段、预算、结构化输出与 JSON Schema 约束，并且可复用、可测试、可分享。**
+> **用一段纯 JavaScript 脚本，确定性地编排成百上千个 subagent（受官方上限约束：单 run 至多 1000 个、并发至多 16 个）——支持流水线、并发、阶段、预算、结构化输出与 JSON Schema 约束，并且可复用、可测试、可分享。**
 
-它不是 MCP（那是连外部工具的协议），不是 Skills（那是往提示词里塞的知识包），不是 Subagents（那是一次性的子任务），也不是 Agent Teams（那是有状态的协作团队）。它是一个**全新的、正交的扩展维度**：把「先做什么、再做什么、哪些并行、哪些串行、出了结果怎么验证」这套**编排逻辑**，从飘忽不定的提示词里拎出来，搬进了**确定性的代码**里。
+按官方的说法：动态工作流就是一段 JavaScript 脚本，由 Claude 替你写出来，再交给一个 runtime 在后台跑——跑的时候你的会话照样能用，不会被卡住。它不是 MCP（那是连外部工具的协议），不是 Skills（那是往提示词里塞的知识包），不是 Subagents（那是一次性的子任务），也不是 Agent Teams（那是有状态的协作团队）。它是一个**全新的、正交的扩展维度**：把「先做什么、再做什么、哪些并行、哪些串行、出了结果怎么验证」这套**编排逻辑**，从飘忽不定的提示词里拎出来，搬进了**确定性的代码**里。
 
 你写下这么一段：
 
@@ -50,7 +50,7 @@ const results = await pipeline(
 
 这就意味着：**社区那些靠提示词苦苦撑着的编排纪律，现在能用代码一次性焊死。**
 
-而到了 **v2.1.154**，它甚至不再「悄悄」——Claude Code 把它正式接进了 `/effort` 体系：一句 `/effort ultracode`，就让 Claude 在整场会话里默认主动用它来编排（详见 [第 01 章 §1.6](#/zh/p1-01)）。从「藏在功能标志后面的隐藏工具」，到「`/effort` 滑块上一个显眼的、会话级的 opt-in 入口」——当然，前提是 Workflow 工具本身已经可用。
+官方要求 **Claude Code v2.1.154 及以上**，所有付费档都能用（Anthropic API、Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry 也覆盖）；Pro 用户得自己在 `/config` 里找到 "Dynamic workflows" 那一行手动打开。开起来之后，官方还给了一个会话级的总开关 `/effort ultracode`：一句话，就让 Claude 在整场会话里默认主动用工作流来编排（详见 [第 01 章 §1.6](#/zh/p1-01)）。这本书要做的，就是带你把这个刚发布的能力**真正用透**——不光会用官方自带的，还能上手**写出属于你自己**的工作流。
 
 ---
 
@@ -81,7 +81,7 @@ const results = await pipeline(
 
 **一、真实运行，绝不伪造。** 书里每一段标着「真实运行」的输出，都来自在真实 Claude Code 会话里实际跑 Workflow 得到的原始结果——包括真实的 `taskId`、`runId`、token 用量、耗时和返回值。这些原始记录都存在仓库的 [`assets/transcripts/`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/tree/main/assets/transcripts) 目录里，你可以逐条核对。凡是没实际跑、只作示意的脚本，都会**明确标注**。
 
-**二、信源对照，绝不臆测。** 所有关于 Workflow API 的说法，都拿 Claude Code 官方分发包里的类型定义文件 `sdk-tools.d.ts`（`WorkflowInput` / `WorkflowOutput` 接口）和运行时的工具定义逐字核对过。凡是涉及环境变量、版本号、功能标志的论断，都经本机实测确认。
+**二、信源对照，绝不臆测。** 所有关于 Workflow API 的说法，都拿三处信源逐字核对过：官方文档 [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)、Claude Code 官方分发包里的类型定义文件 `sdk-tools.d.ts`（`WorkflowInput` / `WorkflowOutput` 接口）、以及运行时的工具定义。凡是涉及环境变量、版本号、功能标志的论断，都经本机实测确认。本书超出官方文档的那些发现（注册表实测只剩 `deep-research`、序列化陷阱、parallel 同步抛错会崩库、worktree 行为等），全部标注了对应的 Run ID，方便你复核。
 
 **三、口径一致，中英对照。** 本书提供完整的中英双语版本，两种语言一一对应、术语统一。你在任意章节点右上角的语言切换，都会跳到同一章的另一语言版本。
 
@@ -93,15 +93,15 @@ const results = await pipeline(
 >
 > | 项 | 值 |
 > |---|---|
-> | Claude Code 版本 | **v2.1.150 – v2.1.154**（原生二进制；基础机制多测于 2.1.150，`/effort`·ultracode 一套测于 2.1.154） |
-> | 功能标志 | `CLAUDE_CODE_WORKFLOWS=1`（已确认存在于会话环境） |
-> | effort 体系 | `/effort` 七挡 `low/medium/high/xhigh/max/ultracode/auto`；**ultracode = xhigh + 主动编排（仅本会话）** |
-> | 主模型 | Opus 4.7（1M）；`/effort`·ultracode 实测会话为 Opus 4.8（1M） |
-> | subagent 模型 | `claude-opus-4-7[1m]`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定；R10 会话为 `claude-opus-4-8[1m]`） |
+> | Claude Code 版本 | **v2.1.154+（官方最低）**；本书实测跨 **v2.1.150 → v2.1.156**，核心不变量已在 v2.1.156 复核（见 [`assets/transcripts/examples-r11.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r11.md)） |
+> | 功能标志 | `CLAUDE_CODE_WORKFLOWS=1`（本会话 `printenv` 实测在场；官方面向用户的入口是 `/config`） |
+> | effort 体系 | `/effort` 七挡 `low/medium/high/xhigh/max/ultracode/auto`；**ultracode = xhigh + 主动编排（仅本会话）**；本会话锁在 `CLAUDE_CODE_EFFORT_LEVEL=max` |
+> | 主模型 | **Opus 4.8（1M）** |
+> | subagent 模型 | **`claude-opus-4-8[1m]`**（由 `CLAUDE_CODE_SUBAGENT_MODEL` 显式指定，`printenv` 实测） |
 > | 关联标志 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
-> | 实测时间 | 2026 年 5 月 |
+> | 实测时间 | 2026 年 5 月（R11 复核） |
 >
-> 用 Workflow 前，先确认它在你的会话里**可用**（显式 `CLAUDE_CODE_WORKFLOWS=1` 最可靠；详见 [第 01 章 §1.5](#/zh/p1-01)）。不同版本的具体行为（并发上限、预算语义、续传细节）可能会变。书里会标出关键行为的来源，方便你在自己的版本上复核。
+> 用工作流前，先确认它在你的会话里**可用**：官方台面入口是 `/config` 的 "Dynamic workflows" 行（Pro 用户必须在这儿手动开），power-user 也可以显式设 `CLAUDE_CODE_WORKFLOWS=1`（详见 [第 01 章 §1.5](#/zh/p1-01)）。不同版本的具体行为（并发上限、预算语义、续传细节）可能会变。书里会标出关键行为的来源，方便你在自己的版本上复核。
 
 ---
 

@@ -474,7 +474,7 @@ return { state, plan, result }
 >
 > **本质二（Category 委派）**：OmO 不按模型名派活，而是按**语义意图**（`category`）派——LLM 只声明「这是一件什么类别的事」，运行时再映射到具体模型。一句话概括：「让『用什么模型做』变成一张能热插拔的映射表，而不是散在提示词里的硬编码。」
 
-**适配本质一：用 `schema` + 角色分离，复刻「规划者碰不到代码」。** 原生 Workflow 的脚本体没有 FS/Node API，agent 本来就没法直接写宿主文件；但「规划者不许吐代码」这件事，可以用一个**只许出现计划字段**的严格 `schema` 从物理上保证——`additionalProperties: false` 让规划者**在结构上**就夹带不了 diff/补丁，再让一个**独立的执行者阶段**去消费这份计划：
+**适配本质一：用 `schema` + 角色分离，复刻「规划者只产出计划」。** 先说清一个边界：原生 Workflow 的**脚本体**没有 FS/Node API，但**叶子 agent 有完整 IO**（Read/Write/Bash）——所以 agent 是**能**写宿主文件的，OmO 那道「工具层 throw」拦的正是这种副作用。`schema` 复刻不了这道拦截：它只在**工具调用层约束规划者的返回结构**，`additionalProperties: false` 让规划者**在结构上**夹带不了 diff/补丁字段，但它**管不住规划者另外去调 Write/Bash**。所以「规划者物理上写不了码」这条，schema 单独**给不了**——真要焊死，得**限制规划者这个 agent 的工具/权限**（比如换一个不带 Write/Bash 的 `agentType`），或者**干脆不对规划阶段的产物做任何副作用动作**、只把它当数据传给下游。schema 在这里的真正作用是后者的配套：保证传下去的是一份**干净的计划**，再让一个**独立的执行者阶段**去消费它：
 
 ```javascript
 // （示意，未实跑）—— OmO 工具层护栏 → schema 约束的 planner / executor 分离
@@ -488,7 +488,8 @@ export const meta = {
 }
 
 // 关键：additionalProperties:false 让「计划」之外的任何字段（如 diff/patch）都通不过校验
-// 这就是 OmO「工具层 throw」在原生 Workflow 里的等价物——把护栏从「拦截工具调用」前移到「约束产物形状」
+// 注意它只是 OmO「工具层 throw」的「产物形状」近似：只约束返回结构，挡不住 agent 自己另调 Write/Bash；
+// 真正的物理拦截要靠限制规划者的工具/权限，或不对计划做副作用动作（见上文）
 const PLAN_SCHEMA = {
   type: 'object',
   additionalProperties: false,                         // 物理墙：只认下面列出的字段
@@ -665,22 +666,32 @@ flowchart TD
 
 ---
 
-## 24.7 官方内置 workflow：五个免剥离的现成范本
+## 24.7 早期内置 workflow：五个免剥离的现成范本
 
-本章前面教的提取术，最费劲的一步永远是**剥离宿主**——四个社区系统的精华都长在「提示词 + Hook + 状态文件」这层宿主上，你得先把它们从宿主上剥下来，才能焊到原生骨架上去。但有一类范本天生就省掉了这一步：Claude Code 官方自带的五个具名 workflow，它们**本身就是原生 Workflow**，根本没有宿主可剥。所以它们是最干净的偷师对象——你能直接看清「独立多视角 → 对抗验证 → 综合收口」这套质量套路的骨架，不用先做一遍剥离手术。这一节把这五个范本逐一拆开，正好从横向印证本章的方法论：能搬走的只有模式，而官方内置把模式以最纯的形态摆在了你眼前。
+本章前面教的提取术，最费劲的一步永远是**剥离宿主**——四个社区系统的精华都长在「提示词 + Hook + 状态文件」这层宿主上，你得先把它们从宿主上剥下来，才能焊到原生骨架上去。但有一类范本天生就省掉了这一步：早期 v2.1.150 的内置注册表里**自带过五个具名 workflow**，它们**本身就是原生 Workflow**，根本没有宿主可剥。所以它们是最干净的偷师对象——你能直接看清「独立多视角 → 对抗验证 → 综合收口」这套质量套路的骨架，不用先做一遍剥离手术。这一节把这五个范本逐一拆开，正好从横向印证本章的方法论：能搬走的只有模式，而内置 workflow 把模式以最纯的形态摆在了你眼前。
+
+<div class="callout warn">
+
+**先交代一条版本事实，否则下文会误导你。** 这「五个内置」是**早期 v2.1.150** 注册表里的真值（Run `wf_2b04881f-6a9` / `wf_28a5d455-300` 都列出过五件套）。但**到 v2.1.156，内置具名工作流注册表已经只剩 `deep-research` 一个**（Run `wf_03e38250-1bb` 报错原文 `Available: deep-research`），与官方文档「Claude Code 只自带 `/deep-research` 这一个 bundled workflow」完全一致。也就是说：本节里**唯一今天还能直接调起的内置只有 `deep-research`**；`bughunt` / `bughunt-lite` / `plan-hunter` / `review-branch` 这四个**已不在注册表、不可再依赖**（详见 [附录 A.13.1](#/zh/app-a)）。那为什么还留着拆这五个？因为本节的价值从来不是「教你调内置」，而是「教你从一个干净的原生 workflow 里**反推出可复用模式**」——这五个当年的注册简介，恰好把五种最典型的质量骨架摆在明面上，是绝佳的**自建蓝本**。下文凡提到这四个已下架的名字，都当成**早期内置的设计参照**读，而不是你能直接 `workflow('bughunt')` 调起来的命令。
+
+</div>
 
 ### 我们能看见什么，看不见什么
 
 这一节的所有论断，都踩在三块**有据可查**的地基上，没有第四块：
 
-1. **运行时自证的五个名字**。在脚本里调一个不存在的具名 workflow，运行时会抛错，并**把当前注册表里的内置全列出来**。本书实测（Run `wf_28a5d455-300`）拿到的原文是：
+1. **运行时自证的注册表（注意它随版本变过）**。在脚本里调一个不存在的具名 workflow，运行时会抛错，并**把当时注册表里的内置全列出来**。这是比任何文档都硬的证据——但它是**版本相关**的快照，本书实测拿到过两份：
 
    ```
+   // 早期 v2.1.150（Run wf_28a5d455-300）——五件套
    Error: workflow('___nonexistent_child_workflow___'): no workflow with that name.
    Available: bughunt, bughunt-lite, deep-research, plan-hunter, review-branch
+
+   // v2.1.156（Run wf_03e38250-1bb）——只剩一个，与官方 bundled 一致
+   workflow('definitely-no-such-workflow-xyz-r11'): no workflow with that name. Available: deep-research
    ```
 
-   这是比任何文档都硬的证据——内置具名 workflow**恰好这五个**，不多不少。
+   所以「内置恰好哪几个」这件事**没有跨版本的硬答案**：v2.1.150 是五件套，v2.1.156 收窄到只剩 `deep-research`（与官方文档「只有 `/deep-research` 是 bundled」吻合）。本节拆的是**那五个早期范本的骨架**——今天能直接调的只有 `deep-research`，其余四个当设计参照看（见 [附录 A.13.1](#/zh/app-a)）。
 
 2. **官方技能列表里的一行注册简介**。每个内置 workflow 在技能列表里都带一句话的架构摘要（下面每节会**摘录这句简介的架构要点**当判断依据，方法论锚在 `examples-r8.md` §7）。注意这是官方文字的**架构摘要**、不是逐字源码——其中只有 `bughunt` 的架构要点在本书真值源里有对照锚点（§7「如 bughunt = 自繁殖 finder 池 + 5 票对抗验证 + pigeonhole 早退 + 综合」），其余四个的**具体措辞以你本机 `/workflows` 实际列出的 skill 简介为准**，本节不对逐字用词打包票。
 
@@ -688,15 +699,17 @@ flowchart TD
 
 <div class="callout warn">
 
-**一条铁律，全程适用。** 本书的接地分级里（见 `_grounding.md` A2），关于这五个内置 workflow，**唯一被实测确认的只有「它们存在」这一层**——也就是上面那行报错列出的五个名字。它们的**内部架构（finder 池怎么繁殖、几票算确认、judge 怎么打分）既没有官方工具定义、也没法逐行读源码、更没经本书复现**。所以下文每一处对「内部怎么跑」的拆解，依据都只有**那一行注册简介 + 通用模式知识**，标注为「**基于官方 skill 描述 + 行为观察，非源码逐行**」。拿它来建立直觉、提炼骨架就好——但别把里头的数字（3 rapid、5 票、4 评委）当成已经验证过的实现事实。下面给的骨架代码也一样，全是**本书的推测性示例实现**，标着「（示意，未实跑）」。
+**一条铁律，全程适用。** 本书的接地分级里（见 `_grounding.md` A2），关于这五个早期内置 workflow，**被实测确认过的只有「它们曾在注册表里存在」这一层**——也就是 v2.1.150 那行报错列出的五个名字（而到 v2.1.156，这五个里只剩 `deep-research` 还在）。它们的**内部架构（finder 池怎么繁殖、几票算确认、judge 怎么打分）从来没有官方工具定义、也没法逐行读源码、更没经本书复现**。所以下文每一处对「内部怎么跑」的拆解，依据都只有**那一行注册简介 + 通用模式知识**，标注为「**基于官方 skill 描述 + 行为观察，非源码逐行**」。拿它来建立直觉、提炼骨架、当自建蓝本就好——但别把里头的数字（3 rapid、5 票、4 评委）当成已经验证过的实现事实，也别指望今天还能调起 `bughunt`/`plan-hunter`/`review-branch`。下面给的骨架代码也一样，全是**本书的推测性示例实现**，标着「（示意，未实跑）」。
 
 </div>
 
 为什么连源码都读不到？因为 Claude Code 的 CLI 是打包产物，内置 workflow 的脚本不落在 `~/.claude` 底下；本书 grep 过 CLI 安装目录里这几个特征串（`self-respawning`、`pigeonhole`、`MVP-first`），**零命中**（依据见 `examples-r8.md` §7）。读不到源码，恰恰是这一节存在的理由：教你**从行为和官方简介里反推可复用模式**，这本身就是「偷师」最实用的姿势——往后你碰上任何一个看不到源码的好工具，都得这么干。
 
-### 五个内置，五个模式
+### 五个早期范本，五个模式
 
-#### 1. `bughunt` —— 自繁殖 finder 池 + 对抗证伪
+> 提醒：下面五个里，**今天还能直接调起的内置只有 `deep-research`**；`bughunt` / `bughunt-lite` / `plan-hunter` / `review-branch` 是 v2.1.150 的早期内置、v2.1.156 已下架（见本节开头与 [附录 A.13.1](#/zh/app-a)），这里当**自建蓝本**拆。
+
+#### 1. `bughunt` —— 自繁殖 finder 池 + 对抗证伪（早期内置，现已下架）
 
 **官方 skill 描述（架构摘要，非源码）**：
 > Multi-agent bug sweep of the current branch. Self-respawning finder pool (3 rapid + deep-until-dry-streak) streams into 5-vote adversarial verification with pigeonhole early-exit, then synthesis.
@@ -742,7 +755,7 @@ while (dryStreak < K && round < MAX_ROUNDS && budget.remaining() > 0) {
 
 </div>
 
-#### 2. `bughunt-lite` —— 同款骨架，去掉「自繁殖」这一层
+#### 2. `bughunt-lite` —— 同款骨架，去掉「自繁殖」这一层（早期内置，现已下架）
 
 **官方 skill 描述（架构摘要，非源码）**：
 > Lighter bug sweep — fixed 3-rapid+2-deep finders stream into 5-vote adversarial verification (pigeonhole early-exit), then synthesis. Simpler than bughunt: no self-respawning, no dry-streak.
@@ -775,7 +788,7 @@ const confirmed = await verifyAdversarially(suspects)   // 同款证伪管道
 
 这给你的设计启发是：**先把验证层（证伪 + 综合）做稳，再把发现层做成能换挡的——便宜场景用固定池，高危场景才上自繁殖。** 验证骨架照旧复用，发现策略随手可换。
 
-#### 3. `deep-research` —— fan-out 检索 + 引用核实
+#### 3. `deep-research` —— fan-out 检索 + 引用核实（**v2.1.156 仍是唯一内置**）
 
 **官方 skill 描述（架构摘要，非源码）**：
 > Deep research harness — fan-out web searches, fetch sources, adversarially verify claims, synthesize a cited report.
@@ -820,7 +833,7 @@ return await agent(`Write a cited report from these verified claims: ` +
 
 </div>
 
-#### 4. `plan-hunter` —— 多视角草案 + 评委团投票 + 嫁接综合
+#### 4. `plan-hunter` —— 多视角草案 + 评委团投票 + 嫁接综合（早期内置，现已下架）
 
 **官方 skill 描述（架构摘要，非源码）**：
 > Exhaustive planning harness. Generates 4 independent draft plans (MVP-first, risk-first, dependency-first, user-first), scores them with 4 parallel judges, picks the winner by vote, then synthesizes a polished final plan grafting in the best ideas from runners-up.
@@ -865,7 +878,7 @@ return await agent(`Here is the winning plan plus the runner-up drafts. ` +
 
 </div>
 
-#### 5. `review-branch` —— 多维审查 + 逐条对抗验证
+#### 5. `review-branch` —— 多维审查 + 逐条对抗验证（早期内置，现已下架）
 
 **官方 skill 描述（架构摘要，非源码）**：
 > Thoroughly review the current branch for bugs, simplicity, architecture, dead code, best practices, and pattern consistency. Each finding is adversarially verified before reporting.
@@ -897,9 +910,9 @@ return verified.filter(Boolean).filter(f => !f.refuted)
 
 启发：**审查任务最容易栽的跟头，就是「一个 agent 包打天下」**。把维度拆开 fan-out，每个维度的 agent 注意力集中、提示词专一，召回率立马上一个台阶；再拿对抗验证把准确率拉回来。这正是本书第 11 章 PR 多维 review 的真实做法（Run `wf_4c5caabb-b73`，4 agent、把 26 个问题收敛到 16 个），以及第 10 章分片审查。
 
-### 横向看：五个内置共享的同一套「质量套路」
+### 横向看：五个早期范本共享的同一套「质量套路」
 
-把五个内置摆一块儿看，你会发现它们不是五个各管各的工具，而是**同一套质量哲学的五种用法**。这套套路有三个固定动作：
+把这五个范本摆一块儿看（不管它们今天还在不在注册表），你会发现它们不是五个各管各的工具，而是**同一套质量哲学的五种用法**。这套套路有三个固定动作：
 
 ```mermaid
 flowchart LR
@@ -907,13 +920,13 @@ flowchart LR
   B --> C["③ 综合收口<br/>(计票去重 / 嫁接亮点 / 带引用报告)"]
 ```
 
-| 内置 workflow | ① 独立多视角 | ② 对抗验证 | ③ 综合收口 |
+| 范本 workflow | ① 独立多视角 | ② 对抗验证 | ③ 综合收口 |
 |---|---|---|---|
-| `bughunt` | 自繁殖 finder 池 | 五票对抗证伪 + pigeonhole | 综合 |
-| `bughunt-lite` | 固定 finder 池（3+2） | 五票对抗证伪 + pigeonhole | 综合 |
-| `deep-research` | fan-out 多路检索 | 逐条核实论断 | 带引用报告 |
-| `plan-hunter` | 四个视角独立草案 | 四评委投票 | 嫁接亚军亮点 |
-| `review-branch` | 六维度分工审查 | 逐条对抗验证 | 汇流上报 |
+| `bughunt`（早期内置，已下架） | 自繁殖 finder 池 | 五票对抗证伪 + pigeonhole | 综合 |
+| `bughunt-lite`（早期内置，已下架） | 固定 finder 池（3+2） | 五票对抗证伪 + pigeonhole | 综合 |
+| `deep-research`（**v2.1.156 仍是唯一内置**） | fan-out 多路检索 | 逐条核实论断 | 带引用报告 |
+| `plan-hunter`（早期内置，已下架） | 四个视角独立草案 | 四评委投票 | 嫁接亚军亮点 |
+| `review-branch`（早期内置，已下架） | 六维度分工审查 | 逐条对抗验证 | 汇流上报 |
 
 为什么这套套路一遍遍冒出来？因为单个 agent 有两个改不掉的毛病：**①视野窄**（一个 agent 顾不全所有角度，必漏）；**②爱编**（它有种强烈的「总得报告点啥/替自己背书」的冲动，必有假阳性）。这三个动作正好一病治一个、最后收口：
 
@@ -923,7 +936,7 @@ flowchart LR
 
 <div class="callout tip">
 
-**这就是你能从官方范本里偷到的最值钱的一课：质量不是靠「让 agent 更卖力」堆出来的，而是靠『结构』逼出来的。** 你设计任何一个「要可信产出」的 workflow，都可以照这三步搭骨架：先想清楚**哪些视角要并发覆盖**（①），再想清楚**用什么对抗机制过滤假阳性**（②），最后**把确定性收口交给代码**（③）。`agent()` 管判断，`parallel()`/`pipeline()` 管编排，schema 管约束形状，普通 JavaScript 管计票和控制流——五个内置全是这套积木的不同拼法。
+**这就是你能从这五个范本里偷到的最值钱的一课：质量不是靠「让 agent 更卖力」堆出来的，而是靠『结构』逼出来的。** 你设计任何一个「要可信产出」的 workflow，都可以照这三步搭骨架：先想清楚**哪些视角要并发覆盖**（①），再想清楚**用什么对抗机制过滤假阳性**（②），最后**把确定性收口交给代码**（③）。`agent()` 管判断，`parallel()`/`pipeline()` 管编排，schema 管约束形状，普通 JavaScript 管计票和控制流——这五个范本全是这套积木的不同拼法（哪怕其中四个已从注册表下架，骨架依旧照搬不误）。
 
 </div>
 

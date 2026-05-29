@@ -320,7 +320,7 @@ const out = await pipeline(
 
 据 `_grounding.md`:`opts.model`「省略则继承主循环模型;简单任务可用 `'haiku'`」。这是工具定义里关于 `model` 唯一明确的语义——**省略时继承主循环**。
 
-不写 `model`,这个 agent 就用**主循环当前的模型**。本书实测环境的主循环是 Opus 4.7,subagent 模型由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 指定(见 `_grounding.md` A 节)。前面所有真实运行(`hello` / `parallel` / `pipeline`)都**没有**显式传 `model`,所以它们的 subagent 都跑在继承来的 Opus 模型上。
+不写 `model`,这个 agent 就用**主循环当前的模型**。前面这些真实运行所在的早期会话主循环是 Opus 4.7,subagent 模型由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 指定(见 `_grounding.md` A 节)。前面所有真实运行(`hello` / `parallel` / `pipeline`)都**没有**显式传 `model`,所以它们的 subagent 都跑在继承来的 Opus 模型上。(R11 复核会话已换成 Opus 4.8,`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-8[1m]`、printenv 实测——「不写 `model` 则继承主循环」这一结论与型号无关。)
 
 <div class="callout warn">
 
@@ -620,7 +620,7 @@ const blockers = (review?.issues ?? []).filter(i => i.severity === 'critical')
 - **`label`** 是进度树显示名,用「类型:实例」模式(如 `review:auth`)最易读;不影响执行(6.3)。
 - **`schema`** 强制 subagent 走 `StructuredOutput` 工具、在工具调用层校验、不匹配则重试,让你**零解析、零容错**拿到结构化数据;判据是「产物要被代码消费吗」(6.4)。
 - **`phase`** 显式归入进度组;顺序代码用全局 `phase()`,**并发(`parallel`/`pipeline`)里必须用 `opts.phase`** 避免竞争全局游标;字符串须与 `meta.phases[].title` 精确匹配(6.5)。
-- **`model`** 省略则继承主循环(本书实测会话为 Opus 4.7);简单任务用 `'haiku'` 降本。**它是脚本能控制的最细旋钮,但不是最终裁决**——`CLAUDE_CODE_SUBAGENT_MODEL` 一旦设置会覆盖每个 agent 的 `model`(`wf_9c94951d-58c`:5 个 agent 全 Opus);`meta.phases[].model` 单独是否生效未定、顶层 `meta.model` 语义待核实(见 5.3.3、5.6)。由真实数据印证 **token ≈ agent 数 × 每 agent 上下文(~2.5–3 万)**,故把扇出最多的阶段换便宜模型是最有效的降本杠杆(6.6)。
+- **`model`** 省略则继承主循环(本章示例的早期会话为 Opus 4.7,R11 复核会话为 Opus 4.8——结论与型号无关);简单任务用 `'haiku'` 降本。**它是脚本能控制的最细旋钮,但不是最终裁决**——`CLAUDE_CODE_SUBAGENT_MODEL` 一旦设置会覆盖每个 agent 的 `model`(`wf_9c94951d-58c`:5 个 agent 全 Opus);`meta.phases[].model` 单独是否生效未定、顶层 `meta.model` 语义待核实(见 5.3.3、5.6)。由真实数据印证 **token ≈ agent 数 × 每 agent 上下文(~2.5–3 万)**,故把扇出最多的阶段换便宜模型是最有效的降本杠杆(6.6)。
 - **`isolation: 'worktree'`** 给 agent 独立 git worktree,**昂贵**(每个约 200–500ms + 磁盘),**仅当「并行 + 改文件 + 会冲突」三条件同时成立**才用,无改动自动清理(6.7)。
 - **`agentType`** 借用自定义 subagent 类型(如 `'Explore'`、`'code-reviewer'`),决定 agent 的角色取向,**可与 `schema` 组合**;**已实测有校验**(`wf_a222f20f-0f5`):未知值在生成模型前 0 token 抛错并列出可用类型——与 `model` 是否校验仅属第三方说法形成对比(6.8)。
 - **上下文隔离**是 `agent()` 的灵魂:每个 subagent 独立上下文,只把**返回值**回流主循环,把「过程字节」隔离在一次性上下文里——这正是它**保护主循环上下文**、能大规模扇出的根本原因(6.9)。

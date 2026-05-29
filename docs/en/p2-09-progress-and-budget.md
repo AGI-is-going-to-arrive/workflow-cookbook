@@ -108,7 +108,7 @@ Think of `log()` as "the workflow's narration." A good narration line answers th
 
 ### `/workflows` — the live progress tree
 
-The slash command `/workflows` opens a live tree: one group box per phase, with each agent's label (from `label`) and status inside. The `title` you write in `meta.phases` decides the group boxes; the `label` on `agent()` decides what the leaf nodes are called — so **a descriptive label aids both search and observation.**
+The slash command `/workflows` opens a live tree: one group box per phase, with each agent's label (from `label`) and status inside. The `title` you write in `meta.phases` decides the group boxes; the `label` on `agent()` decides what the leaf nodes are called — so **a descriptive label aids both search and observation.** This is the script side of "how the progress gets built"; for how you **operate** that tree inside the `/workflows` view (arrow-key drill-in, `p`/`x`/`r` to pause/stop/restart, `s` to save as a command), see [The Official Control Panel](#/en/p2-ops).
 
 ---
 

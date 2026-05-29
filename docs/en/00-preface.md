@@ -22,17 +22,17 @@ These tricks are clever, and they work — but at bottom they lean on **natural 
 
 > Why did they do this? Because for a long time, Claude Code gave you no native way to "orchestrate agents with code."
 >
-> Now it does.
+> Now Claude Code ships one, officially.
 
 ---
 
-## CLAUDE_CODE_WORKFLOWS: The Deterministic Engine Quietly Added
+## The Deterministic Engine Claude Code Just Shipped: Dynamic Workflows
 
-Behind the feature flag `CLAUDE_CODE_WORKFLOWS`, Claude Code hides a built-in tool called **Workflow**. Here's what it does, in one sentence:
+Claude Code just shipped a capability called **Dynamic workflows**, in **research preview**, with the docs now formally published at [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows). Here's what it does, in one sentence:
 
-> **Use a single pure-JavaScript script to deterministically orchestrate any number of subagents — with support for pipelines, concurrency, phases, budgets, structured output, and JSON Schema constraints — reusable, testable, and shareable.**
+> **Use a single pure-JavaScript script to deterministically orchestrate hundreds of subagents (within the official caps: up to 1,000 per run, up to 16 concurrent) — with support for pipelines, concurrency, phases, budgets, structured output, and JSON Schema constraints — reusable, testable, and shareable.**
 
-It's not MCP (a protocol for connecting external tools), not Skills (knowledge packs that inject prompts), not Subagents (one-off subtasks), and not Agent Teams (a stateful collaborating team). It's a **brand-new, orthogonal dimension of extension**: it pulls the **orchestration logic** — what to do first, what next, what runs in parallel, what runs serially, how to verify the results — out of slippery prompts and moves it into **deterministic code**.
+In the official framing: a dynamic workflow is a JavaScript script that Claude writes for you, and a runtime executes it in the background while your session stays responsive. It's not MCP (a protocol for connecting external tools), not Skills (knowledge packs that inject prompts), not Subagents (one-off subtasks), and not Agent Teams (a stateful collaborating team). It's a **brand-new, orthogonal dimension of extension**: it pulls the **orchestration logic** — what to do first, what next, what runs in parallel, what runs serially, how to verify the results — out of slippery prompts and moves it into **deterministic code**.
 
 Say you write this:
 
@@ -50,7 +50,7 @@ const results = await pipeline(
 
 What this means: **the orchestration discipline the community painstakingly maintains through prompts can now be welded shut, once and for all, in code.**
 
-And as of **v2.1.154**, it isn't even "quiet" anymore — Claude Code wired it formally into the `/effort` system: a single `/effort ultracode` gets Claude to use it proactively, by default, across the whole session (see [Chapter 01 §1.6](#/en/p1-01)). It went from "a hidden tool tucked behind a feature flag" to "a prominent, session-level opt-in entry on the `/effort` dial" — provided, of course, the Workflow tool is already available.
+It requires **Claude Code v2.1.154 or later**, and it's available on all paid plans (Anthropic API, Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry are all covered); Pro users turn it on from the "Dynamic workflows" row in `/config`. Once it's on, the official also gives you a session-level master switch, `/effort ultracode`: one phrase, and Claude orchestrates a workflow by default across the whole session (see [Chapter 01 §1.6](#/en/p1-01)). What this book sets out to do is help you **truly master** this freshly shipped capability — not just using the bundled one, but learning to **write your own** workflows.
 
 ---
 
@@ -81,7 +81,7 @@ What sets this book apart from the many "tutorials written by AI" comes down to 
 
 **One: Real runs, never fabricated.** Every output in this book marked "real run" comes from actually running a Workflow in a real Claude Code session — including the real `taskId`, `runId`, token usage, duration, and return value. These raw records live in the repository's [`assets/transcripts/`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/tree/main/assets/transcripts) directory, and you can check them line by line. Any script that wasn't actually run, and serves only as illustration, is **clearly marked**.
 
-**Two: Cross-checked against sources, never guessed.** Every description of the Workflow API is checked word-for-word against the type-definition file `sdk-tools.d.ts` (the `WorkflowInput` / `WorkflowOutput` interfaces) in Claude Code's official distribution, and against the runtime tool definition. Any claim about environment variables, version numbers, or feature flags is confirmed by testing on the local machine.
+**Two: Cross-checked against sources, never guessed.** Every description of the Workflow API is checked word-for-word against three sources: the official docs at [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows), the type-definition file `sdk-tools.d.ts` (the `WorkflowInput` / `WorkflowOutput` interfaces) in Claude Code's official distribution, and the runtime tool definition. Any claim about environment variables, version numbers, or feature flags is confirmed by testing on the local machine. The findings in this book that go beyond the official docs (the registry tested down to just `deep-research`, the serialization trap, the `parallel` sync-throw that fails the whole run, worktree behavior, and so on) all carry their corresponding Run IDs so you can re-verify them.
 
 **Three: Consistent across languages, side by side.** This book ships a complete bilingual edition in Chinese and English, the two corresponding one-to-one with a unified terminology. Click the language switch in the top-right of any chapter and you'll land on the other-language version of the same chapter.
 
@@ -93,15 +93,15 @@ What sets this book apart from the many "tutorials written by AI" comes down to 
 >
 > | Item | Value |
 > |---|---|
-> | Claude Code version | **v2.1.150 – v2.1.154** (native binary; foundational mechanics mostly tested on 2.1.150, the `/effort` · ultracode set on 2.1.154) |
-> | Feature flag | `CLAUDE_CODE_WORKFLOWS=1` (confirmed present in the session environment) |
-> | effort system | `/effort`'s seven settings `low/medium/high/xhigh/max/ultracode/auto`; **ultracode = xhigh + proactive orchestration (this session only)** |
-> | Main model | Opus 4.7 (1M context); the `/effort` · ultracode test session was Opus 4.8 (1M) |
-> | Subagent model | `claude-opus-4-7[1m]` (set by `CLAUDE_CODE_SUBAGENT_MODEL`; the R10 session was `claude-opus-4-8[1m]`) |
+> | Claude Code version | **v2.1.154+ (official minimum)**; this book tested across **v2.1.150 → v2.1.156**, with the core invariants re-verified on v2.1.156 (see [`assets/transcripts/examples-r11.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r11.md)) |
+> | Feature flag | `CLAUDE_CODE_WORKFLOWS=1` (confirmed present this session via `printenv`; the official user-facing entry is `/config`) |
+> | effort system | `/effort`'s seven settings `low/medium/high/xhigh/max/ultracode/auto`; **ultracode = xhigh + proactive orchestration (this session only)**; this session is locked at `CLAUDE_CODE_EFFORT_LEVEL=max` |
+> | Main model | **Opus 4.8 (1M context)** |
+> | Subagent model | **`claude-opus-4-8[1m]`** (explicitly set by `CLAUDE_CODE_SUBAGENT_MODEL`, confirmed via `printenv`) |
 > | Related flag | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
-> | Test date | May 2026 |
+> | Test date | May 2026 (R11 re-verification) |
 >
-> Before using Workflow, first make sure it's **available** in your session (setting `CLAUDE_CODE_WORKFLOWS=1` explicitly is the most reliable way; see [Chapter 01 §1.5](#/en/p1-01)). The specific behavior across versions (concurrency limits, budget semantics, resume details) may evolve. The book marks the source of key behaviors so you can re-verify them on your own version.
+> Before using a workflow, first make sure it's **available** in your session: the official user-facing entry is the "Dynamic workflows" row in `/config` (Pro users must turn it on there), and power users can also set `CLAUDE_CODE_WORKFLOWS=1` explicitly (see [Chapter 01 §1.5](#/en/p1-01)). The specific behavior across versions (concurrency limits, budget semantics, resume details) may evolve. The book marks the source of key behaviors so you can re-verify them on your own version.
 
 ---
 

@@ -57,6 +57,8 @@ This iteration loop (edit the file + re-run with `scriptPath`) is the full versi
 
 **"Same session only" is a hard limit.** Per `_grounding.md`, resume is valid only within the **same session.** Put differently, the cache's life is tied to the current session — you can't close Claude Code and resume tomorrow with yesterday's `runId`. So resume is a tool for "hammering on a pipeline over and over **within the current iteration session**," not a persistence scheme for "picking up progress across days." State that needs cross-session persistence has to lean on other means (e.g., having an agent write the product to a disk file, see Chapter 19's control plane / data plane idea).
 
+The `resumeFromRunId` here is the **script-side** programmatic resume; it has a terminal-side counterpart too — selecting a stopped run in the `/workflows` view and pressing `p` to resume rides the same cache mechanism. For the two faces side by side, see [The Official Control Panel](#/en/p2-ops).
+
 </div>
 
 ---

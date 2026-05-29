@@ -6,7 +6,13 @@
 
 ## 4.1 Prerequisite: Confirm It's Available
 
-Chapter 01 §1.5 split this into two layers: **available** vs. **will use.** Before you start, confirm the **available** layer — and the most reliable way is to set `CLAUDE_CODE_WORKFLOWS=1` explicitly.
+Chapter 01 §1.5 split this into two layers: **available** vs. **will use.** Before you start, confirm the **available** layer.
+
+**Step 0: Is your version new enough.** Dynamic workflows (now an official research preview) require **Claude Code v2.1.154+** — run `claude --version` first, and upgrade if you're below it. This book's runs span v2.1.150 → v2.1.156, with the core mechanics re-verified on v2.1.156.
+
+**The official surface entry (how a user turns it on).** Dynamic workflows are available on all paid tiers (including Anthropic API / Amazon Bedrock / Google Cloud Vertex AI / Microsoft Foundry); **Pro users need to find the "Dynamic workflows" row in `/config` and flip it on manually.** That's the official, user-facing way.
+
+**The underlying feature flag (mechanism layer / power-user).** Under the hood, this capability is gated by the `CLAUDE_CODE_WORKFLOWS` environment variable — `=1` works as an explicit power-user switch:
 
 ```bash
 # Enable temporarily at launch (effective for the current session) — macOS / Linux syntax
@@ -21,11 +27,15 @@ Or write it into `~/.claude/settings.json` to keep it on for good (this JSON for
 { "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }
 ```
 
-The most direct way to check it's in effect is to look at the environment variable. In this book's writing session it **does exist, and equals `1`**:
+<div class="callout info">
+
+**How do the two relate?** The official user-facing entry is `/config` (Pro flips it on in that row); `CLAUDE_CODE_WORKFLOWS=1` is the **underlying feature flag** read from the client, good for power-users as an explicit switch. Both coexist, with the official path taking precedence — don't treat `=1` as the "only or most authoritative" way to enable it. In this book's R11 re-verification session, `printenv` confirmed it **does exist, and equals `1`**, with the Workflow tool available, consistent with "present means usable":
 
 ```text
 CLAUDE_CODE_WORKFLOWS = 1
 ```
+
+</div>
 
 <div class="callout tip">
 
@@ -34,6 +44,12 @@ CLAUDE_CODE_WORKFLOWS = 1
 </div>
 
 As for **will use** — if you want Claude to **orchestrate proactively by default**, you can set `/effort ultracode` once and it stays on for the whole session (details in Chapter 01 §1.6). The scripts in this chapter all call the Workflow tool directly, and don't depend on that standing setting.
+
+<div class="callout tip">
+
+**Don't let the word "script" scare you off — you don't hand-write this script, Claude writes it for you.** The entry the official docs designed for ordinary users is a smooth closed loop: you say a need **in plain language** that carries the word `workflow` (e.g., "run a workflow to sweep this repo's TODOs and group them") → **Claude writes the orchestration script for you** → before it runs you get one approval prompt and a look (when unsure, `View raw script` to read the source) → it runs → and (if you like it) one keypress **saves it as a `/` command** for instant reuse next time. So the scripts below are here for you to **read and understand** — when you actually do this, Claude writes, you review, you save. The terminal-side mechanics of this loop (which keys to press, the 4 approval options, pressing `s` to save the command) have a hands-on walkthrough in [The Official Control Panel](#/en/p2-ops); this chapter focuses on "what the script itself looks like, how to read it, how to iterate it."
+
+</div>
 
 ---
 
@@ -82,7 +98,7 @@ Line by line (echoing Chapter 01's "warp and weft"):
 
 <div class="callout warn">
 
-**This is a Workflow script, not a Node script — a beginner's first pothole.** `meta`/`phase`/`agent`/`log`/`budget`/`args` are all globals **injected by the Workflow runtime** (`_grounding.md` section B: "injected at runtime, no import needed"). Save this as `hello.js`, run `node hello.js` on its own, and Node — which has none of these globals — throws `ReferenceError: phase is not defined` right away. **This is identical on Windows, macOS, and Linux** (it has nothing to do with the OS; it's that Node simply has no Workflow runtime layer). It only runs inside a Claude Code session with `CLAUDE_CODE_WORKFLOWS=1` enabled, executed by Claude through the built-in Workflow tool (see 4.1: just include the word `workflow` in your message). This book's testing ran it exactly that way: runtime confirmed, schema forced `sum=4` as a **number**, ~26k tokens / ~5.5 seconds (see the real receipt and usage in 4.3 and 4.4).
+**This is a Workflow script, not a Node script — a beginner's first pothole.** `meta`/`phase`/`agent`/`log`/`budget`/`args` are all globals **injected by the Workflow runtime** (`_grounding.md` section B: "injected at runtime, no import needed"). Save this as `hello.js`, run `node hello.js` on its own, and Node — which has none of these globals — throws `ReferenceError: phase is not defined` right away. **This is identical on Windows, macOS, and Linux** (it has nothing to do with the OS; it's that Node simply has no Workflow runtime layer). It only runs inside a Claude Code session where workflows are available, executed by Claude through the built-in Workflow tool (the official user-facing entry is the "Dynamic workflows" row in `/config`; power users can also set `CLAUDE_CODE_WORKFLOWS=1` explicitly — see both layers in [Chapter 01 §1.5](#/en/p1-01)); to trigger it, just include the word `workflow` in your message (see 4.1). This book's testing ran it exactly that way: runtime confirmed, schema forced `sum=4` as a **number**, ~26k tokens / ~5.5 seconds (see the real receipt and usage in 4.3 and 4.4).
 
 </div>
 
@@ -265,13 +281,16 @@ schema: { type: 'object', properties: { sum: { type: 'number' } }, required: ['s
 
 ## 4.8 Chapter Summary
 
-- Turn the feature on with `CLAUDE_CODE_WORKFLOWS=1`; if you're not sure, have Claude run a minimal workflow to confirm.
-- It is a **Workflow script, not a Node script**: `meta`/`phase`/`agent`/`log` are runtime-injected globals; `node hello.js` throws `phase is not defined` identically across platforms; it only runs via Claude in a `CLAUDE_CODE_WORKFLOWS=1` session.
+- First make sure workflows are available in your session: the official user-facing entry is the "Dynamic workflows" row in `/config` (mandatory for Pro), and power users can also set `CLAUDE_CODE_WORKFLOWS=1` explicitly (both layers in [§1.5](#/en/p1-01)); if you're not sure, have Claude run a minimal workflow to confirm.
+- It is a **Workflow script, not a Node script**: `meta`/`phase`/`agent`/`log` are runtime-injected globals; `node hello.js` throws `phase is not defined` identically across platforms; it only runs via Claude in a session where workflows are available.
 - Launching a Workflow **hands back a receipt immediately** (`WorkflowOutput`: `taskId`/`runId`/`scriptPath`/`transcriptDir`; `status` is only `async_launched`/`remote_launched`); the result is in the **completion notification**; watch live progress with `/workflows`.
 - Real baseline: a single agent ≈ 5.5s / 26k tokens; `schema` guarantees the return type (`sum` is the number 4, not a string).
 - Iterate via the "script is a file" loop: edit the on-disk `.js` + re-run with `scriptPath`; add `resumeFromRunId` to reuse the cache.
+- The official loop's **closer**: once a run you're happy with finishes, press `s` in the `/workflows` view to **save it as a `/` command** for instant reuse — this is the most natural on-ramp for a beginner "building your own workflow" (growing it into a library is [Chapter 25](#/en/p5-25)).
 - Four beginner pitfalls: ① computing values inside `meta` (must be a pure literal); ② omitting `required` in a schema; ③ treating it as synchronous and expecting the result right away; ④ syntax errors land in the `error` field and don't launch.
 
 This far into Foundations, you can already run, read, and iterate a Workflow. The next three chapters (05/06/07) walk through the warp (`meta`/`phase`), the weft's core (`agent()`), and structured output (`schema`) one by one, and Chapter 08 nails down the concurrency model.
+
+> Once it's running, how do you watch progress, stop it, or press `s` to save a run you like as a `/` command? The whole terminal operating surface is in [The Official Control Panel](#/en/p2-ops).
 
 > Continue reading: [Chapter 05 · meta & phase: The Warp](#/en/p2-05)

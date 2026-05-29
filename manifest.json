@@ -7,7 +7,7 @@
       "en": "A Hands-on Guide to Multi-Agent Orchestration in Claude Code"
     },
     "repo": "https://github.com/AGI-is-going-to-arrive/workflow-cookbook",
-    "env": "Claude Code v2.1.150 · CLAUDE_CODE_WORKFLOWS=1 · Opus 4.7 (1M)"
+    "env": "Claude Code v2.1.156 · CLAUDE_CODE_WORKFLOWS=1 · Opus 4.8 (1M)"
   },
   "parts": [
     {
@@ -31,6 +31,7 @@
       "label": { "zh": "第二部 · 基础篇", "en": "Part II · Foundations" },
       "chapters": [
         { "id": "p2-04", "num": "04", "title": { "zh": "第一个 Workflow", "en": "Your First Workflow" }, "file": { "zh": "docs/zh/p2-04-first-workflow.md", "en": "docs/en/p2-04-first-workflow.md" } },
+        { "id": "p2-ops", "num": "操作", "title": { "zh": "官方操作面板：在终端里驾驭一次 run", "en": "The Official Control Panel: Driving a Run from the Terminal" }, "file": { "zh": "docs/zh/p2-ops-operations.md", "en": "docs/en/p2-ops-operations.md" } },
         { "id": "p2-05", "num": "05", "title": { "zh": "meta 与 phase：经线", "en": "meta & phase: The Warp" }, "file": { "zh": "docs/zh/p2-05-meta-and-phase.md", "en": "docs/en/p2-05-meta-and-phase.md" } },
         { "id": "p2-06", "num": "06", "title": { "zh": "agent() 完全指南", "en": "The agent() Reference" }, "file": { "zh": "docs/zh/p2-06-agent-reference.md", "en": "docs/en/p2-06-agent-reference.md" } },
         { "id": "p2-07", "num": "07", "title": { "zh": "结构化输出与 Schema", "en": "Structured Output & Schema" }, "file": { "zh": "docs/zh/p2-07-structured-output.md", "en": "docs/en/p2-07-structured-output.md" } },

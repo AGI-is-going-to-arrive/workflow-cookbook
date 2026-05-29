@@ -30,6 +30,8 @@ flowchart LR
 
 **Where it differs from a "search engine" or a "single web lookup"**: a search engine hands you a pile of links and leaves the judging to you; a single web lookup gives you one agent's one-shot impression. The deep research recipe adds two layers — **multi-angle fan-out** (reduces single-perspective blind spots) and **adversarial verification** (reduces "confidently wrong"). What you get is not "search results" but **an auditable report where every conclusion hangs off a primary source.**
 
+> Worth noting: `/deep-research` is the **only named workflow Claude Code bundles** — you don't have to write a script yourself; just type `/deep-research <your question>` to run it (the WebSearch tool must be available). Its command-line usage is in [The Official Control Panel §6](#/en/p2-ops); this chapter, by contrast, takes apart **how the orchestration behind it is built**, so you can model your own research pipeline on it.
+
 </div>
 
 ---

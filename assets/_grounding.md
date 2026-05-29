@@ -8,10 +8,10 @@
 
 | 事实 | 值 | 信源 |
 |---|---|---|
-| 功能名 | Workflow 工具（早期社区昵称 ultrawork，**已弃用为触发词**，见 A1） | 工具定义 |
+| 功能名 | **官方定名「Dynamic workflows / 动态工作流」**（research preview）；「Workflow 工具」仅作 runtime/工具简称。早期社区昵称 ultrawork，**已弃用为触发词**，见 A1 | 官方文档 + 工具定义 |
 | 门控环境变量 | `CLAUDE_CODE_WORKFLOWS=1`（"能用"层；详见 A1） | 实测会话环境变量存在 |
-| Claude Code 版本 | v2.1.150（基础机制）→ **v2.1.154**（R10 effort/ultracode 实测） | `package.json` / `claude --version` |
-| subagent 模型 | `claude-opus-4-7[1m]`（由 `CLAUDE_CODE_SUBAGENT_MODEL` 指定） | 实测环境变量 |
+| Claude Code 版本 | v2.1.154+（官方最低）；本书实测跨 v2.1.150（基础机制）→ v2.1.154（R10 effort/ultracode）→ **v2.1.156**（R11 复核，核心不变量仍成立，见 `assets/transcripts/examples-r11.md`） | `claude --version` |
+| subagent 模型 | **早期示例会话**＝`claude-opus-4-7[1m]`（Opus 4.7）；**R11 复核会话**＝`claude-opus-4-8[1m]`（Opus 4.8，`printenv` 实测，见 examples-r11.md R11-P4） | 实测环境变量 |
 | 模型别名重映射 | `ANTHROPIC_DEFAULT_HAIKU_MODEL/SONNET/OPUS` 把模型别名整体映射到 Opus（与 `CLAUDE_CODE_SUBAGENT_MODEL` 叠加＝两层覆盖） | 实测环境变量（R7 `wf_e8cb23ff-829`） |
 | 关联标志 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | 实测环境变量 |
 | 触发方式（「会用」层） | **让模型 opt-in**（官方注入清单 4 项）：①`workflow`/`workflows` 关键词；②`/effort ultracode`（会话常驻）；③用户自然语言直接要求；④skill/slash command。**另：程序化发起**＝直接调 Workflow 工具 / 具名工作流 `{name}`（不属注入清单）。**`ultrawork` 已弃用为触发词**（仅存内部事件名 `ultrawork_request`） | 工具定义 + `effort-ultracode-r10.md` |
@@ -24,7 +24,7 @@
 
 - **`/effort` 七挡**：`low / medium / high / xhigh / max / ultracode / auto`（参数校验原文：`Valid options are: low, medium, high, xhigh, max, ultracode, auto`）。官方一句话描述：low=快速直接实现；medium=均衡+标准测试；high=全面+广泛测试（**Opus 4.8 默认**）；xhigh=延伸推理+彻底分析（官方荐「最难任务」）；max=最大能力+最深推理；ultracode=见下；auto=模型默认挡。底层 level 枚举只有 `low…max` 五挡。
 - **ultracode ≡ xhigh + 主动编排（仅本会话）**：解析代码 `if(_==="ultracode"&&vx())return{value:"xhigh"}`——**推理深度 = xhigh，不及 max**；额外注入常驻指令 `Use the Workflow tool on every substantive task`。反复标注 `(this session only)`，不持久化（low~max 会存 settings）。
-- **能用（`FX5`）**：`CLAUDE_CODE_WORKFLOWS=1`→可用（**最稳**）；`=0`→强制关；不设→看服务端 flag `tengu_workflows_enabled`，开则**非 Pro 账户默认开**（`defaultOn:OK()!=="pro"`）。flag 由 Anthropic 灰度、用户不可控。
+- **能用（两层，官方台面在先）**：**官方面向用户的入口是 `/config` 的 "Dynamic workflows" 行**（所有付费档可用；Pro 须在此手动开）。底层是客户端二进制里的 `FX5` 机制 + 服务端 flag `tengu_workflows_enabled` + 账户类型：`CLAUDE_CODE_WORKFLOWS=1`→读 flag、取不到值时本地默认按「开」算（power-user 的显式开关，非「唯一/最稳」、也不取代 `/config`）；`=0`→强制关（一票否决）；不设→看 flag，开则**非 Pro 账户默认开**（`defaultOn:OK()!=="pro"`）。flag 由 Anthropic 灰度、用户不可控，只在被明确关掉时才否决。
 - **ultracode 不碰可用性（实测）**：37 处 `ultracode` 字符串，**0 处**在 ±400 字符内出现 `CLAUDE_CODE_WORKFLOWS`；effort 写入函数 `v6q` 只发 `sendControlRequest({subtype:"apply_flag_settings",settings:{effortLevel, ultracode…}})`。即 `/effort ultracode` **不开工具开关**——它依赖 workflow 已可用（`vx()` 门控 ⇒ 只有 workflow 可用时 `/effort` 才列出 ultracode；可当「能不能用」的现成判据）。
 - **官方触发关键词 = `workflow`/`workflows`**（注入 `you should use the Workflow tool`）。完整 opt-in（verbatim）：`workflow`/`workflows` 关键词 / `Ultracode is on` / 用户自述（"run a workflow"/"fan out agents"）/ skill·slash command。
 - **`ultrawork` 已弃用为触发词**：二进制仅 3 处、全是内部事件名 `ultrawork_request`（`normalizeAttachmentForAPI` 白名单）；`"ulw"`=0。第三方 oh-my-openagent 用 `/\b(ultrawork|ulw)\b/` 是其**自有实现**，与官方无关（见 D 节）。
@@ -52,7 +52,7 @@
 - **`agentType` 有校验**：未知值在**生成模型之前**（0 token / 4ms）就抛错并列出全部可用 agent：`agent({agentType}): agent type '…' not found. Available agents: claude, claude-code-guide, codex:codex-rescue, Explore, general-purpose, get-current-datetime, init-architect, Plan, planner, statusline-setup, team-architect, team-qa, team-reviewer, ui-ux-designer`。信源 `wf_a222f20f-0f5`。与 `opts.model`（无校验）形成对比。
 - **resume = 100% 缓存命中**：同脚本 + 同 args 重跑 → 5 个结果完全一致、**0 token / 3ms**（首跑 133,691 token / 32,959ms）。信源 `wf_9c94951d-58c`（首跑 + 续传）。
 - **resume 缓存键边界（R8 实测补充，net-new）**：对同一基线 `wf_4ffde230-535`（3 agent / 91,044 token）做受控 resume——**只改某 agent 的 `label`（prompt 不变）→ 0 token 全命中 ⇒ `label` 不入缓存键**；**只改其 `prompt`（label 还原）→ 60,702 token（≈基线 2/3）、改动点之前的 agent 仍命中、该 agent 及下游重跑 ⇒ `prompt` 入键**（后者是前者的正向对照，证明 resume 内容敏感、并非对任何改动都返回 0）。**仍未单独验证**：`schema/model/isolation/agentType` 是否入键、`phase` 是否不入键（见下方第三方清单）。信源 `wf_4ffde230-535` + 两次 resume，记于 `examples-r8.md`。
-- **嵌套 `workflow()`**：`workflow({scriptPath}, {n:21})` 内联跑子工作流、args 透传（子返回 `doubled:42`）；未知具名抛错并列出已注册具名工作流（`bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`）；**两层嵌套抛错**：`workflow() cannot be called from within a child workflow — nesting is limited to one level. Inline the inner script or call its agents directly.`。信源 `wf_2b04881f-6a9`。
+- **嵌套 `workflow()`**：`workflow({scriptPath}, {n:21})` 内联跑子工作流、args 透传（子返回 `doubled:42`）；未知具名抛错并列出已注册具名工作流（**早期 v2.1.150 列出 `bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`；到 v2.1.156 已只剩 `deep-research`**，Run `wf_03e38250-1bb`，与官方「只有 `/deep-research` 是 bundled」一致）；**两层嵌套抛错**：`workflow() cannot be called from within a child workflow — nesting is limited to one level. Inline the inner script or call its agents directly.`。信源 `wf_2b04881f-6a9`。
 - **`parallel()`/`pipeline()` 错误传播（R8 Phase B 实测，net-new；与第 8 章 p2-08 既有实测一致）**：错误转 `null` 的保护对**异步 reject**（`async` thunk/stage 的 promise reject，或 agent 出错）一律生效——该槽位/item 变 `null`、其余 sibling/item 照常、失败进 `<failures>` 频道、workflow 仍成功（`wf_bbeb54c0-750`：`parallel→['P0','NULL','P2']`、`pipeline→['S2-A','NULL']`，4 agent/122,372 token）。**同步 `throw`（直接在函数体里抛）则要分 `parallel` 与 `pipeline`，别混为一谈**：① `parallel` 的 thunk 体内同步 `throw` 会逃逸、**直接 fail 掉整个 workflow**（`wf_6cc89add-680`：6ms/0 token/未派 agent 即崩；机理：`parallel` 逐个调用 thunk，同步异常在它拿到 promise 之前就穿透了「收集成 null」的逻辑）；② `pipeline` 的 stage 体内同步 `throw` **只让该 item 变 `null`** 并跳过其余 stage、其它 item 照常、workflow 仍成功（`wf_76a9b42b-86f`：`['S2-A<-S1-A', null, 'S2-C<-S1-C']`，0 agent/0 token/4ms；机理：`pipeline` 对每个 item 的每个 stage 做了 per-item 包裹，连同步 throw 也只波及单项）。即**四种组合里唯一会崩库的是「`parallel` thunk + 同步 throw」**，其余三种都隔离成 `null`。实用规则：`parallel` 里有风险的同步逻辑写进被 `await` 的 `agent()` 内部、或包 `async`/`try-catch`，让失败隔离成 `null`。OS 无关（JS 运行时层）。信源 `wf_6cc89add-680`（parallel 同步崩）+ `wf_76a9b42b-86f`（pipeline 同步→null）+ `wf_bbeb54c0-750`（异步→null）；另见第 8 章 p2-08 对照表（`wf_ed5e87f3-435`/`wf_f5f5b422-a4f`/`wf_74ebe5ac-2db`）。
 - **subagent 能用 MCP（经 ToolSearch 按需加载）**：默认 `workflow-subagent` 启动时持有 **0 个 `mcp__` 工具**（本机为延迟工具环境），但有 `ToolSearch`——可按需加载并调用。实测 `mcp__context7__resolve-library-id` 端到端跑通，并发现其 schema 要求 `query`+`libraryName` 都必填。信源 `wf_1d4c6a71-56a`（工具自省探针）、`wf_d8aa0772-ced`（端到端）。**结论**：多数工作流无需 MCP（官方 6 例中 4 例零 MCP）；需要时它确实可用。默认 agentType 名 = `workflow-subagent`（per-agent sidecar `agent-<id>.meta.json` 记录）。
 
@@ -134,7 +134,7 @@
 
 ### B3. 未核实/需谨慎（不要当已验证机制写）
 - **顶层 `meta.model`**：类型未确认顶层字段及其「自动解析」语义。**只写已确认的 `phases[].model` 与 `opts.model` 两层**；不要写「meta.model → phases[].model → opts.model 三层解析」。
-- **主循环模型**：工具定义只说 `opts.model` 省略「继承主循环模型」。本书实测会话的主循环恰为 Opus 4.7（见系统环境），引用时写「本书实测会话的主循环为 Opus 4.7」，不要当成 Workflow 的通用事实。
+- **主循环模型**：工具定义只说 `opts.model` 省略「继承主循环模型」。**本书早期示例会话**的主循环为 Opus 4.7；**R11 复核会话**为 Opus 4.8（`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-8[1m]`，printenv 实测）。引用时写清是「哪次会话的主循环」，**不要当成 Workflow 的通用事实**——无论哪个型号，「`opts.model` 省略则继承主循环模型」这一结论都不变。
 - **JSON Schema 的 `description` 字段是否「交给模型」**：属通用 JSON Schema 实践建议，非工具定义明示机制——写成「建议」而非「运行时保证」。
 - **大产物「写盘 + schema 返回句柄」**：脚本本身无 FS/Node API；该模式属设计建议，标「（示意，未实跑）」。
 - **`parallel` 与节流**：并发上限是**每工作流**的（`min(16, 核心−2)`），非 `parallel()` 专属。传 Promise 而非 thunk 的问题是「不符合 `parallel(thunks)` API、失去其异步失败归集（async reject/agent 出错→null）语义」，**不要说「绕过运行时节流」**。
@@ -186,7 +186,7 @@
 > 并入后，全书唯一 Run ID 由 20（R4 基线主表 17 + R5 3）增至 **23**（+R6 3）。**成本真相**：本会话 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 覆盖脚本里的 `model:'haiku'`，故 R5/R6 六跑均按 Opus 计费（R5 三跑≈171.5 万、R6 三跑≈152.1 万 token）。逐项见 `examples-r5.md` / `examples-r6.md`。
 
 > **R7 Phase 0 验证探针** `wf_e8cb23ff-829`（4 agent / 93,026 token / 15,032ms）：再确认 agentType 校验、`budget.total=null`/`remaining=Infinity`，并实证 `ANTHROPIC_DEFAULT_*_MODEL` 两层覆盖；属**验证用**运行，不并入头条 curated 计数（与 R3 复验组、R6 Phase E 复验同处理）。
-> **R8 Phase 0 验证探针**（记于 `examples-r8.md`）：`wf_72e98fa5-019`（budget/Infinity 序列化/agentType+schema 再确认）、`wf_28a5d455-300`（`model:'inherit'` 被接受 + `workflow()` 未知名列出内置清单 `bughunt/bughunt-lite/deep-research/plan-hunter/review-branch`）、**`wf_4ffde230-535` + 两次受控 resume**（**净新结论**：`label` 不入缓存键 / `prompt` 入键，见 A2）。均属**验证用**运行，不并入头条 curated 计数（curated 维持 23）。
+> **R8 Phase 0 验证探针**（记于 `examples-r8.md`）：`wf_72e98fa5-019`（budget/Infinity 序列化/agentType+schema 再确认）、`wf_28a5d455-300`（`model:'inherit'` 被接受 + `workflow()` 未知名列出内置清单 `bughunt/bughunt-lite/deep-research/plan-hunter/review-branch`；**到 v2.1.156 已只剩 `deep-research`**）、**`wf_4ffde230-535` + 两次受控 resume**（**净新结论**：`label` 不入缓存键 / `prompt` 入键，见 A2）。均属**验证用**运行，不并入头条 curated 计数（curated 维持 23）。
 > **R9 Phase 0 验证探针**：`wf_63b7a365-fdc`（0-agent：pipeline **首阶段 `prevResult===originalItem`=true**、`budget.total=null`/`remaining()=Infinity`、pipeline 同步 throw→该 item `null`、parallel async throw→该位 `null`，全 0 token / 6ms）、`wf_e188356f-b10`（0-agent：parallel **同步** `throw` → workflow `status=failed`，再确认「同步 throw 崩库」当前 build v2.1.150 仍成立，0 token / 5ms）、`wf_17307da4-707`（1 agent / 31,679 token：`agent({isolation:'worktree'})` 建文件后，**脚本拿到的返回值是 agent 的常规文本 `string`（"created R9_WORKTREE_PROBE.txt"），不是 `{path,branch}` 对象**——故「返回 path/branch」是 Agent 工具信封层说法、不经脚本 `agent()` 暴露；worktree 落 `.claude/worktrees/wf_<runId>-N`、分支 `worktree-wf_<runId>-N`、初始 locked（这组 path/branch/locked 来自 `git worktree list` 当场观测，非 run JSON），主工作树零泄漏）。均属**验证用**运行，不并入头条 curated 计数（curated 维持 23）。
 > **R9 Phase B「验证运行时」探针** `wf_580909ca-b32`（0 agent / 0 token / 0 tool_use / 4ms）：最小 `check-runtime` 脚本（仅 `phase()`+`log()`+顶层 `return`），返回 `{ok:true, budgetTotal:null, budgetTotalIsNull:true, remaining:"Infinity", argsIsUndefined:true}`。坐实「0-agent 工作流真能跑且 0 token」「`budget.total=null`/`remaining()=Infinity`（无 +Nk 时）」「`args` 未传即 `undefined`」「顶层 `return` 与 `log()` 正常」。用作 p1-01 §1.5「一眼确认能不能用」食谱的实测背书；属**验证用**运行，不并入头条 curated 计数（curated 维持 23）。
 

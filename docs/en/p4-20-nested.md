@@ -74,13 +74,13 @@ How the `args` parameter gets passed is the same as a top-level call: per `_grou
 **Both "args passthrough" and "an unknown named workflow throws" have been tested** (Run `wf_2b04881f-6a9`). In this probe:
 
 - **scriptPath sub-call + args passthrough**: the parent called a child script with `workflow({ scriptPath }, { n: 21 })`, the child read `args.n` as `21` and returned `doubled: 42` — args goes **into the sub-workflow unchanged**, not stringified, not stripped of fields.
-- **Unknown name throws**: call a name that doesn't exist, and the runtime will throw and **list every currently registered named workflow**, verbatim:
+- **Unknown name throws**: call a name that doesn't exist, and the runtime will throw and **list every currently registered named workflow**. **Verified on v2.1.156** (Run `wf_03e38250-1bb`), that list has narrowed to a single built-in:
 
   ```text
-  workflow('definitely-no-such-workflow-xyz'): no workflow with that name. Available: bughunt, bughunt-lite, deep-research, plan-hunter, review-branch
+  workflow('definitely-no-such-workflow-xyz-r11'): no workflow with that name. Available: deep-research
   ```
 
-  This is the **same "validate + list" friendly design** as Chapter 16's unknown `agentType` throwing and listing available agents — misspell a name, and the runtime tells you right away which ones you can pick from. (The list of "available named workflows" on your machine may differ, depending on what's built in and what's installed under `.claude/workflows/`.)
+  This is the **same "validate + list" friendly design** as Chapter 16's unknown `agentType` throwing and listing available agents — misspell a name, and the runtime tells you right away which ones you can pick from. Note this built-in list is now **aligned with the official docs**: the docs list only `/deep-research` as a bundled workflow, so that's all that shows up after `Available:`. (Early v2.1.150 listed a five-tool set here — `bughunt, bughunt-lite, deep-research, plan-hunter, review-branch` (Run `wf_2b04881f-6a9`) — but that batch is no longer in the registry on v2.1.156; see [Appendix A.13.1](#/en/app-a). Of course, the list on your machine will also include whatever you've installed under `.claude/workflows/`.)
 
 </div>
 

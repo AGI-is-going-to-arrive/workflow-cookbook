@@ -6,7 +6,7 @@
 
 ---
 
-三个示例脚本都放在 `assets/examples/` 下，都在同一个会话里**真跑过**（`CLAUDE_CODE_WORKFLOWS=1`，Claude Code v2.1.150，主循环 Opus 4.7 (1M)），跑的记录在 `assets/transcripts/examples-r5.md`。三者各占一种编排形态：
+三个示例脚本都放在 `assets/examples/` 下，都在同一个会话里**真跑过**（`CLAUDE_CODE_WORKFLOWS=1`，Claude Code v2.1.150，主循环 Opus 4.7 (1M)），跑的记录在 `assets/transcripts/examples-r5.md`（R11 已在 v2.1.156 复核：这几种编排形态的核心机制仍成立，见 `assets/transcripts/examples-r11.md`）。三者各占一种编排形态：
 
 ```mermaid
 flowchart LR

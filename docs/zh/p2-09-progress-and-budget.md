@@ -108,7 +108,7 @@ log(`${bugs.length}/10 已发现，剩余预算 ${Math.round(budget.remaining() 
 
 ### `/workflows` —— 实时进度树
 
-斜杠命令 `/workflows` 会打开一棵实时树：每个 phase 一个分组框，框里是各 agent 的标签（来自 `label`）和状态。`meta.phases` 里写的 `title` 决定分组框，`agent()` 的 `label` 决定叶子节点叫什么名字——所以**描述性的 label 既利于搜索，也利于观察**。
+斜杠命令 `/workflows` 会打开一棵实时树：每个 phase 一个分组框，框里是各 agent 的标签（来自 `label`）和状态。`meta.phases` 里写的 `title` 决定分组框，`agent()` 的 `label` 决定叶子节点叫什么名字——所以**描述性的 label 既利于搜索，也利于观察**。这里写的是脚本侧「怎么把进度做出来」；至于在 `/workflows` 视图里**怎么操作**这棵树（方向键钻取、`p`/`x`/`r` 暂停停止重启、`s` 存成命令），见[《官方操作面板》](#/zh/p2-ops)。
 
 ---
 
