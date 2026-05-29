@@ -9,11 +9,13 @@
 第 01 章 §1.5 把这件事拆成了「能用 / 会用」两层。动手前，先确认「能用」这层——最稳的办法就是显式开 `CLAUDE_CODE_WORKFLOWS=1`。
 
 ```bash
-# 启动时临时开启（当前会话生效）
+# 启动时临时开启（当前会话生效）——下面是 macOS / Linux 写法
 CLAUDE_CODE_WORKFLOWS=1 claude
+# Windows CMD：先 set CLAUDE_CODE_WORKFLOWS=1，再另起一行跑 claude
+# Windows PowerShell：$env:CLAUDE_CODE_WORKFLOWS="1"; claude
 ```
 
-或者写进 `~/.claude/settings.json`，让它长期开着：
+或者写进 `~/.claude/settings.json`，让它长期开着（这种 JSON 写法三平台通用）：
 
 ```json
 { "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }

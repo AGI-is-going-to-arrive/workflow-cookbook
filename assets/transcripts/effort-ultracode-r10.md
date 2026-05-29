@@ -184,3 +184,24 @@ console.log(ctx('Explicit opt-in means one of',0,520,1));
 let i=0,near=0;while((i=buf.indexOf('ultracode',i))!==-1){if(buf.slice(i-400,i+400).includes('CLAUDE_CODE_WORKFLOWS'))near++;i+=9}
 console.log(near,'/ 37');                    // 0 / 37
 ```
+
+## H. Cross-checking third-party claims against the official binary (R10 Sprint 2.1)
+
+The third-party repo `claude-code-workflow-creator` made several claims the book had
+filed as "claimed, unverified." Grepping the 2.1.154 binary **confirms** most of them:
+
+| Third-party claim | Binary evidence (verbatim) | Verdict |
+|---|---|---|
+| Error class `WorkflowAgentCapError` | `class a7K extends Error{constructor(){super(KG3);this.name="WorkflowAgentCapError"}}` | ✅ exists |
+| Error class `WorkflowBudgetExceededError` | `…this.name="WorkflowBudgetExceededError"` (msg `Workflow token budget exceeded`) | ✅ exists |
+| 1000-agent cap message | `Workflow agent() call cap reached (…). This usually means a loop using budget.remaining()… or pass a token budget.` | ✅ exists |
+| `stallMs` default 180000 | `AG3=180000`, used as `r?.stallMs!=null?Number(r.stallMs):AG3` | ✅ default = 180000 |
+| stall retries ≤ 5 | `AG3=180000,i7K=5` (the `i7K=5` constant is adjacent; very likely the stall-retry cap — use-site not traced line-by-line) | ✅ likely 5 |
+| concurrency lower bound `max(2, …)` | `Math.max(2,H-2)` together with `HG3(cpus().length)` | ✅ `max(2, cores−2)` |
+| schema validated via AJV | `ajv` present (55×) + `StructuredOutput schema mismatch:` | ✅ AJV present |
+| schema retry "up to twice" | **no such string in the binary** | ❌ unconfirmed |
+
+**Evidence-tier note.** These are **binary-string / constant confirmations** — stronger
+than a third-party claim, but **not runtime-observed** (the book did not actually trip
+the 1000-agent cap, budget-exceeded, or a stall in a live run). Cite them as "confirmed
+in the 2.1.154 binary," a tier distinct from "runtime-measured (Run ID)."

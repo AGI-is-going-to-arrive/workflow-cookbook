@@ -85,7 +85,7 @@ log(`smoke result: ${JSON.stringify(r)}`)
 return r
 ```
 
-> **如何运行（重要）**：这是一段 **Workflow 脚本**，不是独立的 Node 脚本——`export`/`meta`/`phase`/`agent`/`log` 都是 Workflow 运行时注入的全局符号。**用 `node hello.js` 跑会立刻报 `phase is not defined`（Windows / macOS 皆然）。** 正确方式：在**已开启功能标志**的 Claude Code 会话里（`CLAUDE_CODE_WORKFLOWS=1 claude`，或写入 `~/.claude/settings.json` 的 `env`），直接让 Claude 执行它——例如在消息里带上 `workflow` 这个关键词（如「跑这个 workflow」），由 Claude 调用内置的 Workflow 工具运行。
+> **如何运行（重要）**：这是一段 **Workflow 脚本**，不是独立的 Node 脚本——`export`/`meta`/`phase`/`agent`/`log` 都是 Workflow 运行时注入的全局符号。**用 `node hello.js` 跑会立刻报 `phase is not defined`（Windows / macOS 皆然）。** 正确方式：在**已开启功能标志**的 Claude Code 会话里（macOS / Linux 用 `CLAUDE_CODE_WORKFLOWS=1 claude`；Windows 或想长期生效，写入 `~/.claude/settings.json` 的 `env`，这种 JSON 写法跨平台），直接让 Claude 执行它——例如在消息里带上 `workflow` 这个关键词（如「跑这个 workflow」），由 Claude 调用内置的 Workflow 工具运行。
 >
 > 真实返回（`schema` 强制结构化，`sum` 为整数 `4` 而非字符串）：`{"message":"…","sum":4,"runtimeConfirmed":true}`（Run `wf_dacbd480-d5d`，1 agent / 26,338 token / 5.5s）。
 

@@ -67,10 +67,10 @@
 - **脚本体积上限 524288 字节（512KB）**（官方工具 input-schema 的 `script` 字段 `maxLength`）。
 - **续传**：同脚本+同 args = 100% 缓存命中；journal 记录每次 `agent()`（落为 `agent-<id>.jsonl`）；**仅同会话**；续传前先停掉上一次运行（官方）。
 
-### 第三方仓库声称——思路可借鉴，但**未独立核实**，写正文须标注「第三方声称、未核实」
-> 以下来自第三方 `claude-code-workflow-creator/api-reference.md`，**不是官方真值**；我本会话**未能触发/隔离**，无法证实或证伪。可借鉴其"思路"，但不得断言为事实。（本轮已把"保留键被拒""remote 禁用""VM 30s 同步超时""model 无提交校验""args 透传""注入全局"等实测复现，移入"已实测确认"。）
-- 错误**类名** `WorkflowAgentCapError` / `WorkflowBudgetExceededError`：官方只描述行为（达 1000 上限 / 预算耗尽会出错），**未给类名**——类名是该仓库说法（我未触发这两个上限）。
-- 并发**下限** `max(2, …)`；**`stallMs` 默认 180000ms、停滞重试≤5 次**；**预算耗尽时在途 agent 完成且结果保留、不再启新 agent**；schema 经 **AJV** 校验、且 subagent 不调用工具时「最多再催两次」。
+### 第三方仓库声称——经本书分层核查（部分已实测/二进制确认，余未核实）；写正文须按证据档位标注
+> 以下来自第三方 `claude-code-workflow-creator/api-reference.md`，**不是官方真值**；我本会话**未能触发/隔离**，无法证实或证伪。可借鉴其"思路"，但不得断言为事实。（本轮已把"保留键被拒""remote 禁用""VM 30s 同步超时""model 无提交校验""args 透传""注入全局"等实测复现，移入"已实测确认"。**R10 又用 2.1.154 官方二进制核查证实了错误类名、`stallMs=180000`、停滞重试 5、并发下限 `max(2, cores−2)`、AJV 校验等——见下各条 + `effort-ultracode-r10.md §H`；这些是"二进制确认"，强于第三方声称但非 runtime 实测。**）
+- 错误**类名** `WorkflowAgentCapError` / `WorkflowBudgetExceededError`：**R10 二进制核查确认存在**（`this.name="WorkflowAgentCapError"`；`"WorkflowBudgetExceededError"` 消息 `Workflow token budget exceeded`；1000 上限消息 `Workflow agent() call cap reached (…). This usually means a loop using budget.remaining()… or pass a token budget.`）。证据 `effort-ultracode-r10.md §H`。注：**二进制字符串确认，非 runtime 触发**（我未真正触发这两个上限）。
+- **R10 二进制核查确认**（证据 `effort-ultracode-r10.md §H`，均为二进制字符串/常量确认、非 runtime 触发）：并发**下限** `max(2, cores−2)`（`Math.max(2,H-2)`+`cpus()`）、**`stallMs` 默认 180000ms**（`AG3=180000`）、**停滞重试上限 5**（紧邻常量 `i7K=5`，使用点未逐行追）、**schema 经 AJV 校验**（`ajv`×55 + `StructuredOutput schema mismatch`）。**仍未核实**：预算耗尽时在途 agent 完成且结果保留、不再启新 agent（行为未触发）；schema「最多再催两次」（**二进制无 `up to twice` 字符串，存疑**）。
 - **resume 缓存键**——R8 已实测 `label` **不**入键、`prompt` **入**键（见上方「已实测确认」`wf_4ffde230-535`）；第三方另称 `schema/model/isolation/agentType` 入键、`phase` 不入键，**这几项仍未单独验证**。`opts.model` 接受 `'inherit'` 字面量——R8/R4 已观测被接受、能跑（`wf_28a5d455-300`、line 34），但「精确语义是否等同省略」因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖**仍未隔离**。
 
 ### 校验器 `validate-workflow.mjs`（第三方工具，但其行为我已实测）

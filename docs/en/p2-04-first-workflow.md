@@ -9,11 +9,13 @@
 Chapter 01 §1.5 split this into two layers: **available** vs. **will use.** Before you start, confirm the **available** layer — and the most reliable way is to set `CLAUDE_CODE_WORKFLOWS=1` explicitly.
 
 ```bash
-# Enable temporarily at launch (effective for the current session)
+# Enable temporarily at launch (effective for the current session) — macOS / Linux syntax
 CLAUDE_CODE_WORKFLOWS=1 claude
+# Windows CMD: run set CLAUDE_CODE_WORKFLOWS=1 first, then claude on its own line
+# Windows PowerShell: $env:CLAUDE_CODE_WORKFLOWS="1"; claude
 ```
 
-Or write it into `~/.claude/settings.json` to keep it on for good:
+Or write it into `~/.claude/settings.json` to keep it on for good (this JSON form works on all three platforms):
 
 ```json
 { "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }

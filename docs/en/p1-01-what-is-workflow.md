@@ -211,25 +211,27 @@ Whether the tool is in your toolbox is decided jointly by the environment variab
 CLAUDE_CODE_WORKFLOWS = 1
 ```
 
-Reading the real logic of the 2.1.154 client, availability comes in three cases:
+Reading the real logic of the 2.1.154 client (function `FX5`), availability comes in three cases:
 
-- Explicitly set `CLAUDE_CODE_WORKFLOWS=1` → **tool available** (most reliable, recommended);
-- Explicitly set `=0` → **force off**;
-- Leave it unset → it falls back to a server-side flag; when that's on, the tool is **on by default for non-Pro accounts**.
+- Explicitly set `CLAUDE_CODE_WORKFLOWS=1` → it reads the server-side flag `tengu_workflows_enabled`, **defaulting to "on" locally when no value comes back** — so it's available by default, and this is the most reliable user-side switch (unless the server explicitly turns it off);
+- Explicitly set `=0` → **force off** (a hard veto);
+- Leave it unset → it looks at that same server-side flag; when that's on (the default), the tool is **on by default for non-Pro accounts**.
 
 <div class="callout info">
 
-**Want it stable? Set `=1` yourself.** That "server-side flag" is a growthbook gate Anthropic rolls out at its own discretion — you can't control it, and it may shift across versions and accounts. Setting `CLAUDE_CODE_WORKFLOWS=1` explicitly turns "can I use it?" from "bet on the server" into "my call."
+**Want it stable? Set `=1` yourself.** That server-side flag (`tengu_workflows_enabled`) is a growthbook gate Anthropic controls — you can't touch it; the saving grace is it only vetoes you when it's **explicitly turned off**, and otherwise (including when no value comes back) it counts as "on." So `=1` is the **most reliable** move on your end — not a 100% "my call" (that server-side gate still stands), but the strongest guarantee a user can make.
 
 </div>
 
 Two ways to set it:
 
 ```bash
-# Set at launch (effective for the current session)
+# Set at launch (effective for the current session) — macOS / Linux syntax
 CLAUDE_CODE_WORKFLOWS=1 claude
+# Windows CMD: run set CLAUDE_CODE_WORKFLOWS=1 first, then claude on its own line
+# Windows PowerShell: $env:CLAUDE_CODE_WORKFLOWS="1"; claude
 
-# Or write into the env section of ~/.claude/settings.json (persistent)
+# Or write into the env section of ~/.claude/settings.json (persistent, cross-platform)
 { "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }
 ```
 

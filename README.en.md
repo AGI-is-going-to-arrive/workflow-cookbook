@@ -85,7 +85,7 @@ log(`smoke result: ${JSON.stringify(r)}`)
 return r
 ```
 
-> **How to run it (important):** this is a **Workflow script**, not a standalone Node script — `export`/`meta`/`phase`/`agent`/`log` are global symbols injected by the Workflow runtime. **Running it with `node hello.js` immediately throws `phase is not defined` (on Windows and macOS alike).** The correct way: inside a Claude Code session with the **feature flag enabled** (`CLAUDE_CODE_WORKFLOWS=1 claude`, or set it in the `env` of `~/.claude/settings.json`), just ask Claude to execute it — e.g. include the keyword `workflow` in your message (like "run this workflow"), and Claude invokes the built-in Workflow tool.
+> **How to run it (important):** this is a **Workflow script**, not a standalone Node script — `export`/`meta`/`phase`/`agent`/`log` are global symbols injected by the Workflow runtime. **Running it with `node hello.js` immediately throws `phase is not defined` (on Windows and macOS alike).** The correct way: inside a Claude Code session with the **feature flag enabled** (macOS / Linux: `CLAUDE_CODE_WORKFLOWS=1 claude`; on Windows, or for a persistent setting, write it into the `env` of `~/.claude/settings.json` — that JSON form is cross-platform), just ask Claude to execute it — e.g. include the keyword `workflow` in your message (like "run this workflow"), and Claude invokes the built-in Workflow tool.
 >
 > Real return (`schema` forces structure; `sum` is the integer `4`, not a string): `{"message":"…","sum":4,"runtimeConfirmed":true}` (Run `wf_dacbd480-d5d`, 1 agent / 26,338 tokens / 5.5s).
 

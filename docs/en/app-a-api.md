@@ -18,7 +18,7 @@ The worst thing an API doc can do is state guesses as if they were certain. So t
 
 <div class="callout info">
 
-Why be this strict? Because a big chunk of the "Workflow API details" you can dig up online trace back to one third-party video-companion repo — not an official artifact — and some of its precise numbers (error class names, timeout milliseconds, retry counts) we **cannot reproduce** on this machine. Mix those in with the official and verified stuff, and you're just manufacturing authoritative-looking noise. This appendix would rather say less than pass off the unverified as truth.
+Why be this strict? Because a big chunk of the "Workflow API details" you can dig up online trace back to one third-party video-companion repo — not an official artifact — and some of its precise numbers (error class names, timeout milliseconds, retry counts) we previously **could not reproduce at runtime** on this machine (R10 has since confirmed a batch of them against the 2.1.154 official binary — see [A.14](#a14-third-party-unverified-list-caution) below; that's a "binary-confirmed" tier, stronger than a third-party claim but still not runtime-measured). Mix the still-unverified in with the official and verified stuff, and you're just manufacturing authoritative-looking noise. This appendix would rather say less than pass off the unverified as truth.
 
 </div>
 
@@ -386,7 +386,7 @@ Two layers (**available** vs. **will use**), don't conflate them (details in [Ch
 
 ## A.14 Third-party · Unverified List (Caution)
 
-The following claims come from the third-party repo `claude-code-workflow-creator` (a YouTuber's video-companion repo, **not** official). This book **cannot trigger / cannot isolate** them on this machine, so it can neither confirm nor refute them. **They're listed here only as a reminder: when you run into them elsewhere, know they have not been verified by this book — do not treat them as authoritative truth.**
+The following claims originally come from the third-party repo `claude-code-workflow-creator` (a YouTuber's video-companion repo, **not** official). This book has gone through them one by one and **tiered them by evidence**: a few have been **reproduced at runtime** on this machine (R4, see the table below), a few are **confirmed against the 2.1.154 official binary** (R10 — stronger than a third-party claim, but still not runtime-measured), and **the rest genuinely still can't be triggered/isolated here and remain unverified**. **For the ones still unverified: when you run into them elsewhere, keep that in mind — don't treat them as authoritative truth.**
 
 > **Update · R4 verification upgrade.** The following 4 claims used to sit in the "unverified" list too, but this book has now **really reproduced** them on this machine and moved them out — they are now **verified facts**, no longer third-party claims:
 >
@@ -399,11 +399,11 @@ The following claims come from the third-party repo `claude-code-workflow-creato
 
 | Third-party claim | This book's stance |
 |---|---|
-| Error class names `WorkflowAgentCapError` / `WorkflowBudgetExceededError` | **Unverified.** The official side only describes the behavior (errors at the 1000 cap / on budget exhaustion), giving no class names. |
-| Concurrency **lower bound** `max(2, …)` | **Unverified.** The official side only gives the upper bound `min(16, cores − 2)`. |
-| `stallMs` default **180000ms**, stall retries **≤5** | **Unverified.** (That the `setTimeout` global exists is a verified fact, but these ms/counts are not.) |
+| Error class names `WorkflowAgentCapError` / `WorkflowBudgetExceededError` | **R10 binary-confirmed** (`this.name="WorkflowAgentCapError"`, `"WorkflowBudgetExceededError"`; evidence `effort-ultracode-r10.md §H`). Binary-string confirmation, not runtime-triggered. |
+| Concurrency **lower bound** `max(2, cores − 2)` | **R10 binary-confirmed** (`Math.max(2,H-2)` + `cpus()`), alongside the official upper bound `min(16, cores − 2)`. Binary-string confirmation, not runtime-triggered. |
+| `stallMs` default **180000ms**, stall retries **≤5** | **R10 binary-confirmed** (`AG3=180000`; adjacent constant `i7K=5`, use-site not traced line-by-line). Evidence `effort-ultracode-r10.md §H`. Binary-string confirmation, not runtime-triggered. |
 | On budget exhaustion, in-flight agents finish and results are kept, no new agents started | **Unverified.** |
-| schema compiled/validated via **AJV**, "up to two more nudges" when the subagent doesn't call the tool | **Unverified.** This book confirms only "a schema always returns a validated object, retried if it doesn't match" (official + verified); it does **not** assert an exact retry count. |
+| schema validated via **AJV**; "up to two more nudges" when the subagent doesn't call the tool | **AJV: R10 binary-confirmed** (`ajv`×55 + `StructuredOutput schema mismatch`). **"Up to twice": no `up to twice` string in the binary — doubtful.** This book asserts only "a schema always returns a validated object, retried if it doesn't match," not an exact count. |
 | `opts.model`'s `'inherit'` literal **exact semantics** | **Exact semantics unverified.** Note: the "`model` has no submit-time validation" part has been verified-upgraded (see the table at the top of this section); contrast `agentType`, verified to be validated (A.5). |
 | whether `schema` / `model` / `isolation` / `agentType` are in the resume cache key, and whether `phase` is not | **Unverified.** What this book verified is "same script + same args = 100% hit" (`wf_9c94951d-58c`), plus **R8's individually-isolated `label` (not in key) / `prompt` (in key)** (`wf_4ffde230-535`, moved out of this list, see A.10); these remaining fields are not yet isolated one by one. |
 

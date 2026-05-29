@@ -71,7 +71,7 @@
 | **pipeline() / 流水线** | `pipeline(items, stage1, …) → Promise<any[]>`：每个 item **独立**地流过全部 stage，**阶段间无屏障**；某个 stage 抛错，这个 item 就变 `null` 并跳过剩下的 stage。**多阶段默认用它**。 | [第 8 章](#/zh/p2-08) |
 | **屏障 / barrier** | 一个同步点：必须等一批任务**全部完成**才往下走。`parallel` 是屏障；`pipeline` 阶段间**无**屏障。 | [第 8 章](#/zh/p2-08) |
 | **流水线 / pipeline（概念）** | 一种让各 item 在各阶段间**重叠**着流动的执行模型；墙钟 ≈ 最慢的那条单链，而不是各阶段最慢的加起来。 | [第 8 章](#/zh/p2-08) |
-| **thunk** | 一个零参函数 `() => Promise`，相当于一个等着被执行的「待办」。`parallel` **必须**收 thunk 数组；你要是直接传 Promise，它会立刻执行、不符合 thunk API、还会丢掉错误归集的语义（这可不是「绕过并发上限」）。 | [第 8 章](#/zh/p2-08) / [附录 B · B.4](#/zh/app-b) |
+| **thunk** | 一个零参函数 `() => Promise`，相当于一个等着被执行的「待办」。`parallel` **必须**收 thunk 数组；你要是直接传 Promise，它会立刻执行、不符合 thunk API、还会丢掉「异步失败归集」的语义（异步 reject / agent 出错 → `null`）。 | [第 8 章](#/zh/p2-08) / [附录 B · B.4](#/zh/app-b) |
 | **stage / 阶段（pipeline）** | `pipeline` 里的一个处理步骤；回调签名是 `(prevResult, originalItem, index)`，第一个阶段里 `prevResult === item`。 | [第 8 章](#/zh/p2-08) |
 | **prevResult / originalItem** | stage 回调的参数：前一阶段的返回值 / 这一条的原始输入。有了后者，后面的阶段想引用原始输入就不用一层层穿过去了。 | [第 8 章](#/zh/p2-08) |
 

@@ -211,25 +211,27 @@ sequenceDiagram
 CLAUDE_CODE_WORKFLOWS = 1
 ```
 
-读 2.1.154 客户端的真实逻辑，可用性分三种情况：
+读 2.1.154 客户端的真实逻辑（函数 `FX5`），可用性分三种情况：
 
-- 显式设 `CLAUDE_CODE_WORKFLOWS=1` → **工具可用**（最稳，推荐这样）；
-- 显式设 `=0` → **强制关闭**；
-- 干脆不设 → 看一个服务端开关；它开着的话，**非 Pro 账户默认就是开的**。
+- 显式设 `CLAUDE_CODE_WORKFLOWS=1` → 去读服务端开关 `tengu_workflows_enabled`，**取不到值时本地默认按「开」算**——所以默认可用，这也是用户侧最可靠的开法（除非服务端把它明确关掉）；
+- 显式设 `=0` → **强制关闭**（一票否决）；
+- 干脆不设 → 同样看那个服务端开关；它开着的话（默认），**非 Pro 账户默认就是开的**。
 
 <div class="callout info">
 
-**想稳，就自己显式设 `=1`。** 上面那个「服务端开关」是 Anthropic 灰度控制的，你左右不了、它也可能随版本和账户变。显式设 `CLAUDE_CODE_WORKFLOWS=1`，等于把「能不能用」从「赌服务端」变成「我说了算」。
+**想稳，就自己显式设 `=1`。** 那个服务端开关（`tengu_workflows_enabled`）是 Anthropic 灰度控制的、你左右不了；好在它只在被**明确关掉**时才否决你，其余情况（包括取不到值）都按「开」算。所以 `=1` 是你这边**最可靠**的一手——不敢说百分百「我说了算」（那道服务端灰度闸还在），但已是用户侧能做到的最强保证。
 
 </div>
 
 两种设法：
 
 ```bash
-# 启动时设（当前会话生效）
+# 启动时设（当前会话生效）——下面是 macOS / Linux 写法
 CLAUDE_CODE_WORKFLOWS=1 claude
+# Windows CMD：先 set CLAUDE_CODE_WORKFLOWS=1，再另起一行跑 claude
+# Windows PowerShell：$env:CLAUDE_CODE_WORKFLOWS="1"; claude
 
-# 或写进 ~/.claude/settings.json 的 env 段（长期生效）
+# 或写进 ~/.claude/settings.json 的 env 段（长期生效，跨平台通用）
 { "env": { "CLAUDE_CODE_WORKFLOWS": "1" } }
 ```
 
