@@ -206,7 +206,7 @@ A few engineering details here echo the foundational hard constraints:
 
 <div class="callout warn">
 
-**A pipeline's wall-clock ≈ the slowest single GCF chain, not "sum of all Generates + sum of all Critiques + sum of all Fixes."** That's the key payoff of pipeline's "no barrier between stages" (Chapter 08): while target A is still in Fix, target B may already be in Critique. But note the concurrency cap is `min(16, CPU cores − 2)` (official); agents beyond it **queue** — when the target count far outruns the core count, queuing stretches the wall-clock.
+**A pipeline's wall-clock ≈ the slowest single GCF chain, not "sum of all Generates + sum of all Critiques + sum of all Fixes."** That's the key payoff of pipeline's "no barrier between stages" (Chapter 08): while target A is still in Fix, target B may already be in Critique. But note the concurrency cap is `min(16, CPU cores − 2)` (tool contract); agents beyond it **queue** — when the target count far outruns the core count, queuing stretches the wall-clock.
 
 </div>
 

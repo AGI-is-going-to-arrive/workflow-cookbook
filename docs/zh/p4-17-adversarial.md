@@ -82,7 +82,7 @@ return out.filter(Boolean)
 
 这个骨架已经把对抗验证的要素全凑齐了，我们一条条拆开看：
 
-**第一，验证者是一个全新的 agent。** Verify 阶段的 `agent()` 调用，跟 Find 阶段是**两个完全独立的 subagent**——上下文独立、token 预算独立（真实数据印证：3 项 × 2 阶段 = `agent_count=6`）。Verify 眼里看到的不是「我生成的 bug」，而是「一条待核验的论断 `found.example`」。
+**第一，验证者是一个全新的 agent。** Verify 阶段的 `agent()` 调用，跟 Find 阶段是**两个完全独立的 subagent**——上下文独立（token 从共享的 run 预算里扣，并非各自独立）（真实数据印证：3 项 × 2 阶段 = `agent_count=6`）。Verify 眼里看到的不是「我生成的 bug」，而是「一条待核验的论断 `found.example`」。
 
 **第二，验证者要做判断，不是复述。** prompt 问的是「Is this genuinely a ... bug?」——一个是非题，逼它表态。
 

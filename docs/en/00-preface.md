@@ -26,6 +26,21 @@ These tricks are clever, and they work — but at bottom they lean on **natural 
 
 ---
 
+<div class="callout info">
+
+**Two layers of truth in this book (read this first)**
+
+This book covers two layers, and they come from different places — keep them straight:
+
+1. **How to use it (the user's view)** — anchored to the official docs at `code.claude.com/docs/en/workflows`: how to trigger a workflow, approve it, save and rerun it, turn it on and off, and what the limits are. The official docs spell all of this out.
+2. **What's actually in the script (the engine room)** — the orchestration API: `agent()`, `parallel()`, `pipeline()`, `phase()`, `meta`, `schema`. **The official public docs don't document this layer.** It's real and it runs (this book proves it with 40+ real run records, each tagged with a Run ID), but it comes from Claude Code's runtime contract and our own testing — not from the official docs.
+
+Why cover the second layer at all? Because the official way to use workflows is "you describe the task, Claude writes the script" — you don't write it by hand. But to read what Claude wrote, tweak it, and build a reusable library of your own, you need this API. That's what this book is for.
+
+One caveat: dynamic workflows are a research preview, so these script-layer details can change without notice. Everywhere this book covers the script layer, it's flagged as "verified by testing, not officially documented." Before you rely on it in production, run it yourself to confirm.
+
+</div>
+
 ## The Deterministic Engine Claude Code Just Shipped: Dynamic Workflows
 
 Claude Code just shipped a capability called **Dynamic workflows**, in **research preview**, with the docs now formally published at [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows). Here's what it does, in one sentence:
@@ -50,7 +65,7 @@ const results = await pipeline(
 
 What this means: **the orchestration discipline the community painstakingly maintains through prompts can now be welded shut, once and for all, in code.**
 
-It requires **Claude Code v2.1.154 or later**, and it's available on all paid plans (Anthropic API, Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry are all covered); Pro users turn it on from the "Dynamic workflows" row in `/config`. Once it's on, the official also gives you a session-level master switch, `/effort ultracode`: one phrase, and Claude orchestrates a workflow by default across the whole session (see [Chapter 01 §1.6](#/en/p1-01)). What this book sets out to do is help you **truly master** this freshly shipped capability — not just using the bundled one, but learning to **write your own** workflows.
+It requires **Claude Code v2.1.154 or later**, and it's available on all paid plans (Anthropic API, Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry are all covered); Pro users turn it on from the "Dynamic workflows" row in `/config`. Once it's on, the official also gives you a session-level effort tier that turns on proactive orchestration, `/effort ultracode`: with it on, Claude orchestrates a workflow by default across the whole session, and `/effort high` reverts it (see [Chapter 01 §1.6](#/en/p1-01)). What this book sets out to do is help you **truly master** this freshly shipped capability — not just using the bundled one, but learning to **write your own** workflows.
 
 ---
 

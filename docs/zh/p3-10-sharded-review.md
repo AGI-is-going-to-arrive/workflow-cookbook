@@ -173,7 +173,7 @@ flowchart LR
 
 > **真实运行**：Run ID `wf_bf086b98-6ec`，3 项 × 2 阶段，`agent_count=6`、`total_tokens=158982`、`duration_ms=26743`。stage 回调签名实测为 `(prevResult, originalItem, index)`（第二阶段 `(found, kind)` 里 `found` 是上阶段返回值、`kind` 是原始 item）。详见 `assets/transcripts/primitives.md`。
 
-`agent_count=6` 精确印证了「3 项 × 2 阶段 = 6 agent」；而每项独立流过两阶段、阶段间无屏障，把它原样放大到 N 个分片，就是本章的骨架。把分片数从 3 提到 20，agent 数线性涨到 40，但**墙钟不会**跟着线性涨——并发上限是 `min(16, 核心−2)`（官方权威口径，见第 08 章 §8.6）：任意时刻最多这么多 agent 在跑，多出来的排队、有槽位释放出来再补上。而 pipeline 让早完成的分片不空等。
+`agent_count=6` 精确印证了「3 项 × 2 阶段 = 6 agent」；而每项独立流过两阶段、阶段间无屏障，把它原样放大到 N 个分片，就是本章的骨架。把分片数从 3 提到 20，agent 数线性涨到 40，但**墙钟不会**跟着线性涨——并发上限是 `min(16, 核心−2)`（工具契约/官方类型定义口径，见第 08 章 §8.6）：任意时刻最多这么多 agent 在跑，多出来的排队、有槽位释放出来再补上。而 pipeline 让早完成的分片不空等。
 
 ### 什么时候反而该用屏障？（Synthesize 这一步）
 
@@ -220,7 +220,7 @@ agent 总数 = (Scan 的 1 个发现 agent，若用 agent 发现分片)
 
 <div class="callout warn">
 
-**verify 阶段是 token 大头，别无脑放大。** 上例 40 个 verify agent 贡献了近 80% 的 token。要是每条发现都去对抗验证，分片越多、发现越多，verify 的 agent 数就会**平方级**膨胀。两个收敛的办法：（a）只验 `high`/`critical` 的发现（在 verify stage 前 `filter(f => ['high','critical'].includes(f.severity))`）；（b）让一个 verify agent 一次验**一片的全部发现**（而不是一条配一个 agent），把内层 `parallel` 换成单个带数组 schema 的 agent。后者是拿 agent 数换 token——看你更缺哪种资源。
+**verify 阶段是 token 大头，别无脑放大。** 上例 40 个 verify agent 贡献了近 80% 的 token。要是每条发现都去对抗验证，分片越多、发现越多，verify 的 agent 数就会**随分片数与发现数同步放大而快速膨胀**。两个收敛的办法：（a）只验 `high`/`critical` 的发现（在 verify stage 前 `filter(f => ['high','critical'].includes(f.severity))`）；（b）让一个 verify agent 一次验**一片的全部发现**（而不是一条配一个 agent），把内层 `parallel` 换成单个带数组 schema 的 agent。后者是拿 agent 数换 token——看你更缺哪种资源。
 
 </div>
 

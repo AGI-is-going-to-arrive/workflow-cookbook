@@ -161,7 +161,7 @@ phase('Pipeline')
 // suppose this turn's budget.total = 500k
 const a = await workflow('deep-research', { topic })   // the sub-workflow burned 300k
 // now budget.remaining() has only about 200k left — the sub-workflow's consumption counts in the same pool
-const b = await workflow('adversarial-verify', { claims: a.findings })  // can only run within the remaining 200k
+const b = await workflow('adversarial-verify', { claims: a.claims })  // can only run within the remaining 200k
 ```
 
 If you naively assume "each sub-workflow has its own budget," you'll walk straight into the budget-exhausted throw at the second sub-workflow. **The correct mental model: nested or not, the whole turn has one token pool, one concurrency pool, one agent counter.** `workflow()` only organizes the work more modularly; it conjures up no extra resources.

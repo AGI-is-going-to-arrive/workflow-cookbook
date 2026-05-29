@@ -203,7 +203,7 @@ log(`finder pool merged ${pooled.length} findings, ${candidates.length} after de
 
 The refutation in 15.2 is "run all N refuters for each bug, then tally." When N is large (`bughunt` uses **5 votes**), there's an obvious waste: **once a bug has been vetoed by a majority of refuters, the remaining votes can't flip the outcome** — the conclusion is already locked.
 
-This is **pigeonhole early-exit**: treat "majority" as a threshold you can hit early, and the moment one side's vote count locks in the win, decide **logically** ahead of time instead of waiting on the rest. But keep one thing in mind — per 15.6 below, **the agents already dispatched usually still finish, their results just ignored**; to **physically** dispatch fewer agents, you have to **vote in batches**: send the majority-line votes first, and only add the rest when it's a tie or close.
+This is **pigeonhole early-exit**: treat "majority" as a threshold you can hit early, and the moment one side's vote count locks in the win, decide **logically** ahead of time instead of waiting on the rest. But keep one thing in mind — **the agents already dispatched usually still finish, their results just ignored** (for the mechanism, see the callout below in this section, `_grounding.md`, and Chapter 18); to **physically** dispatch fewer agents, you have to **vote in batches**: send the majority-line votes first, and only add the rest when it's a tie or close.
 
 Take 5 votes with "keep only if a majority confirms" (≥3 confirm) as an example. The pigeonhole principle gives two early-exit points:
 

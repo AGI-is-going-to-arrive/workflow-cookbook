@@ -157,7 +157,14 @@ The return value is **byte-for-byte identical** (`{"message":"...","sum":4,"runt
 
 <div class="callout info">
 
-**This is the fundamental reason scripts forbid `Date.now()` / `Math.random()` / arg-less `new Date()`**: resume rides on the replayability that "the same execution necessarily produces the same result." Non-deterministic time/randomness breaks it (if the same script produces different results on two runs, the cache has nothing to compare against). Need a timestamp? Pass it in via `args`, or stamp it outside after the workflow finishes. Need randomness? Vary the prompt using the agent's index.
+**This is the fundamental reason scripts forbid `Date.now()` / `Math.random()` / arg-less `new Date()`**: resume rides on the replayability that "the same execution necessarily produces the same result." Non-deterministic time/randomness breaks it (if the same script produces different results on two runs, the cache has nothing to compare against).
+
+This "deterministic guard" is measured to be **two layers**, and you can't sneak past it:
+
+- **Layer 1 · commit-time source scan**: if any of the three forbidden literals appears **anywhere** in the script — even inside a comment, a string literal, or a closure that never executes — the whole script is rejected **before** it runs: it **never reaches execution, and try/catch can't catch it.** Verbatim rejection: `Workflow scripts must be deterministic: Date.now()/Math.random()/new Date() are unavailable (breaks resume). Stamp results after the workflow returns, or pass timestamps via args.`
+- **Layer 2 · runtime trap**: even if you use dynamic tricks (e.g. assembling a string to reach `Date`/`Math`) to slip past layer 1 and get the script accepted, those globals have been reshaped at runtime and throw the moment you **call** them (this layer **is** catchable, but don't rely on it as a safety net).
+
+Need a timestamp? Pass it in via `args`, or stamp it outside after the workflow finishes. Need randomness? Vary the prompt using the agent's index.
 
 </div>
 
@@ -251,7 +258,7 @@ Chain the two facts from 9.5.1 together and its fate follows: with no target, `b
 
 <div class="callout info">
 
-**On "what error budget exhaustion throws" and the sync timeout**: the official definition describes only the **behavior** — calling `agent()` after the budget is exhausted errors, and hitting the 1000-agent cap errors — but **gives no error class name.** Community third-party material (a YouTuber's repo, not official) claims these two errors are named `WorkflowBudgetExceededError` and `WorkflowAgentCapError` respectively — those **class names remain third-party claims, unverified by this book**, so don't `catch` a named exception in your code. But one claim that used to sit alongside them as "unverified" this book has now **verified**: the script VM's **30000 ms sync timeout** is real (Run `wf_e3b2b123-5f4`: a long synchronous loop with no `await` was terminated at 30,222 ms, with the verbatim error `Error: Script execution timed out after 30000ms`). Note it bounds only **synchronous** execution (to catch infinite loops) — it is **not** a wall-clock cap; workflows with `await agent()` happily run for minutes.
+**On "what error budget exhaustion throws" and the sync timeout**: the official prose docs describe only the **behavior** — calling `agent()` after the budget is exhausted errors, and hitting the 1000-agent cap errors — but **give no error class name.** Those two errors are named `WorkflowBudgetExceededError` and `WorkflowAgentCapError` respectively — and this book has **confirmed those class names via R10 binary inspection** (no longer a "third-party, unverified" claim). What remains unmeasured is only the **disposition of in-flight agents at the moment it throws** (whether already-dispatched agents are aborted or left to finish), so even with reliable names, don't hang your control flow on `catch`-ing a named exception. Separately, the sync-timeout claim that used to sit alongside the names as "unverified" this book has now **verified** too: the script VM's **30000 ms sync timeout** is real (Run `wf_e3b2b123-5f4`: a long synchronous loop with no `await` was terminated at 30,222 ms, with the verbatim error `Error: Script execution timed out after 30000ms`). Note it bounds only **synchronous** execution (to catch infinite loops) — it is **not** a wall-clock cap; workflows with `await agent()` happily run for minutes.
 
 </div>
 

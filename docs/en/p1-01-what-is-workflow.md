@@ -109,7 +109,12 @@ The script body runs in an `async` context, so you can `await` directly. The run
 
 <div class="callout warn">
 
-**Scripts can't use `Date.now()`, `Math.random()`, or arg-less `new Date()`** — use one and it throws. Why? §1.7 "Resume" spells it out: each of these returns something different every time, which breaks the premise that "the same script always produces the same execution," and that breaks resume. Need a timestamp? Pass it in via `args`. Need randomness? Vary the prompt using the agent's index.
+**Scripts can't use `Date.now()`, `Math.random()`, or arg-less `new Date()`** — and there are two gates stopping you, not one:
+
+1. **A submit-time source scan.** If any of these literals appears **anywhere** in the script's source — even in a comment, even in a closure that never runs, even inside a string — the whole script is rejected **before it ever runs.** It doesn't even reach execution, and you **can't catch this** (`try/catch` is useless because nothing ran).
+2. **A runtime trap.** Even if you sneak past the first gate dynamically (say, you reach `Date` in a roundabout way, so no literal token shows up in the source and the script is accepted), those globals have been reworked at runtime and **still throw the moment you call them.** This layer *is* catchable with `try/catch`, but don't rely on it.
+
+Why so strict? §1.7 "Resume" spells it out: each of these returns something different every time, which breaks the premise that "the same script always produces the same execution," and that breaks resume. So don't write them, and don't try to dodge them. Need a timestamp? Pass it in via `args`, or stamp it on from the outside after the workflow finishes. Need randomness? Vary the prompt using the agent's index.
 
 </div>
 
@@ -188,7 +193,7 @@ sequenceDiagram
 
 <div class="callout tip">
 
-**What's this "async + background" design good for?** You can fire off several workflows at once, let them run in parallel, get on with other work yourself, and have each one ping you when it's done. The rest of this book leans on this a lot. One thing not to forget, though: because it's async, **the Workflow tool's return value isn't the workflow's result** — it's just a "launched" receipt. The real result shows up in the completion notification.
+**Async + background lets you run several workflows at once.** You can fire off several workflows at once, let them run in parallel, get on with other work yourself, and have each one ping you when it's done. The rest of this book leans on this a lot. One thing not to forget, though: because it's async, **the Workflow tool's return value isn't the workflow's result** — it's just a "launched" receipt. The real result shows up in the completion notification.
 
 </div>
 
@@ -210,12 +215,14 @@ Whether the tool is in your toolbox — **the official user-facing entry is `/co
 **The official entry (what you should do; source: official docs):**
 
 1. **Check your version**: `claude --version` must be **v2.1.154 or later** (the official minimum).
-2. **Check your plan**: it's available on all paid plans — Anthropic API, Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry are all covered. **Pro users** have to turn it on themselves, from the **"Dynamic workflows"** row in `/config`.
+2. **To turn on**: every paid plan except Pro has them **on by default** — nothing to do. On **Pro**, switch them on from the **Dynamic workflows** row in `/config`. They work on every paid plan, plus the Anthropic API and Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry.
 3. **A zero-cost check**: drop a casual sentence with `workflow` in it and see whether Claude switches to writing a workflow script; or type `/effort` and see whether the menu offers an `ultracode` setting (see §1.6) — if it's there, the tool is available in your session.
+
+Done with them? **To turn off** (any one of these — they all persist): toggle it off in `/config`; or add `"disableWorkflows": true` to `~/.claude/settings.json`; or set `CLAUDE_CODE_DISABLE_WORKFLOWS=1` (read at startup). **Org-wide**: set `"disableWorkflows": true` in managed settings, or use the toggle on the Claude Code admin settings page. Once off: bundled commands (like `/deep-research`) are gone, the `workflow` keyword no longer triggers, and `ultracode` disappears from the `/effort` menu.
 
 **The underlying flag (mechanics layer / power-user; source: client binary + local `printenv`):**
 
-Beneath the surface, whether the tool lights up is decided jointly by the environment variable `CLAUDE_CODE_WORKFLOWS`, the server-side flag `tengu_workflows_enabled`, and your account type — the deciding logic in the client is a function called `FX5`. In the session where this book was written, `printenv` confirms the variable is present and its value is `1`, and the tool is indeed available:
+That set above (`/config` / on-by-default + the three ways to turn it off) is the switch path the official docs give you. Beneath the surface there's also an environment variable, `CLAUDE_CODE_WORKFLOWS` — but to be clear first: it is **not** the way the official docs tell you to turn workflows on. The only environment variable they document is the one that turns workflows **off**, `CLAUDE_CODE_DISABLE_WORKFLOWS`. `CLAUDE_CODE_WORKFLOWS` is a low-level switch observed in the client binary (our test environment happened to have it set), so don't treat it as "required to make it work." For the mechanics: whether the tool lights up is decided jointly by this environment variable, the server-side flag `tengu_workflows_enabled`, and your account type — the deciding logic in the client is a function called `FX5`. In the session where this book was written, `printenv` confirms the variable is present and its value is `1`, and the tool is indeed available:
 
 ```text
 CLAUDE_CODE_WORKFLOWS = 1
@@ -247,7 +254,7 @@ CLAUDE_CODE_WORKFLOWS=1 claude
 
 <div class="callout warn">
 
-**Why have this switch at all?** A single workflow can fan out dozens of subagents and burn a lot of tokens. Keeping a switch in front of it is a reminder to **know what you're doing.** It's the same discipline the tool definition keeps stressing: **Claude only calls a workflow when the user has explicitly chosen multi-agent orchestration** — it won't launch on its own just because "this task looks like it might go faster in parallel."
+**This switch is a "know what you're doing" gate.** A single workflow can fan out dozens of subagents and burn a lot of tokens. Keeping a switch in front of it is a reminder to stay deliberate. It's the same discipline the tool definition keeps stressing: **Claude only calls a workflow when the user has explicitly chosen multi-agent orchestration** — it won't launch on its own just because "this task looks like it might go faster in parallel."
 
 </div>
 
@@ -382,6 +389,8 @@ Within each workflow, concurrent `agent()` calls top out at **`min(16, CPU cores
 ### Resume: the same script, second-level cache hits
 
 Remember the "no `Date.now()`" rule from §1.2? Here's the reason. Workflow supports **resume**: re-invoke with `{ scriptPath, resumeFromRunId }`, and **the `agent()` calls you didn't touch hand back cached results directly** (in seconds); only the ones you edited, and everything after them, re-run for real.
+
+Resume works **only within the same Claude Code session**, though: while the session is still open, you can stop and resume and the cache is there. But once you exit Claude Code, the next session runs the workflow **from scratch** — the official docs say plainly that "the next session starts the workflow fresh," with no cross-session persistence.
 
 > "The same script + the same args → 100% cache hit." That means the script's execution has to be **replayable.** `Date.now()` / `Math.random()` give a different answer every time, so the replay no longer lines up — which is why they're banned. Need a timestamp? Stamp it on from the outside after the workflow finishes, or pass it in via `args`.
 

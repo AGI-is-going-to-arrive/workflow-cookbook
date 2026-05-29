@@ -157,7 +157,14 @@ Workflow({ scriptPath: ".../my-flow-wf_xxx.js", resumeFromRunId: "wf_xxx" })
 
 <div class="callout info">
 
-**脚本禁用 `Date.now()` / `Math.random()` / 无参 `new Date()`，根本原因就在这里**：续传靠的是「同样的执行必然跑出同样的结果」这种可重放性。时间和随机这种非确定的东西会把它破坏掉（同一段脚本两次跑出不一样的结果，缓存就没法比对了）。要时间戳？用 `args` 传进来，或者等工作流跑完后在外面盖戳。要随机？用 agent 的下标 `index` 去改提示词。
+**脚本禁用 `Date.now()` / `Math.random()` / 无参 `new Date()`，根本原因就在这里**：续传靠的是「同样的执行必然跑出同样的结果」这种可重放性。时间和随机这种非确定的东西会把它破坏掉（同一段脚本两次跑出不一样的结果，缓存就没法比对了）。
+
+这条「确定性守卫」实测是**双层**的，别想绕：
+
+- **第一层 · 提交期源码扫描**：只要这三个被禁字面量在脚本**任何位置**出现——哪怕是在注释里、字符串字面量里、或者一段永远不会执行的闭包里——整段脚本会在运行**前**被拒，**根本进不去执行、try/catch 也接不住**。被拒原文：`Workflow scripts must be deterministic: Date.now()/Math.random()/new Date() are unavailable (breaks resume). Stamp results after the workflow returns, or pass timestamps via args.`
+- **第二层 · 运行时陷阱**：就算你用动态手段（比如拼字符串去取 `Date`/`Math`）骗过第一层、让脚本被接受，运行时这些全局也已经被改造过，一**调用**就抛错（这层**可以** try/catch，但别依赖它兜底）。
+
+要时间戳？用 `args` 传进来，或者等工作流跑完后在外面盖戳。要随机？用 agent 的下标 `index` 去改提示词。
 
 </div>
 
@@ -251,7 +258,7 @@ while (budget.remaining() > 50_000) { /* ... 派 agent ... */ }
 
 <div class="callout info">
 
-**关于「预算耗尽抛什么错」和同步超时**：官方只描述了**行为**——预算耗尽后再调 `agent()` 会出错、达到 1000 agent 上限会出错——但**没有给出错误类名**。社区第三方资料（某 YouTuber 仓库，非官方）声称这两类错误的类名分别是 `WorkflowBudgetExceededError` 和 `WorkflowAgentCapError`——这两个**类名仍属第三方声称、本书未核实**，所以别在代码里去 `catch` 某个具名异常。不过其中一条原本跟类名一起被划进「未核实」的说法，本书现在已经**实测确认**了：脚本 VM 的 **30000ms 同步超时**是真的（Run `wf_e3b2b123-5f4`：一个没有 `await` 的长同步循环在 30,222ms 处被掐断，报错原文 `Error: Script execution timed out after 30000ms`）。注意它只管**同步**执行（用来掐死死循环），**不是** wall-clock 上限——带 `await agent()` 的工作流照样能跑上好几分钟。
+**关于「预算耗尽抛什么错」和同步超时**：官方散文文档只描述了**行为**——预算耗尽后再调 `agent()` 会出错、达到 1000 agent 上限会出错——但**没有给出错误类名**。这两类错误的类名分别是 `WorkflowBudgetExceededError` 和 `WorkflowAgentCapError`——这两个**类名本书已经过 R10 二进制核查确认**（不再是「第三方未核实」的声称）。仍未实测的只剩**抛错那一刻在途 agent 的处置语义**（已派出的 agent 是被中止还是放任跑完），所以即便类名可靠，也别把控制流押在 `catch` 某个具名异常上。另外，原本跟类名一起被划进「未核实」的同步超时说法，本书现在也已经**实测确认**了：脚本 VM 的 **30000ms 同步超时**是真的（Run `wf_e3b2b123-5f4`：一个没有 `await` 的长同步循环在 30,222ms 处被掐断，报错原文 `Error: Script execution timed out after 30000ms`）。注意它只管**同步**执行（用来掐死死循环），**不是** wall-clock 上限——带 `await agent()` 的工作流照样能跑上好几分钟。
 
 </div>
 

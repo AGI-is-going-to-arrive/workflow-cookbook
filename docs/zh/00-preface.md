@@ -26,6 +26,21 @@
 
 ---
 
+<div class="callout info">
+
+**关于本书的两层真值（请先读这段）**
+
+这本书讲两层东西，来源不一样，得分清楚：
+
+1. **怎么用（用户视角）**——以官方文档 `code.claude.com/docs/en/workflows` 为准：怎么触发、怎么审批、怎么保存重跑、怎么开关、有哪些限制。这些官方都明确写了。
+2. **脚本里到底有什么（引擎室）**——就是 `agent()`、`parallel()`、`pipeline()`、`phase()`、`meta`、`schema` 这套编排 API。**官方公开文档没写这一层。** 它真实存在、也跑得通（本书用 40 多条真实运行存证、每条都带 Run ID 来证明），但它来自 Claude Code 的运行时契约和我们的实测，不是官方文档里的东西。
+
+为什么还要讲第二层？因为官方的用法是「你描述任务，Claude 替你写脚本」，你不用自己动手写。但你要想看懂 Claude 写了什么、自己改一改、再建立起一套可复用的工作流，就得懂脚本里这套 API——这正是本书的价值。
+
+提醒一句：Dynamic workflows 是 research preview，脚本层这些细节官方随时可能改。本书凡讲脚本层的地方，都按「实测来的、官方未公开」标注；真要上生产，自己再跑一遍验证。
+
+</div>
+
 ## 官方刚正式发布的确定性引擎：Dynamic workflows
 
 Claude Code 官方刚推出了一个叫**动态工作流（Dynamic workflows）**的能力，状态是 **research preview（研究预览）**，文档已正式收录在 [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)。它干的事，一句话说清楚：
@@ -50,7 +65,7 @@ const results = await pipeline(
 
 这就意味着：**社区那些靠提示词苦苦撑着的编排纪律，现在能用代码一次性焊死。**
 
-官方要求 **Claude Code v2.1.154 及以上**，所有付费档都能用（Anthropic API、Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry 也覆盖）；Pro 用户得自己在 `/config` 里找到 "Dynamic workflows" 那一行手动打开。开起来之后，官方还给了一个会话级的总开关 `/effort ultracode`：一句话，就让 Claude 在整场会话里默认主动用工作流来编排（详见 [第 01 章 §1.6](#/zh/p1-01)）。这本书要做的，就是带你把这个刚发布的能力**真正用透**——不光会用官方自带的，还能上手**写出属于你自己**的工作流。
+官方要求 **Claude Code v2.1.154 及以上**，所有付费档都能用（Anthropic API、Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry 也覆盖）；Pro 用户得自己在 `/config` 里找到 "Dynamic workflows" 那一行手动打开。开起来之后，官方还给了一个会话级的主动编排挡位 `/effort ultracode`：开启后整场会话默认主动用工作流编排，`/effort high` 还原（详见 [第 01 章 §1.6](#/zh/p1-01)）。这本书要做的，就是带你把这个刚发布的能力**真正用透**——不光会用官方自带的，还能上手**写出属于你自己**的工作流。
 
 ---
 

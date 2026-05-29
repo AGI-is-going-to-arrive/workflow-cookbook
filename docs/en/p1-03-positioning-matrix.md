@@ -96,7 +96,7 @@ flowchart LR
 
 ### What it is
 
-Agent Teams is gated by the experimental flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` (in the session environment of this book's writing, **that flag is enabled**, coexisting with `CLAUDE_CODE_WORKFLOWS=1` — see `_grounding.md` section A, tested). It takes a **fundamentally different approach to collaboration**:
+Agent Teams is gated by the experimental flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` (in the session environment of this book's writing, **that flag is enabled** — see `_grounding.md` section A, tested; `CLAUDE_CODE_WORKFLOWS=1` was also set in the same environment, but that's just a power-user environment variable, not Workflow's official enable switch — Workflow goes through `/config` and is on by default on paid plans). It takes a **fundamentally different approach to collaboration**:
 
 > A group of agents form a **team** — **stateful**, **able to communicate with each other**, engaged in **long-term collaboration.** They aren't "dispatched and done"; they stay present like a real team, calling out to each other, splitting up the work, and coordinating via messages.
 
@@ -230,10 +230,10 @@ Lay the five mechanisms out side by side across a few key dimensions — this is
 | **Inter-member comms** | None | **None (values via script variables)** | Yes | N/A | N/A |
 | **Control style** | Main loop dispatches directly | **Deterministic code** | Emergent coordination | Prompt injection | Protocol call |
 | **Reproducible** | Single-shot | **Yes (same script+args cacheable)** | No | Yes (knowledge fixed) | Depends on external |
-| **Gating flag** | Built-in | `CLAUDE_CODE_WORKFLOWS` | `..._AGENT_TEAMS` | Built-in / skill system | MCP config |
+| **Gating flag** | Built-in | `/config` "Dynamic workflows" row / on by default on paid plans (turn off via `disableWorkflows` / `CLAUDE_CODE_DISABLE_WORKFLOWS`; `CLAUDE_CODE_WORKFLOWS` is a power-user env only — not the main switch, doesn't replace `/config`) | `..._AGENT_TEAMS` | Built-in / skill system | MCP config |
 | **Typical scenario** | Explore/summarize one thing | **Sharded review, adversarial verification, pipeline** | Open-ended multi-role collaboration | Inject specialized conventions into a step | Fetch external data |
 
-> The two flags `CLAUDE_CODE_WORKFLOWS` and `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` in the table were both confirmed present by testing in this book's writing session (`_grounding.md` section A).
+> Workflow's official enablement is the "Dynamic workflows" row in `/config` (on by default on every paid plan except Pro), not an environment variable. `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is the experimental flag that gates Agent Teams; in this book's writing session both it and `CLAUDE_CODE_WORKFLOWS=1` were tested as set (`_grounding.md` section A), but the latter is just a power-user environment variable, not the official enable switch.
 
 ---
 
@@ -317,7 +317,7 @@ One sentence to wrap up this composition view:
 
 - The five extension mechanisms belong to three planes: the **orchestration plane** (Subagents / Workflow / Agent Teams), the **cognition plane** (Skills), the **connectivity plane** (MCP). What's easy to mix up and forces a trade-off lies only within the orchestration plane.
 - **Subagents vs Workflow**: atom vs molecule. One clone → Subagent; multiple clones to be organized in order/parallelism/verification → Workflow.
-- **Workflow vs Agent Teams**: stateless deterministic pipeline vs stateful communicating team. **Flowchart can be fixed → Workflow; needs open collaboration and improvisation → Agent Teams.** Both flags (`CLAUDE_CODE_WORKFLOWS`, `..._AGENT_TEAMS`) are enabled on the local machine.
+- **Workflow vs Agent Teams**: stateless deterministic pipeline vs stateful communicating team. **Flowchart can be fixed → Workflow; needs open collaboration and improvisation → Agent Teams.** Workflow's official enablement is the "Dynamic workflows" row in `/config`, on by default on paid plans; Agent Teams is gated by the experimental flag `..._AGENT_TEAMS`, enabled on the local machine. (The same environment also had `CLAUDE_CODE_WORKFLOWS=1` set, but that's just a power-user environment variable, not the official enable switch.)
 - **Skills** (how to think) and **MCP** (what to reach) are **orthogonal** to Workflow (in what order to act); there's no either-or — they stack on top.
 - The strongest usage is **composition**: Workflow as the skeleton, using `agentType` to call specialist agents, in-step agents triggering skills / calling MCP, `workflow()` inline-reusing sub-pipelines (nesting one level only).
 - The boundary in one sentence: **if it can be drawn as a flowchart of "what first → what next → what in parallel," use Workflow; for open-ended dialogue and improvisation, it's not its home turf.**

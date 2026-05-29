@@ -373,7 +373,7 @@ Hold this up against OMC's real mechanism and you see a beautiful **dimensionali
 | `.omc/state/` storing mode/phase/iteration | The ordinary variables `round` / `work` / `lastReport` |
 | Re-injecting "The boulder never stops" | The loop naturally enters the next round, no prompt needed |
 | An independent critic verifying `passes:true` | An independent `agent({ schema: ACCEPT_SCHEMA })` |
-| Resume after a crash | `resumeFromRunId` resume (Chapter 22) |
+| Resume after a stop within the same session | `resumeFromRunId` resume (same session only; after a process-level crash/exit the next session starts fresh, Chapter 22) |
 
 All the scaffolding OMC put up to "make the loop programmable" — hooks, state files, re-injected text — **collapses into a `while` and a few local variables** in native Workflow. This isn't OMC being dumb; it's OMC being born in an era without native loops. And it's the literal payoff of Chapter 23's line: **native Workflow gives them the deterministic skeleton they were missing.**
 

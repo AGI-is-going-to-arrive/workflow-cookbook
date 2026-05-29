@@ -173,7 +173,7 @@ We didn't run a dedicated N-shard pipeline for sharded review, but Chapter 08's 
 
 > **Real run**: Run ID `wf_bf086b98-6ec`, 3 items × 2 stages, `agent_count=6`, `total_tokens=158982`, `duration_ms=26743`. The stage callback signature is empirically `(prevResult, originalItem, index)` (in the second stage's `(found, kind)`, `found` is the previous stage's return value, `kind` is the original item). See `assets/transcripts/primitives.md`.
 
-`agent_count=6` precisely confirms "3 items × 2 stages = 6 agents"; and each item flowing through both stages independently with no barrier between them is exactly what you get by scaling this chapter's skeleton up to N shards verbatim. Raise the shard count from 3 to 20 and the agent count rises linearly to 40, but **wall-clock won't** rise linearly — the concurrency cap is `min(16, cores−2)` (the authoritative official figure, see Chapter 08 §8.6): at most that many agents run at any instant, the rest queue up and get filled in as slots free up. And pipeline keeps early-finishing shards from idling.
+`agent_count=6` precisely confirms "3 items × 2 stages = 6 agents"; and each item flowing through both stages independently with no barrier between them is exactly what you get by scaling this chapter's skeleton up to N shards verbatim. Raise the shard count from 3 to 20 and the agent count rises linearly to 40, but **wall-clock won't** rise linearly — the concurrency cap is `min(16, cores−2)` (from the tool contract / type definitions, see Chapter 08 §8.6): at most that many agents run at any instant, the rest queue up and get filled in as slots free up. And pipeline keeps early-finishing shards from idling.
 
 ### When Should You Use a Barrier Instead? (The Synthesize Step)
 
@@ -220,7 +220,7 @@ Plug into rule ①: `token ≈ 51 × 27k ≈ 1.38M tokens`. That's a **sizable b
 
 <div class="callout warn">
 
-**The verify stage is the token hog; don't scale it mindlessly.** In the example above, 40 verify agents account for nearly 80% of the tokens. If you adversarially verify every finding, the more shards and findings you have, the more the verify agent count balloons **quadratically**. Two ways to rein it in: (a) verify only `high`/`critical` findings (`filter(f => ['high','critical'].includes(f.severity))` before the verify stage); (b) have one verify agent verify **all of a shard's findings at once** (rather than one agent per finding), replacing the inner `parallel` with a single agent using an array schema. The latter trades agent count for tokens — pick based on which resource you're shorter on.
+**The verify stage is the token hog; don't scale it mindlessly.** In the example above, 40 verify agents account for nearly 80% of the tokens. If you adversarially verify every finding, the more shards and findings you have, the more the verify agent count **grows rapidly as both shard count and findings scale up**. Two ways to rein it in: (a) verify only `high`/`critical` findings (`filter(f => ['high','critical'].includes(f.severity))` before the verify stage); (b) have one verify agent verify **all of a shard's findings at once** (rather than one agent per finding), replacing the inner `parallel` with a single agent using an array schema. The latter trades agent count for tokens — pick based on which resource you're shorter on.
 
 </div>
 

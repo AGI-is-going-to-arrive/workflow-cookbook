@@ -54,7 +54,7 @@ Per the real runs on this machine (`assets/transcripts/validator-r4.md`) plus th
 
 | Check | Triggered by | Severity |
 |---|---|---|
-| Script size cap | source exceeds **524288 bytes (512KB)** | ERROR |
+| Script size cap (source: the **official input-schema's `script.maxLength`**, not validator-tested) | source exceeds **524288 bytes (512KB)** | ERROR |
 | `meta` must be the **first statement** | any code before `export const meta` (e.g. a `const`) | ERROR |
 | `meta` must be a **pure literal** | `meta` holds a variable reference / function call / spread / template interpolation / reserved key (e.g. `constructor`); or is missing `name`/`description` | ERROR |
 | banned non-deterministic call | literal `Date.now()` / `Math.random()` / argless `new Date()` | ERROR |
@@ -278,9 +278,9 @@ flowchart TD
 
 ### Tool 2: the `agent-<id>.jsonl` journal
 
-`WorkflowOutput` carries a `transcriptDir` field pointing at this run's record directory. Underneath it, **every `agent()` call** drops a journal file `agent-<id>.jsonl` — line-by-line JSON recording that subagent's full round-trip (the prompt it got, its tool calls, its final output). When an agent comes back with an unexpected result, or a schema'd agent keeps retrying, open the matching `agent-<id>.jsonl` and you can see "what it actually reasoned, what tools it called, why it didn't satisfy the schema."
+`WorkflowOutput` carries a `transcriptDir` field pointing at this run's record directory — the field itself is **contract-confirmed** (`sdk-tools.d.ts`). Underneath it, **every `agent()` call** drops a journal; the **filename `agent-<id>.jsonl` comes from the Workflow tool contract** (the tool description's resume-fallback note tells you to read `agent-<id>.jsonl` files under the transcript dir), holding line-by-line JSON recording that subagent's full round-trip (the prompt it got, its tool calls, its final output). When an agent comes back with an unexpected result, or a schema'd agent keeps retrying, open its matching journal and you can see "what it actually reasoned, what tools it called, why it didn't satisfy the schema."
 
-Each agent also carries a sidecar `agent-<id>.meta.json` recording the agent's metadata — in this book's real runs what it recorded was `{"agentType":"workflow-subagent"}` (the default agent type).
+> Note: both `transcriptDir` (`sdk-tools.d.ts`) and the filename `agent-<id>.jsonl` (named in the Workflow tool description's resume-fallback note) are **contract-backed**; but the exact **line-by-line content shape** this book did not verify verbatim — and on disk its real runs actually saw the sidecar `agent-<id>.meta.json` (recording the agent's metadata — `{"agentType":"workflow-subagent"}`, the default agent type), so that part is **observed/inferred**.
 
 <div class="callout info">
 

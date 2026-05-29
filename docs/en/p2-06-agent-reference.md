@@ -395,6 +395,8 @@ const fixes = await parallel(
 )
 ```
 
+**Where does it actually land?** (Verified here, Run ID `wf_d9a10c19-b65-2`.) An agent with `isolation: 'worktree'` has its working directory at `<repo>/.claude/worktrees/wf_<runId>-<n>/` — and this is a **genuine git worktree**: inside it, `git rev-parse --show-toplevel` points to this isolated directory, while `git rev-parse --git-dir` lands at `<repo>/.git/worktrees/wf_<runId>-<n>`. In other words, each worktree agent edits files in its **own independent working tree**, never colliding with the others, with directories numbered `wf_<runId>-<n>`. (Note: the **exact cleanup timing, the branch name, and the mechanism for merging back to the main tree** are confirmed by neither the official docs nor testing here — see 6.7.3.)
+
 ### 6.7.2 Why it's called "expensive"
 
 "Expensive" isn't rhetoric. Creating a git worktree involves real disk operations and git overhead. Combined with the magnitude given in this book's writing context: **each worktree starts at about 200–500ms, plus per-agent disk usage.** Add `isolation: 'worktree'` to all 50 agents, and this overhead piles up into considerable latency and disk consumption.
@@ -417,7 +419,9 @@ flowchart TD
 
 ### 6.7.3 Auto-cleanup
 
-A thoughtful detail: `_grounding.md` states "**auto-cleaned if no changes.**" That is, if an agent with `isolation: 'worktree'` finishes having **produced no file changes**, the runtime automatically cleans up that temporary worktree, leaving no garbage behind. This lowers the cleanup cost of "added a worktree but it turned out unnecessary" — but it **cannot** be a reason to "add worktrees casually," because you've already paid the creation overhead.
+A thoughtful detail: the tool contract states "**auto-removed if unchanged.**" That is, if an agent with `isolation: 'worktree'` finishes having **produced no file changes**, the runtime automatically cleans up that temporary worktree, leaving no garbage behind. This lowers the cleanup cost of "added a worktree but it turned out unnecessary" — but it **cannot** be a reason to "add worktrees casually," because you've already paid the creation overhead.
+
+One boundary to draw clearly, though: **"auto-removed if unchanged" is in the tool contract, but the exact cleanup timing, the worktree's branch name, and how changes merge back to the main tree are confirmed by neither the official docs nor testing here** — this book treats those as "unverified," not facts confirmed by testing (the full pattern and trade-offs are in Chapter 19).
 
 <div class="callout warn">
 

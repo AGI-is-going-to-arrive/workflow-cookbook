@@ -333,6 +333,8 @@ This is the cost trap most worth watching in this chapter. The script tags all 1
 
 **`CLAUDE_CODE_SUBAGENT_MODEL` is a user/CI knob; the script cannot control it.** Once this environment variable is set, the `model: 'haiku'` (or any per-call model) written into the workflow script is **silently ignored** — the agent doesn't error, it just quietly runs as the model the environment variable names. This run's 607k tokens is the direct consequence of 18 "haiku" agents actually running Opus, confirming the tested conclusion in `_grounding.md` §A2 (Run `wf_9c94951d-58c`: 5 agents with different `model` options all ran Opus).
 
+**There's actually a second knob stacked on top.** Strictly speaking, "haiku actually running Opus" is the result of **two layers of environment variables stacked**: besides `CLAUDE_CODE_SUBAGENT_MODEL`, this session also set `ANTHROPIC_DEFAULT_HAIKU_MODEL`/`SONNET`/`OPUS`, which **remap the model aliases wholesale** to Opus (HAIKU/SONNET → `claude-opus-4-7[1m]`, OPUS → `claude-opus-4-6[1m]`; see `_grounding.md` §A2, Run `wf_e8cb23ff-829`). So even without `CLAUDE_CODE_SUBAGENT_MODEL`, the alias-remapping layer alone is enough to resolve `model: 'haiku'` into Opus — both layers sit in the user/CI's hands, and the script can't touch either.
+
 **Implication**: in a session with this variable set, `model: 'haiku'` **saves no money.** To actually save money, the user or CI must adjust `CLAUDE_CODE_SUBAGENT_MODEL`; the script author gets no say. So the assumption "I tagged the summaries haiku, it should be cheap" **may not hold at all** in a controlled CI/session environment — always go by the actual token usage.
 
 </div>

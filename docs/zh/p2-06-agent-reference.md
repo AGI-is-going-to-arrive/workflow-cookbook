@@ -395,6 +395,8 @@ const fixes = await parallel(
 )
 ```
 
+**它实测落在哪?**(本机实测,Run ID `wf_d9a10c19-b65-2`)一个带 `isolation: 'worktree'` 的 agent,工作目录是 `<repo>/.claude/worktrees/wf_<runId>-<n>/`——这是一个**货真价实的 git worktree**:在它里头 `git rev-parse --show-toplevel` 指向的就是这个隔离目录,`git rev-parse --git-dir` 则落在 `<repo>/.git/worktrees/wf_<runId>-<n>`。换句话说,每个 worktree agent 都在一棵**独立的工作树**里改文件,彼此互不冲突,目录名按 `wf_<runId>-<n>` 编号。(注:**确切的清理时机、分支名、以及合并回主树的机制**,官方与本机实测都未取得确证——见 6.7.3。)
+
 ### 6.7.2 为什么说它「昂贵」
 
 「昂贵」不是修辞。创建一个 git worktree,要做真实的磁盘操作,还有 git 开销。结合本书写作上下文给出的量级:**每个 worktree 约 200–500ms 起步,外加每个 agent 的磁盘占用**。你要是给 50 个 agent 都加上 `isolation: 'worktree'`,这笔开销会攒成一笔可观的延迟和磁盘消耗。
@@ -417,7 +419,9 @@ flowchart TD
 
 ### 6.7.3 自动清理
 
-一个贴心的细节:`_grounding.md` 写明「**无改动自动清理**」。也就是说,某个加了 `isolation: 'worktree'` 的 agent 跑完后**没有产生任何文件改动**,运行时会自动把那个临时 worktree 清掉,不留垃圾。这把「加了 worktree 却发现没必要」的善后成本降下来了——但它**不能**成为「随手加 worktree」的理由,因为创建本身的开销你已经付出去了。
+一个贴心的细节:工具契约写明「**无改动自动清理**」(`auto-removed if unchanged`)。也就是说,某个加了 `isolation: 'worktree'` 的 agent 跑完后**没有产生任何文件改动**,运行时会自动把那个临时 worktree 清掉,不留垃圾。这把「加了 worktree 却发现没必要」的善后成本降下来了——但它**不能**成为「随手加 worktree」的理由,因为创建本身的开销你已经付出去了。
+
+不过有一道边界要划清:**「无改动则清理」这条工具契约里有,但确切的清理时机、worktree 的分支名、以及改动如何合并回主树,官方与本机实测都未取得确证**——本书把这几点按「未核实」对待,别当成实测确认的事实(完整的模式与权衡见第 19 章)。
 
 <div class="callout warn">
 

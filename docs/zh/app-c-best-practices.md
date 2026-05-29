@@ -59,7 +59,7 @@
   - **为什么**：深层嵌套的 schema 想一次满足很难；拆成「生成 → 结构化」两步更稳。
   - **落地**：用 `pipeline` 把「draft」和「extract」分成两个 stage。
 
-- [ ] **跨 stage 需要原始输入时，用回调签名 `(prevResult, originalItem, index)`，别把它塞进上一阶段返回值穿线。**
+- [ ] **跨 stage 需要原始输入时，用回调签名 `(prevResult, originalItem, index)`，别把它顺着上一阶段返回值一路传下去。**
   - **为什么**：`pipeline` 的每个 stage 都能直接拿到 `originalItem`，犯不着去污染上一阶段的产物 schema。
   - **落地**：`(found, kind) => agent(\`verify ${kind}: ${found.example}\`)`。真实印证：`pipeline-demo` 的 stage2 签名就是 `(found, kind)`（Run `wf_bf086b98-6ec`）。见 [第 8 章](#/zh/p2-08)。
 
@@ -76,7 +76,7 @@
   - **落地**：阶段一切换、过滤完剩多少条、为啥提前退出，都值得 `log` 一下。真实脚本普遍这么做。见 [第 9 章 · 进度·日志·续传·预算](#/zh/p2-09)。
 
 - [ ] **显式记录「掉队/降级」。**
-  - **为什么**：`parallel`/`pipeline` 用 `null` 来标记某一项失败了，你光看最后剩几条，容易误以为是数据丢了。
+  - **为什么**：`parallel` 的异步 reject、`pipeline` 阶段里的 throw，都会把那一项标成 `null`，你光看最后剩几条，容易误以为是数据丢了。（注意：`parallel` thunk 里的**同步** throw 不会变 `null`，而是抛穿 `parallel` 调用、崩掉整个 run——见 [C.6](#c6-韧性与验证) 与 [C.2「只传 thunk」](#c2-结构与编排)。）
   - **落地**：`log(\`pipeline kept ${ok.length}/${items.length}\`)`。详见 [附录 B · B.15](#/zh/app-b)。
 
 - [ ] **把 `taskId`/`runId` 收好。**
@@ -116,7 +116,7 @@
   - **落地**：用 `parallel` 派出多个评委各打各的分，最后用 `votesA/votesB` 计票。见 [第 14 章 · 评委面板](#/zh/p3-14)。
 
 - [ ] **消费 `parallel`/`pipeline` 结果前一律 `.filter(Boolean)`。** ⚠️
-  - **为什么**：抛了错、或者被跳过的那个位置就是 `null`，你不过滤掉，后面 `.map(r => r.x)` 就会抛错。
+  - **为什么**：异步 reject（thunk 返回 rejected promise 或 `async` 抛错）、或 `pipeline` 阶段里 throw 的那个位置就是 `null`，你不过滤掉，后面 `.map(r => r.x)` 就会抛错。`.filter(Boolean)` 只兜得住这类 `null`——**接不住** `parallel` thunk 里的**同步** throw：那种会直接抛穿 `parallel` 调用、崩掉整个 run。所以可能同步抛错的逻辑别裸放进 thunk（见 [C.2「只传 thunk」](#c2-结构与编排) 与 [附录 B · B.4](#/zh/app-b)）。
   - **落地**：`(await parallel(thunks)).filter(Boolean)`。详见 [附录 B · B.11](#/zh/app-b)。
 
 - [ ] **关键路径不允许丢项时，在 stage 内 `try` 住并返回降级结果，而非抛错。**

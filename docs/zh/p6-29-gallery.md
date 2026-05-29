@@ -332,6 +332,8 @@ flowchart TD
 
 **`CLAUDE_CODE_SUBAGENT_MODEL` 是用户/CI 手上的旋钮，脚本管不着。** 这个环境变量一旦被设上，工作流脚本里写的 `model: 'haiku'`（或者任何 per-call model）就**被静默忽略**——agent 不报错，只是闷头跑成了环境变量指定的那个模型。这次的 607k token，就是 18 个「haiku」agent 实跑 Opus 的直接后果，印证了 `_grounding.md` §A2 的实测结论（Run `wf_9c94951d-58c`：5 个带不同 `model` 选项的 agent 全跑了 Opus）。
 
+**实际上还叠了第二层旋钮。** 严格说，「haiku 实跑 Opus」是**两层环境变量叠加**的结果：除了 `CLAUDE_CODE_SUBAGENT_MODEL`，本会话还设了 `ANTHROPIC_DEFAULT_HAIKU_MODEL`/`SONNET`/`OPUS`，把**模型别名整体重映射**到 Opus（HAIKU/SONNET → `claude-opus-4-7[1m]`、OPUS → `claude-opus-4-6[1m]`，见 `_grounding.md` §A2、Run `wf_e8cb23ff-829`）。所以哪怕没有 `CLAUDE_CODE_SUBAGENT_MODEL`，光是别名重映射这一层也足以把 `model: 'haiku'` 解析成 Opus——这两层都在用户/CI 手上、脚本一样管不着。
+
 **这意味着**：在设了这个变量的会话里，`model: 'haiku'` **省不了钱**。想真省钱，得让用户或 CI 去调 `CLAUDE_CODE_SUBAGENT_MODEL`，脚本作者使不上劲。所以「我给摘要标了 haiku，应该很便宜」这个想当然的假设，在受控的 CI/会话环境里**可能完全不成立**——务必以实际 token 用量为准。
 
 </div>

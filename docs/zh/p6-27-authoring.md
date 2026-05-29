@@ -115,7 +115,7 @@ flowchart LR
 `meta` 有两条铁律（都已实测）：
 
 1. **必须是纯字面量**，而且得是脚本的**第一条语句**。不能有变量引用、函数调用、展开运算符、模板插值。运行时在跑脚本体**之前**就把它静态读掉了，所以它必须能被「读」、而不被「跑」。
-2. **`name` 和 `description` 必填**。`description` 就**一行**，会显示在权限确认对话框里（官方）；`whenToUse` 会显示在工作流列表里（官方）。
+2. **`name` 和 `description` 必填**。`description` 就**一行**，会显示在权限确认对话框里（官方类型定义/工具契约）；`whenToUse` 会显示在工作流列表里（官方类型定义/工具契约）。
 
 ```javascript
   export const meta = {
@@ -331,7 +331,7 @@ flowchart LR
 
 校验过了，正式真跑。三件事要心里有数：
 
-1. **门控**：先确认 Workflow 工具可用——最可靠的做法是显式 `CLAUDE_CODE_WORKFLOWS=1`（详见 [第 01 章 §1.5](#/zh/p1-01)）。
+1. **门控**：先确认 Workflow 工具可用——官方的台面入口是 `/config` 里的「Dynamic workflows」行（付费档默认开，Pro 必须从这里手动开）；`CLAUDE_CODE_WORKFLOWS=1` 是 power-user 的底层显式开关，**不取代** `/config`（详见 [第 01 章 §1.5](#/zh/p1-01)）。
 2. **怎么调**：脚本落盘后用 `Workflow({ scriptPath: '...' })` 触发（`scriptPath` 的优先级高于内联 `script` 和具名 `name`）。也可以在消息里带个 `workflow`/`workflows` 关键词来触发（`ultrawork` 已不再是触发词，见 [第 01 章 §1.5](#/zh/p1-01)）。
 3. **返回是异步的**：Workflow 工具**立即返回** `taskId` 和 `runId`（形如 `wf_...`），**不阻塞**。真正跑完时，由 `<task-notification>` 回传 `usage` 和 `result`。
 
@@ -399,7 +399,7 @@ flowchart LR
 
 创作工作流时，这是最容易被「带节奏」的一个问题。社区里常把「Workflow + MCP」当卖点来吹，好像不接 MCP 就没把 Workflow 的威力使出来。**这话夸大了。** 我们用实测数据把它说清楚。
 
-**第一个事实：多数工作流根本不需要 MCP。** 官方 6 个示例里，**4 个零 MCP**——它们要的无非是文件读写、shell、代码分析，这些 subagent 原生就有（Read/Write/Bash/Grep）。本书三个真跑示例（review-spa / dead-code-scan / feedback-themes）**也全部零 MCP**：审 SPA、扫死代码、聚类反馈，靠 subagent 自带的文件工具就够了。所以默认的假设就该是「**我不需要 MCP**」，而不是反着来。
+**第一个事实：多数工作流根本不需要 MCP。** 第三方仓库 `claude-code-workflow-creator` 的 6 个示例里，**4 个零 MCP**——它们要的无非是文件读写、shell、代码分析，这些 subagent 原生就有（Read/Write/Bash/Grep）。（官方自带的 bundled 工作流只有 `/deep-research` 一个，这 6 例并非官方出品，见 [附录 E](#/zh/app-e)。）本书三个真跑示例（review-spa / dead-code-scan / feedback-themes）**也全部零 MCP**：审 SPA、扫死代码、聚类反馈，靠 subagent 自带的文件工具就够了。所以默认的假设就该是「**我不需要 MCP**」，而不是反着来。
 
 **第二个事实：默认 subagent 启动时手里 0 个 `mcp__` 工具。** 实测探针（Run `wf_1d4c6a71-56a`）显示，默认的 `workflow-subagent` 类型一启动**连一个 `mcp__` 工具都没有**——本机是「延迟工具环境」。但它带着 `ToolSearch`，可以**按需加载** MCP 工具再去调用。
 
@@ -408,7 +408,7 @@ flowchart LR
 ```mermaid
 flowchart TD
     Q{"这个 agent 的活，<br/>subagent 自带工具够吗?<br/>(Read/Write/Bash/Grep)"}
-    Q -->|"够（多数情况）"| N["不用 MCP<br/>官方 6 例中 4 例如此"]
+    Q -->|"够（多数情况）"| N["不用 MCP<br/>第三方 6 例中 4 例如此"]
     Q -->|"不够：要查外部库文档/<br/>专有数据源等"| Y["在那个 agent 的 prompt 里<br/>让它 ToolSearch 加载所需 mcp__ 工具"]
     Y --> R["实测端到端可用<br/>wf_d8aa0772-ced (context7)"]
 ```
@@ -515,7 +515,7 @@ flowchart TD
 - **⑥ 校验**（§27.6）：`validate-workflow.mjs` 零成本本地 lint，详见第 28 章。
 - **⑦ 真跑**（§27.7）：`CLAUDE_CODE_WORKFLOWS=1`，`Workflow({ scriptPath })` 异步返回 `runId`；编排本身 0 token（`wf_59bf3654-183`）。
 - **⑧ 迭代 + 收尾**（§27.8）：`resumeFromRunId` 复用最长未改动的 `agent()` 前缀，秒级返回缓存、0 新 token（`wf_9c94951d-58c`）；仅同会话、续传前先停掉上次运行。跑顺后官方收尾——按 `s` 存成 `/` 命令（轻），或把 `.js` 收进 `.claude/workflows/` 用 `{ name }` 调用（重，见 [第 25 章](#/zh/p5-25)）。
-- **⑨ 我需要 MCP 吗**（§27.9）：**多数不需要**（官方 6 例里 4 例零 MCP，本书三个示例也全部零 MCP）；默认 subagent 持 0 个 `mcp__` 工具，但有 `ToolSearch` 能按需加载；context7 端到端实测跑通（`wf_d8aa0772-ced`）。结论是「要用时能用」，不是卖点。
+- **⑨ 我需要 MCP 吗**（§27.9）：**多数不需要**（第三方仓库 `claude-code-workflow-creator` 的 6 例里 4 例零 MCP，官方自带的只有 `/deep-research`；本书三个示例也全部零 MCP）；默认 subagent 持 0 个 `mcp__` 工具，但有 `ToolSearch` 能按需加载；context7 端到端实测跑通（`wf_d8aa0772-ced`）。结论是「要用时能用」，不是卖点。
 
 创作流程往下接的是「校验与调试」——脚本写出来了，怎么在它崩之前、崩之后都能稳稳地定位问题？
 

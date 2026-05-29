@@ -22,7 +22,7 @@
 
 ### The three calling entries: `script` / `name` / `scriptPath`
 
-On road two, first sort out the difference between the three calling forms — they map to the three mutually exclusive (by priority) entry fields of `WorkflowInput` (source: `assets/_grounding.md` section B):
+On road two, first sort out the difference between the three calling forms — they map to the three mutually exclusive entry fields of `WorkflowInput` (`scriptPath` wins) (source: `assets/_grounding.md` section B):
 
 | Entry field | Meaning | Applicable stage |
 |---|---|---|

@@ -201,12 +201,12 @@ return results.filter(Boolean)
 这里有几处工程细节，呼应了基础篇的硬约束：
 
 - **每个 `agent()` 显式传 `phase`。** 在 pipeline 内部别写 `phase('Generate')` 这种全局调用，而是给每个 `agent()` 传 `phase: 'Generate'`——否则多个目标的 agent 会**抢同一个全局 `phase()`**，进度树就乱了（`_grounding.md` 明确建议）。
-- **用 `.then()` 把上一阶段的产物「带下去」。** pipeline 的每个 stage 回调拿到的是 `(prevResult, originalItem, index)`，可我们常常得把「原始 spec + 上一阶段代码 + 本阶段产物」一起递给下一阶段。用 `.then()` 攒一个合并对象，是 pipeline 链里传递富上下文的标准手法（第 08 章、第 17 章都这么干）。
+- **用 `.then()` 把上一阶段的产物「带下去」。** pipeline 的每个 stage 回调拿到的是 `(prevResult, originalItem, index)`，可我们常常得把「原始 spec + 上一阶段代码 + 本阶段产物」一起递给下一阶段。用 `.then()` 拼一个合并对象，是 pipeline 链里传递完整上下文的标准手法（第 08 章、第 17 章都这么干）。
 - **`.filter(Boolean)` 不可省。** 某个目标在任一阶段抛错（或被用户跳过），这个 item 就会变成 `null`；收口前必须先把它滤掉（`_grounding.md`）。
 
 <div class="callout warn">
 
-**pipeline 的墙钟 ≈ 最慢的那条 GCF 链，而不是「所有 Generate 之和 + 所有 Critique 之和 + 所有 Fix 之和」。** 这正是 pipeline「阶段间无屏障」带来的关键优势（第 08 章）：目标 A 还在 Fix 的时候，目标 B 可能已经跑到 Critique 了。但要留意并发上限是 `min(16, CPU 核心数 − 2)`（官方），超出的 agent 会**排队**——目标数远超核心数时，排队会把墙钟拖长。
+**pipeline 的墙钟 ≈ 最慢的那条 GCF 链，而不是「所有 Generate 之和 + 所有 Critique 之和 + 所有 Fix 之和」。** 这正是 pipeline「阶段间无屏障」带来的关键优势（第 08 章）：目标 A 还在 Fix 的时候，目标 B 可能已经跑到 Critique 了。但要留意并发上限是 `min(16, CPU 核心数 − 2)`（工具契约/实测），超出的 agent 会**排队**——目标数远超核心数时，排队会把墙钟拖长。
 
 </div>
 

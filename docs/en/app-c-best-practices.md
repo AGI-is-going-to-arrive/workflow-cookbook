@@ -76,7 +76,7 @@
   - **How**: a phase switch, how many items survived a filter, why something exited early — they all deserve a `log`. Real scripts commonly do this. See [Chapter 9 · Progress, Logs, Resume, Budget](#/en/p2-09).
 
 - [ ] **Explicitly record "dropouts/downgrades."**
-  - **Why**: `parallel`/`pipeline` use `null` to mark an item that failed; if you only look at the final count, you'll misread it as data loss.
+  - **Why**: `parallel`'s async rejects and throws inside a `pipeline` stage both mark that item `null`; if you only look at the final count, you'll misread it as data loss. (Note: a **sync** throw inside a `parallel` thunk does *not* turn into `null` — it throws through the `parallel` call and crashes the whole run; see [C.6](#c6-resilience-verification) and [C.2 "only thunks"](#c2-structure-orchestration).)
   - **How**: `log(\`pipeline kept ${ok.length}/${items.length}\`)`. See [Appendix B · B.15](#/en/app-b).
 
 - [ ] **Keep the `taskId`/`runId`.**
@@ -116,7 +116,7 @@
   - **How**: use `parallel` to dispatch several judges that each score on their own, then tally `votesA/votesB`. See [Chapter 14 · Judge Panel](#/en/p3-14).
 
 - [ ] **Always `.filter(Boolean)` `parallel`/`pipeline` results before consuming.** ⚠️
-  - **Why**: a position that threw or got skipped is `null`; skip the filter and the `.map(r => r.x)` that follows will throw.
+  - **Why**: a position that async-rejected (a thunk returning a rejected promise, or an `async` throw) or that threw inside a `pipeline` stage is `null`; skip the filter and the `.map(r => r.x)` that follows will throw. `.filter(Boolean)` only catches *that* kind of `null` — it **can't** catch a **sync** throw inside a `parallel` thunk: that throws straight through the `parallel` call and crashes the whole run. So don't put logic that might throw synchronously bare inside a thunk (see [C.2 "only thunks"](#c2-structure-orchestration) and [Appendix B · B.4](#/en/app-b)).
   - **How**: `(await parallel(thunks)).filter(Boolean)`. See [Appendix B · B.11](#/en/app-b).
 
 - [ ] **When the critical path can't drop items, `try` within the stage and return a degraded result rather than throwing.**

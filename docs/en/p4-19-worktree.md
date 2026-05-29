@@ -51,7 +51,7 @@ flowchart TD
 
 <div class="callout info">
 
-**Official semantics (per `_grounding.md` section B, agent opts)**: `opts.isolation: 'worktree'` makes the agent "run in an independent git worktree," and spells out two properties — **expensive** (use only when parallel file edits would collide), and **auto-cleaned if no changes** (if the agent ends up making no file changes, the corresponding worktree is automatically reclaimed). The finer runtime mechanics in this chapter — "how to merge worktree changes," "the worktree path" — aren't given by the sources, so they're marked "(to be verified)," not guessed at.
+**Official semantics (per `_grounding.md` section B, agent opts)**: `opts.isolation: 'worktree'` makes the agent "run in an independent git worktree." The tool contract spells out two properties — **expensive** (~200–500ms startup + disk overhead per agent; use only when parallel file edits would collide), and **auto-removed if unchanged** (if the agent ends up making no file changes, the corresponding worktree is automatically reclaimed). **The worktree path is verified**: the working directory lands at `<repo>/.claude/worktrees/wf_<runId>-<n>/`, and it's a **real git worktree** — `git rev-parse --show-toplevel` points to that isolated directory, and `git rev-parse --git-dir` is `<repo>/.git/worktrees/wf_<runId>-<n>` (measured `wf_d9a10c19-b65-2`). But the finer runtime mechanics — "how to merge worktree changes," "the exact cleanup timing," "the branch name" — are confirmed by neither the official docs nor testing here, so they stay "(to be verified)," not guessed at.
 
 </div>
 

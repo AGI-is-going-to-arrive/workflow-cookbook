@@ -82,7 +82,7 @@ Here's what it **actually returned** (source: `assets/transcripts/primitives.md`
 
 This skeleton already has every element of adversarial verification; let's pull them apart one by one:
 
-**First, the verifier is a brand-new agent.** The Verify stage's `agent()` call and the Find stage are **two entirely independent subagents** — independent context, independent token budget (confirmed by real data: 3 items × 2 stages = `agent_count=6`). Verify doesn't see "the bug I generated"; it sees "a claim to be checked, `found.example`."
+**First, the verifier is a brand-new agent.** The Verify stage's `agent()` call and the Find stage are **two entirely independent subagents** — independent context (tokens draw from the shared run budget, not a separate per-agent one) (confirmed by real data: 3 items × 2 stages = `agent_count=6`). Verify doesn't see "the bug I generated"; it sees "a claim to be checked, `found.example`."
 
 **Second, the verifier is told to judge, not to restate.** The prompt asks "Is this genuinely a ... bug?" — a yes/no question that forces it to take a stance.
 

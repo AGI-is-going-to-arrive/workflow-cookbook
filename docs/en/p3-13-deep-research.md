@@ -31,6 +31,8 @@ flowchart LR
 **Where it differs from a "search engine" or a "single web lookup"**: a search engine hands you a pile of links and leaves the judging to you; a single web lookup gives you one agent's one-shot impression. The deep research recipe adds two layers — **multi-angle fan-out** (reduces single-perspective blind spots) and **adversarial verification** (reduces "confidently wrong"). What you get is not "search results" but **an auditable report where every conclusion hangs off a primary source.**
 
 > Worth noting: `/deep-research` is the **only named workflow Claude Code bundles** — you don't have to write a script yourself; just type `/deep-research <your question>` to run it (the WebSearch tool must be available). Its command-line usage is in [The Official Control Panel §6](#/en/p2-ops); this chapter, by contrast, takes apart **how the orchestration behind it is built**, so you can model your own research pipeline on it.
+>
+> One distinction to keep straight: the bundled `/deep-research` is officially described as **voting on each claim** to filter (multiple agents tally votes, and claims that don't survive get filtered out — see [The Official Control Panel §6](#/en/p2-ops)); **this chapter's script is not the bundled implementation but an equivalent-goal reconstruction variant** — it swaps that step for "adversarial item-by-item verification" (an independent agent goes back to primary sources and falsifies claim by claim). Same goal, different mechanism — don't take this chapter's script as the code `/deep-research` actually runs internally.
 
 </div>
 
@@ -165,7 +167,7 @@ The retrieval agents did **real web retrieval** and traced sources back to prima
 
 <div class="callout info">
 
-**Reading the numbers**: 4 agents, ~150k tokens, in line with the rule of thumb "tokens ≈ agent count × per-agent context (~25k–30k)." But `duration_ms=298530` (~5 minutes) runs far higher than a pure-reasoning task with the same agent count (compare Chapter 14's judge panel: 5 agents in just 79 seconds) — **almost all of that 5-minute gap goes to the subagents' real web retrieval and fetching.** This is also why 13.8 "Design Point ④" stresses `log`: retrieval is slow, so make the wait visible.
+**Reading the numbers**: 4 agents, ~150k tokens, in line with the rule of thumb "tokens ≈ agent count × per-agent context (~30k–40k)" (here `148975 / 4 ≈ 37K/agent`, same order of magnitude as Chapter 14's `201852 / 5 ≈ 40K/agent`). But `duration_ms=298530` (~5 minutes) runs far higher than a pure-reasoning task with the same agent count (compare Chapter 14's judge panel: 5 agents in just 79 seconds) — **almost all of that 5-minute gap goes to the subagents' real web retrieval and fetching.** This is also why 13.8 "Design Point ④" stresses `log`: retrieval is slow, so make the wait visible.
 
 </div>
 

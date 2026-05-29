@@ -109,7 +109,12 @@ export const meta = {
 
 <div class="callout warn">
 
-**脚本里不能用 `Date.now()`、`Math.random()`、无参 `new Date()`**——一用就报错。为什么？1.7 节「续传」会细讲：这三个家伙每次结果都不一样，会打破「同样的脚本必然跑出同样的结果」这个前提，断点续传就废了。要时间戳？用 `args` 传进来。要随机性？拿 agent 的下标（index）去改提示词。
+**脚本里不能用 `Date.now()`、`Math.random()`、无参 `new Date()`**——而且拦你的是两道关，不是一道：
+
+1. **提交期源码扫描**：脚本源码里只要**任何位置**出现这几个字面量——哪怕写在注释里、写在一个根本不会执行的闭包里、写在字符串里——整段脚本在**真正跑起来之前**就被拒了，连执行都进不去，这一层你**接不住**（`try/catch` 没用，因为它压根没运行）。
+2. **运行时陷阱**：就算你用动态手段把第一层绕过去（比如拐着弯拿到 `Date`、源码里看不到字面 token，脚本也被放行了），运行时这些全局也已经被改造过，**一调用照样抛错**。这层倒是能 `try/catch` 接住，但别去依赖它。
+
+为什么管这么严？1.7 节「续传」会细讲：这三个家伙每次结果都不一样，会打破「同样的脚本必然跑出同样的结果」这个前提，断点续传就废了。所以别写、也别绕。要时间戳？用 `args` 传进来，或等工作流跑完了在外面补盖。要随机性？拿 agent 的下标（index）去改提示词。
 
 </div>
 
@@ -188,7 +193,7 @@ sequenceDiagram
 
 <div class="callout tip">
 
-**「异步 + 后台」这个设计有什么用？** 你可以一口气启动好几个工作流，让它们一起并行跑，自己手头接着干别的，谁跑完了谁通知你。本书后面会大量用到这一招。但有一点别忘了：正因为是异步的，**Workflow 工具的返回值并不是工作流的结果**，只是一张「我已经启动了」的回执——真正的结果在完成通知里。
+**异步 + 后台，让你能同时压上好几个工作流。** 你可以一口气启动好几个工作流，让它们一起并行跑，自己手头接着干别的，谁跑完了谁通知你。本书后面会大量用到这一招。但有一点别忘了：正因为是异步的，**Workflow 工具的返回值并不是工作流的结果**，只是一张「我已经启动了」的回执——真正的结果在完成通知里。
 
 </div>
 
@@ -210,12 +215,14 @@ sequenceDiagram
 **官方台面入口（你该这么做，信源=官方文档）：**
 
 1. **确认版本**：`claude --version` 得是 **v2.1.154 及以上**（官方最低要求）。
-2. **看账户档**：所有付费档都能用——Anthropic API、Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry 也都覆盖。**Pro 用户**得自己在 `/config` 里找到 **"Dynamic workflows"** 那一行，手动打开。
+2. **怎么开**：除 Pro 外的付费计划**默认就开着**，什么都不用做。**Pro 计划**要在 `/config` 里找到 **"Dynamic workflows"** 那一行手动打开。所有付费计划都能用，也支持 Anthropic API 以及 Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry。
 3. **0 成本确认**：随口说一句带 `workflow` 的话，看 Claude 会不会改去写工作流脚本；或者敲 `/effort`，看菜单里有没有 `ultracode` 这一挡（见 §1.6）——看得到就说明它在你的会话里可用了。
+
+不想用了，**怎么关**（下面任选一种，都会一直生效）：在 `/config` 里关掉；或在 `~/.claude/settings.json` 写 `"disableWorkflows": true`；或设环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`（启动时读取）。**整个团队/组织一起关**：在 managed settings 里写 `"disableWorkflows": true`，或用 Claude Code 管理后台的开关。关掉之后：bundled 命令（如 `/deep-research`）用不了，prompt 里的 `workflow` 关键词不再触发，`ultracode` 也会从 `/effort` 菜单里消失。
 
 **底层 flag（原理层 / power-user，信源=客户端二进制 + 本机 `printenv`）：**
 
-台面之下，工具到底亮不亮，由环境变量 `CLAUDE_CODE_WORKFLOWS` + 服务端开关 `tengu_workflows_enabled` + 账户类型共同决定，客户端里那段判断逻辑叫 `FX5`。写这本书的会话里，`printenv` 实测这个变量在场、值就是 `1`，工具也确实可用：
+上面那套（`/config`／默认开 + 关闭三法）才是官方给的开关路径。台面之下其实还有一个环境变量 `CLAUDE_CODE_WORKFLOWS`，但要先说清楚：它**不是官方文档给的开启方式**——官方记录的环境变量只有**关闭**用的那个 `CLAUDE_CODE_DISABLE_WORKFLOWS`。`CLAUDE_CODE_WORKFLOWS` 是从客户端二进制里观测到的一个底层开关（本书的测试环境里恰好设着它），别把它当成「必须设了才能用」。说原理：工具到底亮不亮，由这个环境变量 + 服务端开关 `tengu_workflows_enabled` + 账户类型共同决定，客户端里那段判断逻辑叫 `FX5`。写这本书的会话里，`printenv` 实测这个变量在场、值就是 `1`，工具也确实可用：
 
 ```text
 CLAUDE_CODE_WORKFLOWS = 1
@@ -247,7 +254,7 @@ CLAUDE_CODE_WORKFLOWS=1 claude
 
 <div class="callout warn">
 
-**为什么要有这道开关？** 一个工作流可能一下扇出几十个 subagent、烧掉一大把 token。拿开关挡在前面，是提醒你「清楚自己在干嘛」。工具定义也反复强调：**只有用户明确选了多 Agent 编排，Claude 才去调工作流**——别光凭「这任务并行一下好像更快」就擅自启动。
+**这道开关是一道「确认你在干嘛」的闸。** 一个工作流可能一下扇出几十个 subagent、烧掉一大把 token。拿开关挡在前面，就是提醒你心里有数。工具定义也反复强调：**只有用户明确选了多 Agent 编排，Claude 才去调工作流**——别光凭「这任务并行一下好像更快」就擅自启动。
 
 </div>
 
@@ -381,6 +388,8 @@ if (effort === "ultracode" && workflowsAvailable())
 ### 断点续传：同样的脚本，秒级缓存命中
 
 还记得 1.2 节那条「不准用 `Date.now()`」吗？原因现在揭晓。Workflow 支持**断点续传**：用 `{ scriptPath, resumeFromRunId }` 重新调用，**没改过的 `agent()` 调用会直接吐出缓存结果**（秒级返回），只有被你改过的、以及排在它后面的调用，才会重新真跑一遍。
+
+不过续传**只在同一个 Claude Code 会话里有效**：会话还开着，你停了再续，缓存就在。可一旦你退出了 Claude Code，下次再进来，这个工作流是**从头跑**的——官方明说「退出后下次会话从头开始」，没有跨会话的持久化。
 
 > 「同样的脚本 + 同样的 args → 100% 缓存命中。」——这就要求脚本每次跑的过程都能**原样重放**。`Date.now()` / `Math.random()` 每次结果都不一样，重放就对不上了，所以干脆禁掉。要时间戳？等工作流跑完了在外面补盖一个，或者用 `args` 传进去。
 

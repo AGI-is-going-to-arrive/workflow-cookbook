@@ -51,7 +51,7 @@ flowchart TD
 
 <div class="callout info">
 
-**官方语义（据 `_grounding.md` B 节 agent opts）**：`opts.isolation: 'worktree'` 让这个 agent「在独立 git worktree 运行」，并明确写了两条性质——**昂贵**（仅当并行改文件会冲突时用），以及**无改动自动清理**（agent 最终没产生文件改动的话，对应的 worktree 会被自动回收）。本章其余那些更细的运行机制，比如「怎么合并 worktree 改动」「worktree 路径」，事实源没给，一律标「（待核实）」，不瞎猜。
+**官方语义（据 `_grounding.md` B 节 agent opts）**：`opts.isolation: 'worktree'` 让这个 agent「在独立 git worktree 运行」。工具契约写明两条性质——**昂贵**（约 200–500ms 启动 + 磁盘开销/agent，仅当并行改文件会冲突时用），以及**无改动则自动移除**（agent 最终没产生文件改动的话，对应的 worktree 会被自动回收）。**worktree 路径已实测确认**：工作目录落在 `<repo>/.claude/worktrees/wf_<runId>-<n>/`，是**真正的 git worktree**——`git rev-parse --show-toplevel` 指向该隔离目录，`git rev-parse --git-dir` 是 `<repo>/.git/worktrees/wf_<runId>-<n>`（实测 `wf_d9a10c19-b65-2`）。但更细的运行机制，比如「怎么合并 worktree 改动」「确切的清理时机」「分支名」，官方与本机实测都没拿到确证，维持「（待核实）」，不瞎猜。
 
 </div>
 

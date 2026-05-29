@@ -186,7 +186,7 @@ await agent(prompt, {
 | `phase` | 【官方】 | 显式归组；与 `meta.phases.title` 精确匹配。**在 pipeline/parallel 内部务必用它**，避免对全局 `phase()` 的竞争。（第三方称不参与续传缓存键，本书未独立核实。） |
 | `schema` | 【官方】 | JSON Schema；校验在工具调用层，故模型会自动重试到合规。（第三方称参与续传缓存键，本书未独立核实。） |
 | `model` | 【官方】 | 覆盖该 agent 模型；**省略则继承主循环模型**（推荐，除非用户指定或任务足够简单可用 `'haiku'`）。注意会被 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖（见 A.4）。（第三方称参与续传缓存键，本书未独立核实。） |
-| `isolation: 'worktree'` | 【官方】【实测】 | 在全新 git worktree 运行；**昂贵**（约 200–500ms 启动 + 磁盘/agent），仅当并行 agent 改文件会冲突时用；无改动自动清理。**注意**：「返回 worktree 路径与分支」是 Agent 工具定义在**工具结果信封层**的说法，**不是脚本里 `agent()` 的返回值**——R9 实测（`wf_17307da4-707`）：一个在 worktree 里建文件的 `agent({isolation:'worktree'})`，脚本拿到的是 agent 的常规输出（无 schema 即 `string`），不是 `{path,branch}` 对象；实测 worktree 落在 `.claude/worktrees/wf_<runId>-N`、分支名 `worktree-wf_<runId>-N`。（第三方称参与续传缓存键，本书未独立核实。） |
+| `isolation: 'worktree'` | 【官方】【实测】 | 在全新 git worktree 运行；**昂贵**（约 200–500ms 启动 + 磁盘/agent），仅当并行 agent 改文件会冲突时用；无改动则自动移除（工具契约里有这条，但**确切的清理时机本书未实测确证**）。**注意**：「返回 worktree 路径与分支」是 Agent 工具定义在**工具结果信封层**的说法，**不是脚本里 `agent()` 的返回值**——R9 实测（`wf_17307da4-707`）：一个在 worktree 里建文件的 `agent({isolation:'worktree'})`，脚本拿到的是 agent 的常规输出（无 schema 即 `string`），不是 `{path,branch}` 对象。**实测确认的只有工作目录名**：worktree 落在 `.claude/worktrees/wf_<runId>-<n>`（本次 `wf_d9a10c19-b65-2`，`git rev-parse --show-toplevel` 指向该目录）；至于**分支名、合并回主树的机制**，官方与本机实测都未取得确证，先按未核实对待（早前写的 `worktree-wf_<runId>-N` 这个分支名未经实测，已撤回）。（第三方称参与续传缓存键，本书未独立核实。） |
 | `agentType` | 【官方】【实测有校验】 | 用自定义 subagent 类型而非默认；**与 Agent 工具同一注册表解析**；与 `schema` 可组合（自定义 agent 的系统提示会被追加 StructuredOutput 指令）。（第三方称参与续传缓存键，本书未独立核实。） |
 
 ### `agentType` 有校验，`model` 没有：一个真实的不对称【实测】
@@ -358,6 +358,7 @@ const n = input.n ?? 1   // 现在可安全读字段
 *官方台面入口（你该怎么做，信源=官方文档）*：
 - ① 确认版本：`claude --version` ≥ **v2.1.154**（官方最低要求）；
 - ② 确认账户：**所有付费档都可用**，Anthropic API、以及 Amazon Bedrock / Google Cloud Vertex AI / Microsoft Foundry 上也都可用；**Pro 用户需在 `/config` 里找到 "Dynamic workflows" 这一行手动打开**。【官方】
+- ③ **想关掉**（下面任选一种，都会一直生效）：在 `/config` 里关掉；或在 `~/.claude/settings.json` 写 `"disableWorkflows": true`；或设环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`（启动时读取）。**整个团队/组织一起关**：在 managed settings 里写 `"disableWorkflows": true`，或用 Claude Code 管理后台的开关。关掉之后：bundled 命令（如 `/deep-research`）用不了，prompt 里的 `workflow` 关键词不再触发，`ultracode` 也会从 `/effort` 菜单里消失。【官方】
 
 *底层 flag（原理层 / power-user，信源=客户端二进制 + 本机 `printenv`）*：可用性在客户端逻辑函数 **`FX5`** 里由 `CLAUDE_CODE_WORKFLOWS` + 服务端 flag `tengu_workflows_enabled` + 账户类型共同决定。
 - `CLAUDE_CODE_WORKFLOWS=1` → power-user 的显式开关（本书会话 `printenv` 实测 `=1` 且工具可用）；`=0` → 强制关；不设 → 看服务端 flag。
@@ -387,7 +388,7 @@ const n = input.n ?? 1   // 现在可安全读字段
 |---|---|---|
 | 运行中插入用户输入 | **不行**——一个 run 跑起来后中途**不能**塞用户输入；**只有 agent 的权限提示能暂停它**。需要阶段间签收，就把每个阶段拆成**独立 workflow** | 【官方】 |
 | 脚本对文件系统 / shell 的访问 | **脚本本身没有**——读写文件、跑命令全由 **agent** 干，脚本只负责编排（这也解释了 A.3「脚本体里 `require`/`process`/`fetch` 全 `undefined`」那条实测） | 【官方】（+ [A.3](#a3-脚本结构与执行环境) 实测佐证） |
-| 单工作流同时运行 agent | **最多 16 个并发**（CPU 核心少的机器更少；合上二进制下限即 `min(16, max(2, 核心 − 2))`），超出**排队**（非报错） | 【官方】（下限 `max(2,…)` 见 [A.14](#a14-第三方未核实清单谨慎) 二进制确认） |
+| 单工作流同时运行 agent | **最多 16 个并发**（CPU 核心少的机器更少；合上二进制下限即 `min(16, max(2, 核心 − 2))`），超出**排队**（非报错） | 【官方】「最多 16、核少更少、超出排队」；精确 `min(16, 核心−2)` 属**工具契约**（下限 `max(2,…)` 见 [A.14](#a14-第三方未核实清单谨慎) 二进制确认） |
 | 单 run `agent()` 总数上限 | **1000**（失控循环兜底 "runaway-loop backstop"） | 【官方】 |
 | 脚本体积上限 | **524288 字节（512KB）**（input-schema 的 `script.maxLength`） | 【官方】 |
 | `workflow()` 嵌套层数 | **1 层**（子工作流内再调 `workflow()` 抛错） | 【官方】【实测】 |
@@ -429,7 +430,7 @@ const n = input.n ?? 1   // 现在可安全读字段
 | 第三方声称 | 本书态度 |
 |---|---|
 | 错误类名 `WorkflowAgentCapError` / `WorkflowBudgetExceededError` | **R10 二进制确认存在**（`this.name="WorkflowAgentCapError"`、`"WorkflowBudgetExceededError"`；证据 `effort-ultracode-r10.md §H`）。属二进制字符串确认、非 runtime 触发。 |
-| 并发**下限** `max(2, cores−2)` | **R10 二进制确认**（`Math.max(2,H-2)` + `cpus()`）；配合官方上限 `min(16, 核心−2)`。二进制确认、非 runtime 触发。 |
+| 并发**下限** `max(2, cores−2)` | **R10 二进制确认**（`Math.max(2,H-2)` + `cpus()`）；配合工具契约上限 `min(16, 核心−2)`（上限「16」为官方、精确 −2 属工具契约）。二进制确认、非 runtime 触发。 |
 | `stallMs` 默认 **180000ms**、停滞重试 **≤5 次** | **R10 二进制确认**（`AG3=180000`；紧邻常量 `i7K=5`，使用点未逐行追）。证据 `effort-ultracode-r10.md §H`。二进制确认、非 runtime 触发。 |
 | 预算耗尽时在途 agent 完成且结果保留、不再启新 agent | **未核实**。 |
 | schema 经 **AJV** 校验；subagent 不调工具时「最多再催两次」 | **AJV：R10 二进制确认**（`ajv`×55 + `StructuredOutput schema mismatch`）。**「最多再催两次」：二进制无 `up to twice` 字符串、存疑**。本书只断言「带 schema 必返回已验证对象、不匹配则重试」，不断言确切次数。 |

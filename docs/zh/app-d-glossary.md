@@ -87,7 +87,7 @@
 | **label / 标签** | `opts.label`，用来覆盖 `/workflows` 和 transcript 里的显示名；label 起得有描述性，定位和搜索都方便。 | [第 6 章](#/zh/p2-06) |
 | **opts.phase** | 明确把这个 agent 归到某个进度组里；**在 parallel/pipeline 内部必用**（不然会去抢全局 `phase()`）。 | [第 6 章](#/zh/p2-06) / [附录 B · B.12](#/zh/app-b) |
 | **model（opts）** | 覆盖这个 agent 用的模型；不写就继承主循环的模型；简单任务可以用 `'haiku'`。 | [第 6 章](#/zh/p2-06) |
-| **isolation: 'worktree'** | 让这个 agent 在一个独立的 git worktree 里跑；**昂贵**，仅当并行改文件会撞车时才用；没改动会自动清理。 | [第 19 章](#/zh/p4-19) |
+| **isolation: 'worktree'** | 让这个 agent 在一个独立的 git worktree 里跑；**昂贵**，仅当并行改文件会撞车时才用。工具契约说没改动会自动清理，但确切的清理时机本书没核实过。 | [第 19 章](#/zh/p4-19) |
 | **agentType** | 用自定义的 subagent 类型（比如 `'Explore'`、`'code-reviewer'`），跟 Agent 工具走的是同一个注册表来解析；可以跟 `schema` 一起用。**有校验**：填了个不认识的值，在生成模型前（0 token）就抛错，还把可用的 agent 列给你（Run `wf_a222f20f-0f5`）——跟无校验的 `model` 正好是个对比。 | [第 6 章](#/zh/p2-06) / [附录 B · B.21](#/zh/app-b) |
 | **workflow-subagent** | `agent()` 没指定 `agentType` 时用的**默认 subagent 类型**；它继承会话的 file/shell/Skill/ToolSearch 工具（延迟环境下默认 0 个 `mcp__` 工具、要用可经 ToolSearch 按需加载）。每个 agent 的 sidecar `agent-<id>.meta.json` 都记着这个类型（Run `wf_1d4c6a71-56a`）。 | [附录 E · R4 MCP 记录](#/zh/app-e) |
 
@@ -105,7 +105,7 @@
 | **agent 总数上限 / agent cap** | 单个工作流整个生命周期里 agent 总数的硬上限 **1000**（用来给失控循环兜底）。 | [附录 A · A.9](#/zh/app-a) |
 | **脚本体积上限 / script size cap** | 单个脚本的上限 **524288 字节（512KB）**（就是工具 input-schema 里的 `script.maxLength`）。 | [附录 A · A.9](#/zh/app-a) |
 | **VM 同步超时 / sync timeout** | 脚本**同步**执行的硬上限 **30000ms**——长的同步循环（比如 `for(;;){}`）会被掐断、workflow 变 `failed`（原文 `Error: Script execution timed out after 30000ms`，实测耗时 30222ms，Run `wf_e3b2b123-5f4`）。它**只约束同步段**：带 `await agent()` 的异步工作流跑上几分钟都没事。 | [附录 E · R4 沙箱记录](#/zh/app-e) |
-| **WorkflowAgentCapError / WorkflowBudgetExceededError** | 撞到 1000 agent 上限 / 预算耗尽时报的那个错误**类名**。官方只讲了行为、**未给类名**——这俩类名属于**社区第三方资料声称，本书未独立实测**（没触发过这两个上限）。 | [附录 E · 参考解读](#/zh/app-e) |
+| **WorkflowAgentCapError / WorkflowBudgetExceededError** | 撞到 1000 agent 上限 / 预算耗尽时报的那个错误**类名**。官方只讲了行为、**未给类名**——这俩类名已由本书 **R10 二进制核查确认存在**（`effort-ultracode-r10.md §H`）；仍未实测的只是「撞上限那一刻在途 agent 的处置语义」。 | [附录 E · 参考解读](#/zh/app-e) |
 | **stallMs / 停滞重试** | 据**社区第三方资料声称**：agent 停滞的默认阈值是 180000ms、重试 ≤5 次。**本书未核实**（没触发过）。 | [附录 E · 参考解读](#/zh/app-e) |
 
 ---
@@ -131,7 +131,7 @@
 | **缓存命中 / cache hit** | 续传时，没改动过的 `agent()` 调用直接拿现成结果用（零 token、零工具、约 8ms）。实测同脚本+同 args 重跑 = 100% 命中、0 token（Run `wf_9c94951d-58c` 续传）。 | [第 22 章](#/zh/p4-22) |
 | **resume 缓存键 / resume cache key** | 用来判定某个 `agent()` 调用能不能命中缓存的依据。本书**实测确认**：「同脚本+同 args → 100% 命中」（`wf_9c94951d-58c`）；而且 R8 还单独隔离出了 **`label` 不入键、`prompt` 入键**（`wf_4ffde230-535`，改 label→0 token 全命中、改 prompt→91,044 重跑成 60,702≈2/3）。至于 `schema/model/isolation/agentType` 入不入键、`phase` 是不是不入键，据**社区第三方资料声称**、**本书未逐键独立核实**。 | [第 22 章](#/zh/p4-22) |
 | **可重放性 / replayability** | 「同脚本+同输入→同执行路径」这么个性质；它是续传的前提，所以才禁用 `Date.now()`/`Math.random()`/无参 `new Date()`。 | [第 22 章](#/zh/p4-22) |
-| **确定性双层防护 / determinism dual-layer ban** | 拦不确定调用的两道闸：①**字面量**在**提交时**就被源码静态扫描挡掉（脚本不会跑）；②**别名形式**（`const D=Date;D.now()`）骗过了扫描，到**运行时**也会被陷阱抛错。`try/catch` 这两层一层都拦不住（Run `wf_59bf3654-183`）。 | [第 22 章](#/zh/p4-22) / [附录 B · B.19](#/zh/app-b) |
+| **确定性双层防护 / determinism dual-layer ban** | 拦不确定调用的两道闸：①**字面量**在**提交时**就被源码静态扫描挡掉（脚本不会跑）；②**别名形式**（`const D=Date;D.now()`）骗过了扫描，到**运行时**也会被陷阱抛错。`try/catch` 拦不住第一层（提交期被拒、脚本根本没跑）；第二层运行时陷阱**能**被 catch，但别依赖它兜底（Run `wf_59bf3654-183`）。 | [第 22 章](#/zh/p4-22) / [附录 B · B.19](#/zh/app-b) |
 | **对抗验证 / adversarial verification** | 用独立 agent 专门去「挑刺」，把第一版的盲区揪出来的那种模式（比如 Generate-Critique-Fix）。 | [第 17 章](#/zh/p4-17) |
 | **评委面板 / judge panel** | 让多个独立评委照着 rubric 打分、再计票定胜负的 A/B 评估模式。 | [第 14 章](#/zh/p3-14) |
 | **循环到干 / loop-until-dry** | 反复迭代，直到「再榨不出新东西」为止的模式，需要配收敛条件 + 轮次/预算守卫。 | [第 18 章](#/zh/p4-18) |

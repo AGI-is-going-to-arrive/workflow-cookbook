@@ -115,7 +115,7 @@ With the list and the orchestration clear in your head, write `meta` first. This
 `meta` has two iron rules (both measured):
 
 1. **It must be a pure literal**, and the **first statement** of the script. No variable references, function calls, spread operators, or template interpolation. The runtime reads it statically **before** it runs the script body, so it has to be "readable" without being "run."
-2. **`name` and `description` are required**. `description` is **one line** shown in the permission confirmation dialog (official); `whenToUse` is shown in the workflow list (official).
+2. **`name` and `description` are required**. `description` is **one line** shown in the permission confirmation dialog (official type definitions/tool contract); `whenToUse` is shown in the workflow list (official type definitions/tool contract).
 
 ```javascript
   export const meta = {
@@ -332,7 +332,7 @@ This chapter covers this step in a single sentence — **the complete list of va
 
 With validation passed, do the real run. Three things to keep in mind:
 
-1. **Gated**: first make sure the Workflow tool is available — setting `CLAUDE_CODE_WORKFLOWS=1` explicitly is the most reliable way (see [Chapter 01 §1.5](#/en/p1-01)).
+1. **Gated**: first make sure the Workflow tool is available — the official surface entry is the "Dynamic workflows" row in `/config` (on by default on paid plans; on Pro you must turn it on there); `CLAUDE_CODE_WORKFLOWS=1` is a power-user low-level switch that **doesn't replace** `/config` (see [Chapter 01 §1.5](#/en/p1-01)).
 2. **How to call**: once the script is on disk, trigger it with `Workflow({ scriptPath: '...' })` (`scriptPath` takes priority over inline `script` and named `name`). You can also trigger it by dropping the `workflow`/`workflows` keyword into a message (`ultrawork` is no longer a trigger — see [Chapter 01 §1.5](#/en/p1-01)).
 3. **The return is async**: the Workflow tool **returns immediately** with `taskId` and `runId` (shaped like `wf_...`), **non-blocking**. On actual completion, a `<task-notification>` returns `usage` and `result`.
 
@@ -400,7 +400,7 @@ That wraps a full authoring pipeline: intent → list → meta → primitive →
 
 This is the question most easily "spun" when you're authoring workflows. The community often pitches "Workflow + MCP" as a selling point, as if not wiring in MCP means you haven't unleashed Workflow's power. **That's an exaggeration.** Let's lay it out with measured data.
 
-**Fact one: most workflows don't need MCP at all.** Of the official 6 examples, **4 use zero MCP** — all they want is file read/write, shell, code analysis, which subagents have natively (Read/Write/Bash/Grep). The book's three actually-run examples (review-spa / dead-code-scan / feedback-themes) **also all use zero MCP**: reviewing a SPA, scanning dead code, clustering feedback — the subagent's built-in file tools are plenty. So the default assumption should be "**I don't need MCP**," not the other way around.
+**Fact one: most workflows don't need MCP at all.** Of the third-party `claude-code-workflow-creator` repo's 6 examples, **4 use zero MCP** — all they want is file read/write, shell, code analysis, which subagents have natively (Read/Write/Bash/Grep). (The only bundled workflow Claude ships is `/deep-research`; those 6 examples aren't official — see [Appendix E](#/en/app-e).) The book's three actually-run examples (review-spa / dead-code-scan / feedback-themes) **also all use zero MCP**: reviewing a SPA, scanning dead code, clustering feedback — the subagent's built-in file tools are plenty. So the default assumption should be "**I don't need MCP**," not the other way around.
 
 **Fact two: a default subagent holds 0 `mcp__` tools at startup.** A measured probe (Run `wf_1d4c6a71-56a`) shows the default `workflow-subagent` type starts with **not a single `mcp__` tool** — this machine is a "deferred tool environment." But it has `ToolSearch`, which can **load MCP tools on demand** and then call them.
 
@@ -409,7 +409,7 @@ This is the question most easily "spun" when you're authoring workflows. The com
 ```mermaid
 flowchart TD
     Q{"for this agent's job,<br/>are the subagent's built-in tools enough?<br/>(Read/Write/Bash/Grep)"}
-    Q -->|"enough (most cases)"| N["no MCP<br/>4 of 6 official examples are like this"]
+    Q -->|"enough (most cases)"| N["no MCP<br/>4 of 6 third-party examples are like this"]
     Q -->|"not enough: need external<br/>library docs / proprietary data sources etc."| Y["in that agent's prompt,<br/>have it ToolSearch-load the needed mcp__ tools"]
     Y --> R["measured end-to-end working<br/>wf_d8aa0772-ced (context7)"]
 ```
@@ -516,7 +516,7 @@ Boiling "from a one-sentence need to a re-runnable workflow" down into a reusabl
 - **⑥ Validate** (§27.6): `validate-workflow.mjs` as a zero-cost local lint, detailed in Chapter 28.
 - **⑦ Real run** (§27.7): `CLAUDE_CODE_WORKFLOWS=1`, `Workflow({ scriptPath })` returns `runId` asynchronously; orchestration itself is 0 tokens (`wf_59bf3654-183`).
 - **⑧ Iterate + close** (§27.8): `resumeFromRunId` reuses the longest unchanged `agent()` prefix, returning cache in milliseconds with 0 new tokens (`wf_9c94951d-58c`); same session only, stop the previous run before resuming. Once it runs clean, the official closer — press `s` to save it as a `/` command (light), or file the `.js` into `.claude/workflows/` and call it with `{ name }` (heavy, see [Chapter 25](#/en/p5-25)).
-- **⑨ Do I need MCP** (§27.9): **mostly no** (4 of 6 official examples use zero MCP, and the book's three examples all use zero MCP); a default subagent holds 0 `mcp__` tools but has `ToolSearch` to load on demand; context7 was measured working end-to-end (`wf_d8aa0772-ced`). The conclusion is "available when needed," not a selling point.
+- **⑨ Do I need MCP** (§27.9): **mostly no** (4 of the third-party `claude-code-workflow-creator` repo's 6 examples use zero MCP, and the only bundled workflow is `/deep-research`; the book's three examples all use zero MCP); a default subagent holds 0 `mcp__` tools but has `ToolSearch` to load on demand; context7 was measured working end-to-end (`wf_d8aa0772-ced`). The conclusion is "available when needed," not a selling point.
 
 What comes after the authoring process is "validation & debugging" — once the script is written, how do you reliably pin down problems both before and after it crashes?
 

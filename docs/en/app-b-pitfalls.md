@@ -2,7 +2,7 @@
 
 > This appendix turns the potholes you're most likely to step in while writing Workflows into a quick-to-look-up, accurate reference. Each entry runs **symptom → cause → fix**: first what you'll see and when it shows up, then the underlying why, and finally a fix you can copy straight in.
 >
-> The API basis for all claims is in [Appendix A](#/en/app-a); the behavioral basis comes from the real runs listed in [Appendix E](#/en/app-e). Applicable version: Claude Code v2.1.154+ (the official minimum); this book's runs span v2.1.150 → v2.1.156, with the core invariants re-verified on v2.1.156 (see `assets/transcripts/examples-r11.md`). Enable via `CLAUDE_CODE_WORKFLOWS=1` (the underlying feature flag; Pro accounts flip it on manually in the official `/config` "Dynamic workflows" row).
+> The API basis for all claims is in [Appendix A](#/en/app-a); the behavioral basis comes from the real runs listed in [Appendix E](#/en/app-e). Applicable version: Claude Code v2.1.154+ (the official minimum); this book's runs span v2.1.150 → v2.1.156, with the core invariants re-verified on v2.1.156 (see `assets/transcripts/examples-r11.md`). To turn it on: every paid plan except Pro has it on by default; on Pro, flip it on from the "Dynamic workflows" row in `/config` (the environment variable `CLAUDE_CODE_WORKFLOWS=1` is a low-level switch, not the official way to enable it — see [Chapter 4](#/en/p2-04)).
 
 ---
 
@@ -15,7 +15,7 @@ Scan it first. Each row links to the detailed section below.
 | 1 | The tool returns `error` directly, the workflow never ran | `meta` isn't a pure literal / the script's first line isn't `export const meta` | [B.2](#b2-meta-rejected-for-not-being-a-pure-literal) |
 | 2 | Returns an `error` field indicating a syntax/parse failure | The script body has a syntax error, caught by the pre-launch static check | [B.3](#b3-a-syntax-error-lands-in-the-error-field) |
 | 3 | Concurrency "doesn't take effect," time ≈ serial total, async-failure gathering is lost | Passed `parallel()` an array of Promises rather than functions | [B.4](#b4-parallel-passed-promises-instead-of-thunks) |
-| 4 | The runtime throws, indicating a forbidden API | The script used `Date.now()` / `Math.random()` / arg-less `new Date()` | [B.5](#b5-datenow-mathrandom-throw) |
+| 4 | A literal form is rejected at submit time and the script never runs (or an aliased form throws at runtime), both flagging a forbidden API | The script used `Date.now()` / `Math.random()` / arg-less `new Date()`, caught by the two-layer determinism guard (submit-time source scan + runtime trap) | [B.5](#b5-datenow-mathrandom-throw) |
 | 5 | The workflow keeps dispatching agents, tokens spike until hitting the cap | A dynamic loop has no `budget.total &&` guard | [B.6](#b6-an-infinite-loop-without-a-budget-guard) |
 | 6 | On resume, a step that should be cached re-executed (cost tokens) | The script was changed / cross-session / didn't stop the previous run first | [B.7](#b7-resume-didnt-hit-the-cache) |
 | 7 | The runtime throws, indicating the nesting depth is exceeded | A sub-workflow called `workflow()` again (more than one level) | [B.8](#b8-nesting-more-than-one-level-throws) |
@@ -102,7 +102,7 @@ log(`reviewing target: ${args.target}`)   // dynamic info goes here
 
 </div>
 
-**Cause**: `parallel()` takes an **array of functions** (`Array<() => Promise>`, i.e., thunks). If you write `parallel([ agent(...), agent(...) ])`, then `agent(...)` **is called and starts executing immediately at the moment the array is constructed** — `parallel` receives Promises that are already running, so the call doesn't conform to the `parallel(thunks)` API and loses its error-gathering semantics (no way to converge a single reject into `null`). (Note: the concurrency limit is per-workflow regardless, not something `parallel()` itself toggles.)
+**Cause**: `parallel()` takes an **array of functions** (`Array<() => Promise>`, i.e., thunks). If you write `parallel([ agent(...), agent(...) ])`, then `agent(...)` **is called and starts executing immediately at the moment the array is constructed** — `parallel` receives Promises that are already running, so the call doesn't conform to the `parallel(thunks)` API and loses its error-gathering semantics: the "a single thunk's async reject → that slot collected into `null`" behavior is gone, and `.filter(Boolean)` after the fact can't save you. (Note: the concurrency limit is per-workflow — shared across the whole workflow — regardless of whether you pass Promises or thunks; it isn't something `parallel()` itself toggles.)
 
 ```javascript
 // ✗ Executes immediately; doesn't conform to parallel(thunks), loses async-failure gathering (async reject → null)
@@ -130,9 +130,9 @@ const r = await parallel(items.map(it => () => agent(prompt(it), { schema: S }))
 
 ## B.5 `Date.now()` / `Math.random()` Throw
 
-**Symptom**: the script throws at runtime, with the finger pointed at `Date.now()`, `Math.random()`, or arg-less `new Date()`.
+**Symptom**: the script uses `Date.now()`, `Math.random()`, or arg-less `new Date()`, with the error pointing at these three forbidden APIs. Two concrete forms: a **literal** is rejected at **submit** time and the script never runs at all (the receipt is just an `error` field); and if you "hid" the call past the submit-time check with an alias or other dynamic trick, the **runtime** still throws the moment it's called.
 
-**Cause**: all three break **replayability.** Resume (`resumeFromRunId`) rests on "the same script + the same input → the same execution path," which is how the runtime can tell which `agent()` calls are unchanged and reuse the cache directly. Once a nondeterministic source sneaks into the script, replay can't line up, so the runtime **forbids** these three outright.
+**Cause**: all three break **replayability.** Resume (`resumeFromRunId`) rests on "the same script + the same input → the same execution path," which is how the runtime can tell which `agent()` calls are unchanged and reuse the cache directly. Once a nondeterministic source sneaks into the script, replay can't line up, so these three are banned in **two layers**: the **first layer** is a submit-time **source static scan** — the moment the literal form of any of these tokens appears in the source (even inside a comment, a string, or a branch that never executes), the whole script is rejected *before* it runs, never reaching execution; the **second layer** is a **runtime trap** — even if you bypass the first layer with an alias, these globals are reworked at runtime and throw the instant they're called. For the full mechanism of both layers and the misconceptions about bypassing/catching them, see [B.19](#b19-trycatch-cant-catch-datenow).
 
 **Fix**:
 
@@ -143,7 +143,7 @@ const r = await parallel(items.map(it => () => agent(prompt(it), { schema: S }))
 | A unique ID | Concatenate from stable sources: item content, index, a seed passed in via `args` |
 
 ```javascript
-// ✗ Throws at runtime
+// ✗ Literal form: rejected by the submit-time static scan, the script never runs (an aliased form throws at runtime)
 const ts = Date.now()
 
 // ✓ The timestamp passed in from outside (caller: Workflow({ script, args:{ runStamp: '<synchronously stamped>' } }))
@@ -503,7 +503,7 @@ const target = cfg.target ?? 'src'
 
 </div>
 
-**Cause**: the determinism ban is **two layers**, neither of which your `try/catch` can intercept:
+**Cause**: the determinism ban is **two layers**, and `try/catch` is largely useless against it — layer 1 can't be intercepted at all, and layer 2, though catchable, shouldn't be relied on:
 
 1. **A literal is rejected statically at submit time**: the **literal forms** of `Date.now()` / `Math.random()` / arg-less `new Date()` get caught by a **source static scan** *before* the script is parsed/run — the script doesn't execute at all, and the tool returns an error directly (verbatim: `Workflow scripts must be deterministic: Date.now()/Math.random()/new Date() are unavailable (breaks resume)…`, see `sandbox-r4.md`). The script never ran, so there's nothing for `try/catch` to do.
 2. **An aliased form is a runtime trap**: "hiding" the call (`const D = Date; D.now()`) fools the static scan and gets through submission, but the runtime-injected trap **throws** — `Date.now() / new Date() are unavailable in workflow scripts (breaks resume)…`; the `Math.random()` one even suggests the fix: `…For N independent samples, include the index in the agent label or prompt.` (both layers tested, Run `wf_59bf3654-183`).

@@ -54,7 +54,7 @@ flowchart TD
 
 | 检查项 | 由什么触发 | 严重级 |
 |---|---|---|
-| 脚本体积上限 | 源码超过 **524288 字节（512KB）** | ERROR |
+| 脚本体积上限（来源：**官方 input-schema 的 `script.maxLength`**，非 validator 实测） | 源码超过 **524288 字节（512KB）** | ERROR |
 | `meta` 必须是**首语句** | `export const meta` 之前有任何代码（如一个 `const`） | ERROR |
 | `meta` 必须**纯字面量** | `meta` 里有变量引用 / 函数调用 / 展开运算符 / 模板插值 / 保留键（如 `constructor`）；或缺 `name`/`description` | ERROR |
 | 禁用非确定性调用 | 字面量 `Date.now()` / `Math.random()` / 无参 `new Date()` | ERROR |
@@ -278,9 +278,9 @@ flowchart TD
 
 ### 利器二：`agent-<id>.jsonl` journal
 
-`WorkflowOutput` 里有个 `transcriptDir` 字段，指向本次运行的记录目录。在它底下，**每一次 `agent()` 调用**都会落一份 journal 文件 `agent-<id>.jsonl`——逐行 JSON，记下这个 subagent 的完整往返（它收到的提示、它的工具调用、它的最终输出）。哪个 agent 返回了出乎意料的结果，或者带 schema 的 agent 一直在重试，你打开对应的 `agent-<id>.jsonl`，就能看到「它到底想了什么、调了什么工具、为什么没满足 schema」。
+`WorkflowOutput` 里有个 `transcriptDir` 字段，指向本次运行的记录目录——这个字段本身是**工具契约确认**的（`sdk-tools.d.ts`）。在它底下，**每一次 `agent()` 调用**都会落一份 journal——**文件名 `agent-<id>.jsonl` 来自 Workflow 工具契约**（工具描述的「续传兜底」一段就点名让你去读 transcript 目录下的 `agent-<id>.jsonl`），逐行 JSON 记下这个 subagent 的完整往返（它收到的提示、它的工具调用、它的最终输出）；哪个 agent 返回了出乎意料的结果，或者带 schema 的 agent 一直在重试，你打开它对应的 journal，就能看到「它到底想了什么、调了什么工具、为什么没满足 schema」。
 
-每个 agent 还附带一份 sidecar `agent-<id>.meta.json`，记着这个 agent 的元信息——本书实测里它记的是 `{"agentType":"workflow-subagent"}`（默认 agent 类型）。
+> 说明：`transcriptDir`（`sdk-tools.d.ts`）和文件名 `agent-<id>.jsonl`（Workflow 工具描述的「续传兜底」段点名）都有**工具契约**背书；但 `.jsonl` 的**逐行内容形态**本书未做逐字核验，而且本机实测在盘上**确切见到的是 sidecar `agent-<id>.meta.json`**（记着这个 agent 的元信息，实测里是 `{"agentType":"workflow-subagent"}`，默认 agent 类型）——所以那部分属**观测/推断**。
 
 <div class="callout info">
 

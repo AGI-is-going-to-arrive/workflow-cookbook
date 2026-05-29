@@ -171,7 +171,7 @@ Four "ignore-them-and-it-really-breaks / really-wastes" red lines, every one bac
 
 <div class="callout warn">
 
-**③ `meta` must be a pure literal; the script forbids `Date.now()` / `Math.random()` / arg-less `new Date()`.** The former breaks the pre-run static read (the workflow won't launch), the latter breaks replayability and invalidates resume. Pass timestamps in via `args` or stamp them after the fact, and get randomness by varying the prompt with the agent's index ([Appendix C · C.7](#/en/app-c)).
+**③ `meta` must be a pure literal; the script forbids `Date.now()` / `Math.random()` / arg-less `new Date()`.** The former breaks the pre-run static read (the workflow won't launch; see [Appendix C · C.2](#/en/app-c)), the latter breaks replayability and invalidates resume (see [Appendix C · C.7](#/en/app-c)). Pass timestamps in via `args` or stamp them after the fact, and get randomness by varying the prompt with the agent's index.
 
 </div>
 

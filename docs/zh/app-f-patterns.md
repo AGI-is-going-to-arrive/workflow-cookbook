@@ -96,7 +96,7 @@
 | 生成-批评-修复（GCF） | 有界 Loop + 对抗 | 对抗式 Critique 从 `slugify` **揪出 10 缺陷** | `wf_7472ceac-daa` · [§12](#/zh/p3-12) |
 | 跨多源深度研究 | Parallel + Barrier（+Pipeline） | **必须屏障**才能先去重再写 | `wf_6090decc-8a5` · [§13](#/zh/p3-13) |
 | 设计 / 方案探索 | Judge Panel | 4 角度 × 评委 + graft；**3:0** 收敛 | `wf_f5b69668-b18` · [§14](#/zh/p3-14) |
-| Bug / 漏洞扫描 | Loop-until-dry + 对抗 | finder 自呼吸 → verifier 把关；**5/5** 确认 | `wf_53da9a06-915` · [§15](#/zh/p3-15) |
+| Bug / 漏洞扫描 | Loop-until-dry + 对抗 | finder 池自我复制 → verifier 把关；**5/5** 确认 | `wf_53da9a06-915` · [§15](#/zh/p3-15) |
 | 文档 / 迁移大扫除 | Pipeline | 只读分析 vs 真实改写**分两 stage** | [§16](#/zh/p3-16) |
 | 跨 N 文件大重构 | Pipeline + Worktree 隔离 | plan→impl→test 每文件独立，worktree 防踩踏（实测 **distinctRoots=3**） | `wf_3b0677d8-40f` · [§19](#/zh/p4-19) |
 | 跨模型对比 | Parallel + Barrier | 同 prompt → N 个模型 → 单评委 | [§14](#/zh/p3-14) / [§23](#/zh/p5-23) |
@@ -171,7 +171,7 @@ flowchart TD
 
 <div class="callout warn">
 
-**③ `meta` 必须纯字面量；脚本禁用 `Date.now()` / `Math.random()` / 无参 `new Date()`。** 前者会破坏运行前的静态读取（工作流根本不启动），后者会破坏可重放性、让续传失效。时间戳用 `args` 传进来或事后盖戳，随机性靠 agent 下标去变化提示词（[附录 C · C.7](#/zh/app-c)）。
+**③ `meta` 必须纯字面量；脚本禁用 `Date.now()` / `Math.random()` / 无参 `new Date()`。** 前者会破坏运行前的静态读取（工作流根本不启动，详见 [附录 C · C.2](#/zh/app-c)），后者会破坏可重放性、让续传失效（详见 [附录 C · C.7](#/zh/app-c)）。时间戳用 `args` 传进来或事后盖戳，随机性靠 agent 下标去变化提示词。
 
 </div>
 

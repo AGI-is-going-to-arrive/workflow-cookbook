@@ -136,7 +136,7 @@ Preventing runaway must be **multi-layered defense**:
 
 **Layer 1: a hard round cap.** `round < N` (say, 6). No matter what the completeness agent says, it stops at the cap. This is the simplest and most reliable brake.
 
-**Layer 2: budget fallback.** Per `_grounding.md`, `budget` is a **hard cap** — call `agent()` after `spent()` hits `total` and it throws. So even if you forget to set a round cap, running out of budget forcibly aborts. The more proactive approach is to watch `budget.remaining()` inside the loop:
+**Layer 2: budget fallback.** Per `_grounding.md`, `budget` is a **hard cap** — call `agent()` after `spent()` hits `total` and it **throws** (`WorkflowBudgetExceededError`). So even if you forget to set a round cap, running out of budget forcibly aborts. But be clear: this is a **throw-and-abort**, not a graceful close-out — it crashes the whole run at that moment rather than cleanly returning what you've found so far. So it can only serve as a fallback; the loop should still exit normally via explicit round conditions (echoing 18.6's "treating budget as the only brake = bad UX"). The more proactive approach is to watch `budget.remaining()` inside the loop:
 
 ```javascript
 // (illustrative, not run) — actively brake with budget.remaining()
@@ -369,7 +369,7 @@ This skeleton twists the first two chapters of Advanced Patterns into one rope: 
 
 <div class="callout info">
 
-**Cost intuition**: loop-until-dry's token cost is roughly "rounds × per round (generate + critique, two agents)." Going by real numbers — a single agent ≈ 26k tokens (hello `wf_dacbd480-d5d`) — one round runs about 50k, and 4 rounds about 200k tokens — in the same ballpark as the real pipeline-demo's `158982`. So the round cap is not only a runaway guard but also a **cost gate**: set it at the round count where "marginal returns have already dropped off" (empirically, 3–6 rounds cover the vast majority of divergent tasks).
+**Cost intuition**: loop-until-dry's token cost is roughly "rounds × per round (generate + critique, two agents)." Going by real numbers — a single agent ≈ 26k tokens (hello `wf_dacbd480-d5d`) — one round runs about 50k, and 4 rounds about 200k tokens. Note that this "200k" is an order-of-magnitude figure **extrapolated from a per-round estimate**, not a measured value; the `158982` it's compared against is the **measured pipeline-demo** total — the two are not from the same source, so don't treat them as data from one and the same run. But they land in the same ballpark, which is enough for cost intuition. So the round cap is not only a runaway guard but also a **cost gate**: set it at the round count where "marginal returns have already dropped off" (empirically, 3–6 rounds cover the vast majority of divergent tasks).
 
 </div>
 

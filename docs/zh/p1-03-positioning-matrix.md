@@ -96,7 +96,7 @@ flowchart LR
 
 ### 它是什么
 
-Agent Teams 由实验性标志 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 门控（本书写作的会话环境里**该标志已开启**，跟 `CLAUDE_CODE_WORKFLOWS=1` 并存——见 `_grounding.md` A 节实测）。它走的是一条**根本不同的协作路子**：
+Agent Teams 由实验性标志 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 门控（本书写作的会话环境里**该标志已开启**——见 `_grounding.md` A 节实测；同一环境里 `CLAUDE_CODE_WORKFLOWS=1` 也设着，但那只是个 power-user 环境变量，不是 Workflow 的官方启用开关——Workflow 走 `/config`、付费计划默认开）。它走的是一条**根本不同的协作路子**：
 
 > 一组 Agent 组成一个**团队**，**有状态**、**可以互相通信**、做**长期协作**。它们不是「派出去就完事」，而是像一支真实团队那样一直在场，靠消息互相喊话、分工、协调。
 
@@ -230,10 +230,10 @@ flowchart LR
 | **成员间通信** | 无 | **无（靠脚本变量传值）** | 有 | 不适用 | 不适用 |
 | **控制方式** | 主循环直接派 | **确定性代码** | 涌现式协调 | 提示词注入 | 协议调用 |
 | **可复现** | 单次 | **是（同脚本+args 可缓存）** | 否 | 是（知识固定） | 取决于外部 |
-| **门控标志** | 内置 | `CLAUDE_CODE_WORKFLOWS` | `..._AGENT_TEAMS` | 内置/技能系统 | MCP 配置 |
+| **门控标志** | 内置 | `/config`「Dynamic workflows」行 / 付费默认开（关闭用 `disableWorkflows` / `CLAUDE_CODE_DISABLE_WORKFLOWS`；`CLAUDE_CODE_WORKFLOWS` 仅 power-user env、非主开关、不取代 `/config`） | `..._AGENT_TEAMS` | 内置/技能系统 | MCP 配置 |
 | **典型场景** | 探索/总结一件事 | **分片审查、对抗验证、流水线** | 开放式多角色协作 | 给某步注入专业规范 | 抓外部数据 |
 
-> 表里 `CLAUDE_CODE_WORKFLOWS` 和 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 这两个标志，在本书写作会话中均经实测确认存在（`_grounding.md` A 节）。
+> Workflow 的官方启用口径是 `/config` 的「Dynamic workflows」行（除 Pro 外的付费计划默认开），不是某个环境变量。`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 才是门控 Agent Teams 的实验标志；本书写作会话中它和 `CLAUDE_CODE_WORKFLOWS=1` 都实测设着（`_grounding.md` A 节），但后者只是个 power-user 环境变量，并非官方启用开关。
 
 ---
 
@@ -317,7 +317,7 @@ flowchart TD
 
 - 五种扩展机制分属三层：**编排层**（Subagents / Workflow / Agent Teams）、**认知层**（Skills）、**连接层**（MCP）。会混、要取舍的，只在编排层内部。
 - **Subagents vs Workflow**：原子 vs 分子。一个分身 → Subagent；多个分身要按顺序/并行/验证组织起来 → Workflow。
-- **Workflow vs Agent Teams**：无状态的确定性流水线 vs 有状态、能通信的团队。**流程图能画死 → Workflow；要开放协作、随机应变 → Agent Teams**。两个标志（`CLAUDE_CODE_WORKFLOWS`、`..._AGENT_TEAMS`）本机均已开启。
+- **Workflow vs Agent Teams**：无状态的确定性流水线 vs 有状态、能通信的团队。**流程图能画死 → Workflow；要开放协作、随机应变 → Agent Teams**。Workflow 的官方启用是 `/config`「Dynamic workflows」行、付费计划默认开；Agent Teams 由实验标志 `..._AGENT_TEAMS` 门控，本机已开。（同一环境里也设着 `CLAUDE_CODE_WORKFLOWS=1`，但那只是 power-user 环境变量，非官方启用开关。）
 - **Skills**（怎么想）和 **MCP**（够得着什么），跟 Workflow（按什么顺序做）是**正交**的，谈不上二选一——它们是叠加上去用的。
 - 最强用法是**组合**：拿 Workflow 当骨架，用 `agentType` 调专家 agent、步骤内 agent 触发 skill / 调 MCP、`workflow()` 内联复用子流程（嵌套仅一层）。
 - 一句话边界：**能画成「先做什么 → 再做什么 → 哪些并行」的流程图，就用 Workflow；开放式对话、随机应变，那就不是它的主场。**

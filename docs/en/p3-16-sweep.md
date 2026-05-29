@@ -140,9 +140,9 @@ The principle is **no-silent-caps**: **any reduction of coverage — a cap, samp
 
 Why would there be a cap? Because a sweep naturally bumps into the hard limits in grounding:
 
-- **Concurrency cap** = `min(16, CPU cores − 2)` (official): going past it **queues**, it doesn't error — so N=500 files won't blow up, but it'll be slow, and you may want to deliberately take only one batch.
+- **Concurrency cap** = `min(16, CPU cores − 2)` (tool contract / tested): going past it **queues**, it doesn't error — so N=500 files won't blow up, but it'll be slow, and you may want to deliberately take only one batch.
 - **Lifetime `agent()` total cap of 1000** (official, a runaway-loop backstop): if a sweep's files × stages approaches 1000, you must cap deliberately.
-- **token budget** (`budget.total`, a hard ceiling): once `spent()` reaches `total`, the next `agent()` throws — so a big list must either be batched or deliberately truncated.
+- **token budget** (`budget.total`, a hard ceiling; tool contract): once `spent()` reaches `total`, the next `agent()` throws — so a big list must either be batched or deliberately truncated.
 
 When you hit these limits, **deliberate truncation + log** beats "letting it hit the 1000 cap and throw" or "letting the budget run dry and crash mid-way" by a mile. Here is what baking no-silent-caps into a script looks like (**illustrative, not executed**):
 
@@ -237,7 +237,7 @@ sequenceDiagram
 
 But resume has two iron rules (see §A2 / §B2) that are exactly a sweep's design constraints:
 
-- **TaskStop the previous run before resuming** (official) — don't let two runs fight over the same journal.
+- **TaskStop the previous run before resuming** (tool / tested) — don't let two runs fight over the same journal.
 - **Same session only** — the resume handle lives in this session; cross-session is not guaranteed. So true "cross-session recoverability" leans on weapon two below.
 
 <div class="callout warn">
