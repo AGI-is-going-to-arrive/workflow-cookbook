@@ -39,13 +39,11 @@ Without a workflow, you spin up 6 subagents to review in parallel, wait for all 
 | What lands in your main conversation | **47,080** characters, 12 full review write-ups | **357** characters, one structured result |
 | Whether anything slips | You and the model keep track of which ones are left, and some can slip or get skipped | Code counts off all 12, `schema` forces clean structure, and verification caught 1 false positive |
 
-The subagents burned about the same tokens either way, roughly 700K and 770K, doing the same amount of work. The difference is how much comes back to you: **357** characters with the workflow, **47,080** without, **a factor of 132**. Those 47,080 characters sit in your main conversation from then on, and every later question or edit drags them along, getting slower and more expensive as you go. The `pipeline` keeps the raw reviews in the sandbox and passes you the conclusion.
+Look at the first row: for the same work, what reaches you differs by **a factor of 132**. Those tens of thousands of characters don't go away; every later question or edit makes the model read them again, slower and pricier each time. With a workflow, the raw reviews stay in the sandbox and only the conclusion reaches you.
 
-On speed the two come out even: both ran about 4 minutes, and the manual run was actually a hair faster this time. Same amount of work, so the time lands about the same. Don't reach for a workflow to go faster here. The time savings only show up on longer, multi-stage pipelines, and [Chapter 8](#/en/p2-08) measures that case with real numbers.
+Speed is basically a wash, about 4 minutes either way, so don't reach for a workflow to go faster; the time savings come from longer, multi-stage pipelines (see [Chapter 8](#/en/p2-08)). The chapters ahead show you how to write these scripts so they hold up and stay reusable.
 
-So a workflow protects two things: the room in your main conversation, and the certainty that nothing got dropped. The chapters ahead show you how to write these scripts so they hold up and stay reusable.
-
-> **The two runs:** the workflow run `wf_6fc26e37-02d` (`pipeline`, 12 agents, 357 chars back); the manual run `wf_372d53bf-419` (two `parallel` barriers standing in for the manual collect-then-next-batch loop, 12 agents, prose output totaling 47,080 chars). That manual run is a conservative stand-in for doing it by hand: it skips the time you'd spend reading each result and deciding the next step, so real by-hand work would only run slower and bring back more. Both measured locally on v2.1.156; raw data in [`assets/transcripts/examples-r14.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r14.md).
+> **The two runs:** the workflow run `wf_6fc26e37-02d` (`pipeline`) and the manual run `wf_372d53bf-419` (two `parallel` barriers standing in for doing it by hand); 12 agents each, measured locally on v2.1.156. That manual run already assumes the fastest by-hand case, so real by-hand work would only run slower. Full data in [`assets/transcripts/examples-r14.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r14.md).
 
 ---
 
