@@ -121,7 +121,7 @@ Script file: .../workflows/scripts/research-pipeline-wf_abc123.js
 
 **Step two, edit the landed script.** Use the `Edit` tool to change the file the `scriptPath` points to directly, e.g., touching only the last consolidation agent's prompt. **Key: don't touch any earlier-stage `agent()` calls**, or their caches get invalidated.
 
-**Step three, re-run with resumeFromRunId.** Call the Workflow tool again, this time passing:
+**Step three, re-run with resumeFromRunId.** One official precondition first: stop the previous run with `TaskStop` (resume only works within the same session). Then call the Workflow tool again, this time passing:
 
 ```javascript
 // (illustrative, not run) — the input form of a resume call

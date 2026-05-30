@@ -99,7 +99,7 @@ agent_count=22 breaks down cleanly: 3 reviewers (one per dimension), plus 19 ver
 
 ### Result
 
-18 findings survived adversarial verification (`verdict.isReal=true`), split by dimension: **bugs 6 / security 4 / a11y 8**. A few highlights from each below (full 18 in `assets/transcripts/examples-r5.md`):
+18 findings survived adversarial verification (`verdict.isReal=true`), split by dimension: **bugs 6 / security 4 / a11y 8**. A few highlights from each below (full 18 in `assets/transcripts/examples-r5.md`). The findings and line numbers below are **a snapshot of that run against the then-current `index.html`**; the frontend has since been polished, so a few are already fixed or have moved (see the three reasons at the end of §29), so don't chase the line numbers digit-for-digit.
 
 **bugs (6)**: take the most severe one. `slugify` dedup uses a bare `{}` as the `seen` map (L322/521); `seen={}` inherits `Object.prototype`, so the title "constructor" ends up with id `constructor-NaN` (`++function` evaluates to `NaN`). Fix: `Object.create(null)`. The rest cover anchor resolution, dedup collisions, deep-link overriding language preference, hardcoded Chinese error messages, and scroll/resize sharing one `ticking` flag.
 

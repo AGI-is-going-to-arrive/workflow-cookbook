@@ -384,7 +384,7 @@ Beyond "deterministic + structured," Workflow has three more features that matte
 
 ### Concurrency limit: auto-throttled, nothing for you to manage
 
-Within each workflow, concurrent `agent()` calls top out at **`min(16, CPU cores − 2)`** running at once; anything past that queues up and runs when a slot frees up. So go ahead and feed `parallel()` / `pipeline()` 100 items: they'll all finish eventually, it's just that only about 10 are running at any given moment. There's also a global safety net: across a single workflow's whole lifetime, the total agent count is capped at **1000**, so a runaway loop can't blow the machine up.
+Within each workflow, concurrent `agent()` calls top out at **`min(16, max(2, CPU cores − 2))`** running at once; anything past that queues up and runs when a slot frees up. So go ahead and feed `parallel()` / `pipeline()` 100 items: they'll all finish eventually, it's just that only about 10 are running at any given moment. There's also a global safety net: across a single workflow's whole lifetime, the total agent count is capped at **1000**, so a runaway loop can't blow the machine up.
 
 ### Resume: the same script, second-level cache hits
 

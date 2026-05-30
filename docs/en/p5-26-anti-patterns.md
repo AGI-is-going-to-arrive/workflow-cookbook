@@ -170,7 +170,7 @@ const sample = items[Math.floor(Math.random() * items.length)]  // banned
 const stamp = new Date().toISOString()               // banned (arg-less new Date())
 ```
 
-**Consequence:** "the script bans `Date.now()` / `Math.random()` / arg-less `new Date()`" (section B hard constraint), they "break replayability → resume fails" (section B note). At best they throw. At worst, even when they don't throw, each run comes out different, so resume never hits the cache (that "unchanged agent 0 token/8ms" dividend from Chapter 22 is gone entirely), and regression testing degenerates into "a full re-run every time."
+**Consequence:** these three calls are banned because they break replayability and make resume fail (section B hard constraint). Written out literally like above, the script gets caught at submit time by a source-level static scan, never runs at all, and the tool returns an `error` saying the script must be deterministic (see Appendix B §B.19). If you sneak them past the scan behind an alias (`const D = Date; D.now()`), they throw at runtime instead. Either path forfeits Chapter 22's "unchanged agent 0 token / 8ms" resume dividend, and regression testing degenerates into a full re-run every time.
 
 **Right way:** inject every "external nondeterministic quantity" you need from `args`; when you need randomness, reach for a **deterministic index** instead:
 

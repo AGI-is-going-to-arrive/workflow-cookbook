@@ -121,7 +121,7 @@ Script file: .../workflows/scripts/research-pipeline-wf_abc123.js
 
 **第二步，改那份落盘的脚本。** 用 `Edit` 工具直接动 `scriptPath` 指向的那个文件，比如只改最后一个汇总 agent 的 prompt。**关键：别去碰前面阶段的任何 `agent()` 调用**，不然它们的缓存就全废了。
 
-**第三步，带着 resumeFromRunId 重跑。** 再调一次 Workflow 工具，这回传：
+**第三步，带着 resumeFromRunId 重跑。** 续传前有个官方前置条件：先用 `TaskStop` 把上一次那个 run 停掉（续传只在同一会话内有效）。停好之后，再调一次 Workflow 工具，这回传：
 
 ```javascript
 // （示意，未实跑）—— 续传调用的入参形态

@@ -26,6 +26,29 @@ These tricks are clever, and they work. But at bottom they lean on **natural lan
 
 ---
 
+## A Real Comparison First
+
+Same job, done two ways, with a workflow and without. The numbers came out like this.
+
+The job: fact-check 6 chapters of this book. For each chapter, find the single most important problem, then check whether that finding is a real issue or a false positive. That's 12 subagents of work, 6 reviews plus 6 verifications.
+
+Without a workflow, you spin up 6 subagents to review in parallel, wait for all of them, read through the results yourself, then spin up 6 more to verify. With a workflow, you write a short `pipeline` script: each chapter gets verified the moment its review finishes, and the run hands back one structured result. Both ran for real on v2.1.156; the Run IDs are at the end of this section.
+
+| Look here | Without a workflow | With a workflow (`pipeline`) |
+|---|---|---|
+| What lands in your main conversation | **47,080** characters, 12 full review write-ups | **357** characters, one structured result |
+| Whether anything slips | You and the model keep track of which ones are left, and some can slip or get skipped | Code counts off all 12, `schema` forces clean structure, and verification caught 1 false positive |
+
+The subagents burned about the same tokens either way, roughly 700K and 770K, doing the same amount of work. The difference is how much comes back to you: **357** characters with the workflow, **47,080** without, **a factor of 132**. Those 47,080 characters sit in your main conversation from then on, and every later question or edit drags them along, getting slower and more expensive as you go. The `pipeline` keeps the raw reviews in the sandbox and passes you the conclusion.
+
+Wall-clock didn't separate the two: both ran around 4 minutes, and the manual side was a touch faster this time. The same work takes about the same time. This run is not where `pipeline` saves wall-clock; that payoff shows up over longer pipelines, and [Chapter 8](#/en/p2-08) measures it with barriers.
+
+So a workflow protects two things: the room in your main conversation, and the certainty that nothing got dropped. The chapters ahead show you how to write these scripts so they hold up and stay reusable.
+
+> **The two runs:** the workflow arm `wf_6fc26e37-02d` (`pipeline`, 12 agents, 357 chars back); the manual arm `wf_372d53bf-419` (two `parallel` barriers standing in for the manual collect-then-next-batch loop, 12 agents, prose output totaling 47,080 chars). The manual arm is a conservative stand-in for doing it by hand: it skips the time you'd spend reading each result and deciding the next step, so real by-hand work would only run slower and bring back more. Both measured locally on v2.1.156; raw data in [`assets/transcripts/examples-r14.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r14.md).
+
+---
+
 <div class="callout info">
 
 **Two layers of truth in this book (read this first)**

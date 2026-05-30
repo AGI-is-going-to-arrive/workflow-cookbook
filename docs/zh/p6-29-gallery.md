@@ -99,7 +99,7 @@ agent_count=22 是能一笔笔拆开的：3 个 reviewer（每个维度 1 个）
 
 ### 结果
 
-18 条发现扛过了对抗验证（`verdict.isReal=true`），按维度分一下：**bugs 6 条 / security 4 条 / a11y 8 条**。下面每类挑几条要点说说（完整 18 条见 `assets/transcripts/examples-r5.md`）。
+18 条发现扛过了对抗验证（`verdict.isReal=true`），按维度分一下：**bugs 6 条 / security 4 条 / a11y 8 条**。下面每类挑几条要点说说（完整 18 条见 `assets/transcripts/examples-r5.md`）。下面这些发现连同行号，都是**那一次运行对当时 `index.html` 的快照**；前端后来打磨过，有几条今天已经修掉或挪了位置（缘由见本章末 §29 的三点说明），别拿行号逐位去对。
 
 **bugs（6）**：挑最严重的一条说，`slugify` 去重用了个裸 `{}` 当 `seen` map（L322/521），`seen={}` 会继承 `Object.prototype`，于是标题 "constructor" 拿到的 id 就成了 `constructor-NaN`（`++function` 求值为 `NaN`）。修法是改用 `Object.create(null)`。剩下几条涵盖锚点解析、dedup 撞车、深链盖掉语言偏好、硬编码中文报错、scroll/resize 共用一个 `ticking` 标志。
 
