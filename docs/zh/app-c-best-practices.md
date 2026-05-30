@@ -1,6 +1,8 @@
 # 附录 C · 最佳实践清单
 
-> 这份附录就是一张**能逐条打勾的清单**。每条都告诉你「该怎么做」「为什么」「怎么落地」，并链到对应章节。你设计或评审一个 Workflow 时，从头过一遍：勾上的越多，脚本就越确定、越省钱、越容易续传，也越好观察。
+> 这份附录是一张**能逐条打勾的清单**。每条都告诉你该怎么做、为什么、怎么落地，并链到对应章节。你设计或评审一个 Workflow 时，从头过一遍。勾上的越多，脚本就越确定、越省钱、越容易续传，也越好观察。
+>
+> 这张清单管的是「怎么把一个形状做对、做好」。要先决定**用哪个形状**（pipeline 还是 parallel、要不要套对抗验证），先看 [附录 F · 模式目录与场景速查](#/zh/app-f)，挑好形状再回来逐条打勾。
 >
 > 每条论断的 API 依据在 [附录 A](#/zh/app-a)，行为依据在 [附录 E](#/zh/app-e) 的真实运行里。配套的反向清单（踩坑与排错）在 [附录 B](#/zh/app-b)。
 
@@ -20,11 +22,11 @@
 ## C.2 结构与编排
 
 - [ ] **多阶段默认用 `pipeline()`，不要用 `parallel()` 串联。** ⚠️
-  - **为什么**：`parallel` 是个**屏障**——它要等一批全部跑完才进下一步。你把多阶段写成「`parallel` 接 `parallel`」，每到一个阶段边界就白白等最慢的那一个。`pipeline` 不一样，它让每个 item **独立**流过全部 stage，阶段之间**没有屏障**，墙钟 ≈ 最慢的那条单链，而不是各阶段最慢的加起来。
+  - **为什么**：`parallel` 是个屏障，它要等一批全部跑完才进下一步。你把多阶段写成「`parallel` 接 `parallel`」，每到一个阶段边界就白白等最慢的那一个。`pipeline` 不一样：它让每个 item **独立**流过全部 stage，阶段之间没有屏障，所以墙钟约等于最慢的那条单链，而不是各阶段最慢的加起来。
   - **落地**：见 [第 8 章 · parallel vs pipeline](#/zh/p2-08)。只有「确实要所有结果一起出现」时才用 `parallel`（比如先 fan-out 再综合）。
 
 - [ ] **`parallel()` 只传 thunk（`() => agent(...)`），绝不传 Promise。** ⚠️
-  - **为什么**：你传 `agent(...)`（一个 Promise）进去，它在数组刚构造出来时就立即跑了，既不符合 `parallel(thunks)` 的 API、`parallel()` 也没法按 thunk 来管它，还把「async reject / agent 出错 → `null`」这套错误归集语义弄丢了（并发上限的节流是**每工作流**统一施加的，绕不过去）。
+  - **为什么**：你传 `agent(...)`（一个 Promise）进去，它在数组刚构造出来时就立即跑了。这样既不符合 `parallel(thunks)` 的 API，`parallel()` 也没法按 thunk 来管它，还把「async reject / agent 出错就归为 `null`」这套错误归集语义弄丢了。（并发上限的节流是**每工作流**统一施加的，绕不过去。）
   - **落地**：`parallel(items.map(it => () => agent(prompt(it), { schema })))`。详见 [附录 B · B.4](#/zh/app-b)。
 
 - [ ] **`meta` 写成纯字面量，首行就是 `export const meta = {…}`。** ⚠️
@@ -48,7 +50,7 @@
 ## C.3 schema 与产物
 
 - [ ] **关键产物用 `schema` 约束形状。** ⚠️
-  - **为什么**：带了 `schema`，校验就发生在**工具调用层**，模型给的东西不合规会**自动重试**，直到对上为止，最后返回一个**已验证对象**——下游直接 `.field` 取用就行，用不着再去解析自由文本。
+  - **为什么**：带了 `schema`，校验就发生在**工具调用层**：模型给的东西不合规会**自动重试**，直到对上为止，最后返回一个**已验证对象**。下游直接 `.field` 取用就行，用不着再去解析自由文本。
   - **落地**：`agent(prompt, { schema: { type:'object', properties:{…}, required:[…] } })`。见 [第 7 章 · 结构化输出与 Schema](#/zh/p2-07)。真实印证：`hello` 的 `sum` 严格就是数字 `4`（Run `wf_dacbd480-d5d`）。
 
 - [ ] **schema 约束形状，但给模型留表达空间（别过严）。**
@@ -76,7 +78,7 @@
   - **落地**：阶段一切换、过滤完剩多少条、为啥提前退出，都值得 `log` 一下。真实脚本普遍这么做。见 [第 9 章 · 进度·日志·续传·预算](#/zh/p2-09)。
 
 - [ ] **显式记录「掉队/降级」。**
-  - **为什么**：`parallel` 的异步 reject、`pipeline` 阶段里的 throw，都会把那一项标成 `null`，你光看最后剩几条，容易误以为是数据丢了。（注意：`parallel` thunk 里的**同步** throw 不会变 `null`，而是抛穿 `parallel` 调用、崩掉整个 run——见 [C.6](#c6-韧性与验证) 与 [C.2「只传 thunk」](#c2-结构与编排)。）
+  - **为什么**：`parallel` 的异步 reject、`pipeline` 阶段里的 throw，都会把那一项标成 `null`。你光看最后剩几条，容易误以为是数据丢了。（注意：`parallel` thunk 里的**同步** throw 不会变 `null`，而是会抛穿 `parallel` 调用、崩掉整个 run，见 [C.6](#c6-韧性与验证) 与 [C.2「只传 thunk」](#c2-结构与编排)。）
   - **落地**：`log(\`pipeline kept ${ok.length}/${items.length}\`)`。详见 [附录 B · B.15](#/zh/app-b)。
 
 - [ ] **把 `taskId`/`runId` 收好。**
@@ -116,7 +118,7 @@
   - **落地**：用 `parallel` 派出多个评委各打各的分，最后用 `votesA/votesB` 计票。见 [第 14 章 · 评委面板](#/zh/p3-14)。
 
 - [ ] **消费 `parallel`/`pipeline` 结果前一律 `.filter(Boolean)`。** ⚠️
-  - **为什么**：异步 reject（thunk 返回 rejected promise 或 `async` 抛错）、或 `pipeline` 阶段里 throw 的那个位置就是 `null`，你不过滤掉，后面 `.map(r => r.x)` 就会抛错。`.filter(Boolean)` 只兜得住这类 `null`——**接不住** `parallel` thunk 里的**同步** throw：那种会直接抛穿 `parallel` 调用、崩掉整个 run。所以可能同步抛错的逻辑别裸放进 thunk（见 [C.2「只传 thunk」](#c2-结构与编排) 与 [附录 B · B.4](#/zh/app-b)）。
+  - **为什么**：异步 reject（thunk 返回 rejected promise 或 `async` 抛错），或者 `pipeline` 阶段里 throw 的那个位置，就是 `null`；你不过滤掉，后面 `.map(r => r.x)` 就会抛错。`.filter(Boolean)` 只兜得住这类 `null`，**接不住** `parallel` thunk 里的**同步** throw：那种会直接抛穿 `parallel` 调用、崩掉整个 run。所以可能同步抛错的逻辑别裸放进 thunk（见 [C.2「只传 thunk」](#c2-结构与编排) 与 [附录 B · B.4](#/zh/app-b)）。
   - **落地**：`(await parallel(thunks)).filter(Boolean)`。详见 [附录 B · B.11](#/zh/app-b)。
 
 - [ ] **关键路径不允许丢项时，在 stage 内 `try` 住并返回降级结果，而非抛错。**
@@ -178,7 +180,7 @@
     ```
   - 详见 [第 21 章 · 动态预算与规模化](#/zh/p4-21)、[附录 B · B.6](#/zh/app-b)。
 
-- [ ] **预算池是共享的——主循环 + 所有工作流（含嵌套子流程）共用一个池。**
+- [ ] **预算池是共享的：主循环 + 所有工作流（含嵌套子流程）共用一个池。**
   - **为什么**：`budget.spent()` 统计的是这一回合的全部 output token，嵌套子流程花的也一并算进去。
   - **落地**：估嵌套工作流成本时，记得把子流程也算上。见 [第 20 章](#/zh/p4-20)。
 

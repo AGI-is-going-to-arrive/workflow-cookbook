@@ -2,7 +2,7 @@
 
 > 这是一本「事实优先」的书。本附录把全书所依据的**真实信源**逐一列出，分六类：①官方文档（`code.claude.com/docs/en/workflows`）；②官方类型定义；③实测环境与版本；④本书自跑的真实运行（含 Run ID 与覆盖的机制）；⑤四大社区系统的源码仓库；⑥参考解读（注明「参考、非照抄」）。
 >
-> 凡书中关于 API 字段/行为/数字的论断，都应能回溯到本附录的某一条。**真值优先级：官方文档 / 官方类型定义 ≥ 本机实测 Run ID > 第三方资料。** 若某处与你本机实测不符，**以官方文档与你本机的类型定义/运行为准**——这是官方的 **research preview** 特性，字段可能随版本演进。
+> 凡书中关于 API 字段/行为/数字的论断，都应能回溯到本附录的某一条。**真值优先级：官方文档 / 官方类型定义 ≥ 本机实测 Run ID > 第三方资料。** 若某处与你本机实测不符，**以官方文档与你本机的类型定义/运行为准**。这是官方的 **research preview** 特性，字段可能随版本演进。
 
 ---
 
@@ -10,12 +10,12 @@
 
 <div class="callout info">
 
-**本书是独立写作的第三方实践手册，不隶属于 Anthropic。** 这个特性官方现已正式收录为 **Dynamic workflows（research preview）**，文档在 [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)——本书把它作为**一级权威信源**对齐；但本书本身仍是第三方实践总结、不是官方文档。全书内容基于四类公开/可复现的事实来源：
+**本书是独立写作的第三方实践手册，不隶属于 Anthropic。** 这个特性官方现已正式收录为 **Dynamic workflows（research preview）**，文档在 [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)，本书把它作为**一级权威信源**对齐；但本书本身仍是第三方实践总结、不是官方文档。全书内容基于四类公开/可复现的事实来源：
 
-0. **官方文档**——Claude Code 官方的 Dynamic workflows 页面（特性定名、版本要求、付费档/Bedrock/Vertex/Foundry 可用性、`/config` 启用、behavior & limits、bundled `/deep-research` 等，均以此为准）；
-1. **公开分发包与类型定义**——Claude Code 的 npm 分发包及其内含的工具类型定义；
-2. **产品行为分析**——在真实 Claude Code 会话中观察到的环境变量、工具回执、完成通知；
-3. **真实运行**——我们亲自在本机跑出的工作流。[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) 的表是**第一批 10 次完成记录**；[§E.3.1](#e31-r4-真实运行实测复现第三方声称) 增补 R4 批次（运行 #11–#19），再加 R3 基线复验组——至 R4 期合计 **19 条运行记录（18 完成 + 1 因 30s 同步超时 failed）/ 17 个唯一 Run ID**（续传复用已有 Run ID、提交即被拒者不计为独立 ID）。其后 R5、R6 两轮又各跑了 3 个应用级工作流（review-spa / dead-code-scan / feedback-themes），并入后**全书 curated 真实运行共 23 个唯一 Run ID**（R4 17 + R5 3 + R6 3）。R7–R11 各轮另有一批**验证用探针**，例如 R11 的 `wf_03e38250-1bb` / `wf_614e6e6b-c6f` / `wf_71b563fd-37a`，在 v2.1.156 上复核了运行时不变量与 Opus 4.8 环境。这些探针按本书惯例**只作核实、不并入 curated-23 头条计数**，与 R7/R8/R9 的探针一样处理。所有用量/返回值原样记录在 `assets/transcripts/`。
+0. **官方文档**：Claude Code 官方的 Dynamic workflows 页面（特性定名、版本要求、付费档/Bedrock/Vertex/Foundry 可用性、`/config` 启用、behavior & limits、bundled `/deep-research` 等，均以此为准）；
+1. **公开分发包与类型定义**：Claude Code 的 npm 分发包及其内含的工具类型定义；
+2. **产品行为分析**：在真实 Claude Code 会话中观察到的环境变量、工具回执、完成通知；
+3. **真实运行**：我们亲自在本机跑出的工作流。[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) 的表是**第一批 10 次完成记录**；[§E.3.1](#e31-r4-真实运行实测复现第三方声称) 增补 R4 批次（运行 #11–#19），再加 R3 基线复验组，至 R4 期合计 **19 条运行记录（18 完成 + 1 因 30s 同步超时 failed）/ 17 个唯一 Run ID**（续传复用已有 Run ID、提交即被拒者不计为独立 ID）。其后 R5、R6 两轮又各跑了 3 个应用级工作流（review-spa / dead-code-scan / feedback-themes），并入后**全书 curated 真实运行共 23 个唯一 Run ID**（R4 17 + R5 3 + R6 3）。R7–R11 各轮另有一批**验证用探针**，例如 R11 的 `wf_03e38250-1bb` / `wf_614e6e6b-c6f` / `wf_71b563fd-37a`，在 v2.1.156 上复核了运行时不变量与 Opus 4.8 环境。R13 随后增补了四个支撑 [附录 G](#/zh/app-g) 的内部探针：`wf_b1d45b4c-445`（子代理运行时，覆盖 7 件工具白名单、仓库根 cwd、文件写入自动批准，以及 async 与 `pipeline` 失败形态）、`wf_b7c75d40-c26`（同步 `throw` 失败语义）、`wf_4248177d-c90`（断点续传：原样重跑整链缓存命中、改动后按最长未变前缀重跑）、`wf_f8398424-dcd`（7-agent 侦察 run，确认 `<task-notification>` 的 usage 字段）。这些探针按本书惯例**只作核实、不并入 curated-23 头条计数**，与 R7/R8/R9 的探针一样处理。所有用量/返回值原样记录在 `assets/transcripts/`。
 
 凡**未实跑、仅作示意**的脚本，正文已明确标注「（示意，未实跑）」。凡引用真实数据，均注明 Run ID 与出处。我们**不编造** API、参数或输出。
 
@@ -33,13 +33,13 @@
 
 <div class="callout info">
 
-**这页文档怎么改变了本书的信源分级**：在它发布之前，社区（含本书早期草稿与下方 §E.5 的第三方解读）一度把这个特性描述为「官方文档未收录的隐藏工具」。**那个前提现在已经不成立**——特性是官方正式特性，措辞与可用性、启用方式、运行约束一律**以这页官方文档为准**。本书相对官方文档的增量价值，落在官方没细讲的**实测层**：具名工作流注册表的版本漂移（[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) / [附录 A · A.13.1](#/zh/app-a)）、序列化陷阱、`parallel` 同步 throw 会崩整个 run、worktree 落盘行为等——这些是「官方文档 + 本机实测」叠加出来的，不与官方冲突，而是把官方没展开的角落补全。
+**这页文档怎么改变了本书的信源分级**：在它发布之前，社区（含本书早期草稿与下方 §E.5 的第三方解读）一度把这个特性描述为「官方文档未收录的隐藏工具」。**那个前提现在已经不成立**：特性是官方正式特性，措辞与可用性、启用方式、运行约束一律**以这页官方文档为准**。本书相对官方文档的增量价值，落在官方没细讲的**实测层**，比如具名工作流注册表的版本漂移（[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) / [附录 A · A.13.1](#/zh/app-a)）、序列化陷阱、`parallel` 同步 throw 会崩整个 run、worktree 落盘行为等。这些是「官方文档 + 本机实测」叠加出来的，不与官方冲突，而是把官方没展开的角落补全。
 
 </div>
 
-> 关于官方「续传」段落的两条已确证点：① **续传限同一会话**（停掉的 run 在 `/workflows` 里选中按 `p` 续传，已完成的 agent 返回缓存结果、其余实跑）；② **退出 Claude Code 后，下个会话会从头重新开始这个 workflow**（官方原文 "the next session starts the workflow fresh"）——即续传不跨会话存活。
+> 关于官方「续传」段落的两条已确证点：① **续传限同一会话**（停掉的 run 在 `/workflows` 里选中按 `p` 续传，已完成的 agent 返回缓存结果、其余实跑）；② **退出 Claude Code 后，下个会话会从头重新开始这个 workflow**（官方原文 "the next session starts the workflow fresh"），即续传不跨会话存活。
 
-> **官方记录的关闭方式（个人三法 + 组织级）**：① 在 `/config` 里关掉「Dynamic workflows」；② 在 `~/.claude/settings.json` 写 `"disableWorkflows": true`；③ 设环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`（启动时读取）——三者任选其一即可，都会一直生效。整个团队/组织一起关：在 managed settings 里写 `"disableWorkflows": true`，或用 Claude Code 管理后台的开关。关掉之后，bundled 命令（如 `/deep-research`）用不了、prompt 里的 `workflow` 关键词不再触发、`ultracode` 也会从 `/effort` 菜单里消失。
+> **官方记录的关闭方式（个人三法 + 组织级）**：① 在 `/config` 里关掉「Dynamic workflows」；② 在 `~/.claude/settings.json` 写 `"disableWorkflows": true`；③ 设环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`（启动时读取）。三者任选其一即可，都会一直生效。整个团队/组织一起关：在 managed settings 里写 `"disableWorkflows": true`，或用 Claude Code 管理后台的开关。关掉之后，bundled 命令（如 `/deep-research`）用不了、prompt 里的 `workflow` 关键词不再触发、`ultracode` 也会从 `/effort` 菜单里消失。
 
 ---
 
@@ -54,7 +54,7 @@
 
 <div class="callout warn">
 
-`sdk-tools.d.ts` 是**分发包内的类型定义文件**，不是本书仓库里的文件——它随你安装的 Claude Code 一起分发。要核对，请在你本机的 `@anthropic-ai/claude-code` 安装目录中查看该文件。字段如有版本差异，**以你本机的 `sdk-tools.d.ts` 为最终依据**（[附录 A](#/zh/app-a) 末尾同此口径）。
+`sdk-tools.d.ts` 是**分发包内的类型定义文件**，不是本书仓库里的文件，它随你安装的 Claude Code 一起分发。要核对，请在你本机的 `@anthropic-ai/claude-code` 安装目录中查看该文件。字段如有版本差异，**以你本机的 `sdk-tools.d.ts` 为最终依据**（[附录 A](#/zh/app-a) 末尾同此口径）。
 
 </div>
 
@@ -74,19 +74,19 @@
 | 运行月份 | 2026-05 | transcripts 记录时间 |
 | 返回性质 | 始终异步：回执先到（`taskId`/`runId`），结果随 `<task-notification>` 到达 | 类型定义 + 实测 |
 
-> **关于 `CLAUDE_CODE_WORKFLOWS=1`**：这是本书测试环境里实际设着的环境变量，但它**不是官方文档给的启用方式**。官方的启用路径只有 `/config`／付费计划默认开（见 [E.0.1](#e01-官方文档一级权威信源-r11-新增)），而官方记录的环境变量只有**关闭**用的 `CLAUDE_CODE_DISABLE_WORKFLOWS`。所以别把它当成「必须设了才能用」，把它看成一个底层开关就行。
+> **关于 `CLAUDE_CODE_WORKFLOWS=1`**：这是本书测试环境里实际设着的环境变量，但它**不是官方文档给的启用方式**。官方的启用路径就是 `/config` 的「Dynamic workflows」行（所有付费计划可用，Pro 须在此行手动打开；官方未声明其余计划默认是开还是关，以你自己 `/config` 里那一行为准，见 [E.0.1](#e01-官方文档一级权威信源-r11-新增)），而官方记录的环境变量只有**关闭**用的 `CLAUDE_CODE_DISABLE_WORKFLOWS`。所以别把它当成「必须设了才能用」，把它看成一个底层开关就行。
 
-> 这些是**本书写作时的实测快照**。research preview 特性会演进——读到本书时若版本已变，请以你本机实测为准。
+> 这些是**本书写作时的实测快照**。research preview 特性会演进，读到本书时若版本已变，请以你本机实测为准。
 
 ---
 
 ## E.3 真实运行记录（第一批：10 次完成记录，9 个唯一 Run ID，覆盖的机制）
 
-下表是本书**第一批**真实运行——共 **10 次完成记录**，对应 **9 个唯一 Run ID**（第 4 行的续传复用了第 1 行的 Run ID，不计为独立 ID），均**在本机真实跑出**。完整真实语料不止于此批：另含 [§E.3.1](#e31-r4-真实运行实测复现第三方声称) 的 R4 批次（运行 #11–#19）与 R3 基线复验组（至 R4 期合计 **19 条记录 / 17 个唯一 Run ID**），以及 R5、R6 两轮的 6 个应用级真跑——**全书 curated 真实运行共 23 个唯一 Run ID**（R4 17 + R5 3 + R6 3）。原始记录均存于仓库 `assets/transcripts/`，所有数字未经修改。
+下表是本书**第一批**真实运行，共 **10 次完成记录**，对应 **9 个唯一 Run ID**（第 4 行的续传复用了第 1 行的 Run ID，不计为独立 ID），均**在本机真实跑出**。完整真实语料不止于此批：另含 [§E.3.1](#e31-r4-真实运行实测复现第三方声称) 的 R4 批次（运行 #11–#19）与 R3 基线复验组（至 R4 期合计 **19 条记录 / 17 个唯一 Run ID**），以及 R5、R6 两轮的 6 个应用级真跑，合起来**全书 curated 真实运行共 23 个唯一 Run ID**（R4 17 + R5 3 + R6 3）。原始记录均存于仓库 `assets/transcripts/`，所有数字未经修改。
 
 ![Claude Code /workflows 面板：本会话 10 次完成的工作流](assets/images/workflows-panel.png)
 
-> **实证截图**：Claude Code 内置 `/workflows` 面板的实截——截图显示**本会话 10 次完成**（即下表 E.3 这一批），逐行显示 agent 数 / token / 耗时，与下表一一对应。注意 `hello-workflow` 出现两行：一次是脚本运行（约 26k token / 10s），一次 `0s` 是 `resumeFromRunId` **缓存命中**（0 token，印证 [第 22 章 · 断点续传与缓存](#/zh/p4-22)）。本书真实语料**不止于此截图**——另含 R3/R4 的 transcript 记录（见 [§E.3.1](#e31-r4-真实运行实测复现第三方声称)），加上 R5/R6 的 6 个应用级真跑，**全书 curated 共 23 个唯一 Run ID**。
+> **实证截图**：Claude Code 内置 `/workflows` 面板的实截，截图显示**本会话 10 次完成**（即下表 E.3 这一批），逐行显示 agent 数 / token / 耗时，与下表一一对应。注意 `hello-workflow` 出现两行：一次是脚本运行（约 26k token / 10s），一次 `0s` 是 `resumeFromRunId` **缓存命中**（0 token，印证 [第 22 章 · 断点续传与缓存](#/zh/p4-22)）。本书真实语料**不止于此截图**，另含 R3/R4 的 transcript 记录（见 [§E.3.1](#e31-r4-真实运行实测复现第三方声称)），加上 R5/R6 的 6 个应用级真跑，**全书 curated 共 23 个唯一 Run ID**。
 
 | # | Workflow | Run ID | Task ID | 覆盖的机制 | 关键真实数据 | 记录文件 |
 |---|---|---|---|---|---|---|
@@ -105,9 +105,9 @@
 
 **三次 dogfooding 值得专门标注**：运行 #6（frontend-review）真的用 Workflow 评审了本书自己的 `index.html` 并据此修复 16 项；运行 #7（gcf-slugify）产出的 `slugify` 经验正好用于改进本书前端的 heading-ID 生成；运行 #10（deep-research）独立查证「marked v12 不内置消毒、应 `DOMPurify.sanitize(marked.parse(input))`」，反过来**印证了 frontend-review 之后落地的那处 XSS 修复是对的**。这三次都不是演示，是本书前端的真实改进与验证来源。
 
-**运行 #8 的意外收获**：3 名评委在打分理由里写明，它们**实际读取了 `docs/en/p2-08` 与 `assets/_grounding.md` 交叉核对数字**，逐条验证后判定「zero factual errors」——等于顺带验证了本书 p2-08 章真实数据的准确性。
+**运行 #8 的意外收获**：3 名评委在打分理由里写明，它们**实际读取了 `docs/en/p2-08` 与 `assets/_grounding.md` 交叉核对数字**，逐条验证后判定「zero factual errors」，等于顺带验证了本书 p2-08 章真实数据的准确性。
 
-**运行 #9 的意外收获**：对抗验证不仅过滤假阳性，还**反过来纠正了猎手**——`applyDiscount` 的证伪者在确认 bug 真实的同时，指出种子注释里「percent 作字符串会拼接」这条推理是错的（`*`/`/` 会把字符串强制转数字，只有 `+` 才拼接）。一个只会附和的验证者发现不了这点；「默认证伪、不确定就判 refuted」的验证者才会去较真。详见 [第 15 章 · Bug 猎手](#/zh/p3-15) 与 [第 17 章 · 对抗验证](#/zh/p4-17)。
+**运行 #9 的意外收获**：对抗验证会过滤假阳性，还**反过来纠正了猎手**。`applyDiscount` 的证伪者在确认 bug 真实的同时，指出种子注释里「percent 作字符串会拼接」这条推理是错的（`*`/`/` 会把字符串强制转数字，只有 `+` 才拼接）。一个只会附和的验证者发现不了这点；「默认证伪、不确定就判 refuted」的验证者才会去较真。详见 [第 15 章 · Bug 猎手](#/zh/p3-15) 与 [第 17 章 · 对抗验证](#/zh/p4-17)。
 
 </div>
 
@@ -117,7 +117,7 @@
 |---|---|---|
 | `buggy-cart.js` | **第 15 章 Bug Hunter** 配方的真实狩猎目标：内含 5 处刻意埋下的缺陷（缺校验、off-by-one、漏 `await`、`==`、共享引用变异） | `assets/samples/buggy-cart.js` |
 
-> 写实战章节前，请先读对应的 transcript 记录——它是该章数据的唯一依据。更多真实运行会陆续追加到 `assets/transcripts/`。
+> 写实战章节前，请先读对应的 transcript 记录，它是该章数据的唯一依据。更多真实运行会陆续追加到 `assets/transcripts/`。
 
 ### E.3.1 R4 真实运行（实测复现第三方声称）
 
@@ -134,7 +134,7 @@
 
 <div class="callout info">
 
-**这组 R4 运行如何改变信源分级**：把若干原属「第三方声称」的条目**升级为实测事实**（带 Run ID 可引用）——meta 保留键被拒、`isolation:'remote'` 禁用、`model` 无提交校验、30000ms 同步超时、`args` 透传、注入全局。仍属「第三方声称、未核实」的：`stallMs` 默认/重试次数、预算耗尽时在途 agent 行为、resume 缓存键里其余字段（`schema`/`model`/`isolation`/`agentType`/`phase`）是否入键（`label`/`prompt` 已由 R8 实测，见 A.10）、schema 重试确切次数（详见 [附录 B](#/zh/app-b) 相关条目与 [附录 D · D.6/D.8](#/zh/app-d)）。（注：错误类名 `WorkflowAgentCapError`/`WorkflowBudgetExceededError` 原也在此列，后经 R10 二进制核查确认存在、已移出——见 A.14。）
+**这组 R4 运行如何改变信源分级**：把若干原属「第三方声称」的条目**升级为实测事实**（带 Run ID 可引用），包括 meta 保留键被拒、`isolation:'remote'` 禁用、`model` 无提交校验、30000ms 同步超时、`args` 透传、注入全局。仍属「第三方声称、未核实」的：`stallMs` 默认/重试次数、预算耗尽时在途 agent 行为、resume 缓存键里其余字段（`schema`/`model`/`isolation`/`agentType`/`phase`）是否入键（`label`/`prompt` 已由 R8 实测，见 A.10）、schema 重试确切次数（详见 [附录 B](#/zh/app-b) 相关条目与 [附录 D · D.6/D.8](#/zh/app-d)）。（注：错误类名 `WorkflowAgentCapError`/`WorkflowBudgetExceededError` 原也在此列，后经 R10 二进制核查确认存在、已移出，见 A.14。）
 
 </div>
 
@@ -142,7 +142,7 @@
 
 ## E.4 四大社区系统（生态借鉴的源码仓库）
 
-第五部「生态与借鉴」对四个先行系统的剖析，来自对**各自源码仓库的真实阅读**（而非二手转述）。它们都诞生在原生 Workflow 之前，靠「提示词 + Hook + 状态文件」**模拟**确定性编排——它们缺的确定性骨架与 JSON Schema 强约束，正是原生 Workflow 补上的；而它们打磨出的韧性层（验证门、持久循环、磁盘状态、越界护栏），正是原生 Workflow 值得借鉴的。
+第五部「生态与借鉴」对四个先行系统的剖析，来自对**各自源码仓库的真实阅读**（而非二手转述）。它们都诞生在原生 Workflow 之前，靠「提示词 + Hook + 状态文件」**模拟**确定性编排。它们缺的确定性骨架与 JSON Schema 强约束，正是原生 Workflow 补上的；而它们打磨出的韧性层（验证门、持久循环、磁盘状态、越界护栏），正是原生 Workflow 值得借鉴的。
 
 | 系统 | 形态 | 精华（本书提炼） | 章节 |
 |---|---|---|---|
@@ -173,7 +173,7 @@
 | 视频 `c0gVowvMR-g`（上述仓库的配套视频） | 该 YouTuber 讲解多 agent 编排/工作流的视频 | **不引述内容**：该视频页面为 SPA，**取不到字幕**，故本书不引用其任何具体表述；仅记录其与上述第三方仓库的配套关系。 |
 | **zenn 文章（`lumichy`，日文社区解读·R8 新增）** | Zenn 作者 lumichy 对 ultrawork 的解读（约 2500–3000 字 + 7 图），标题「MCPとSkillsに続く第3の革命：Claude Code Workflowがultraworkで Agentをコードに焼き付ける」。**写于官方文档发布之前**，文中称「官方文档未收录（2025 年 5 月时）」，评论区另称 v2.1.150 需 `export DISABLE_GROWTHBOOK=1` 才启用。**非 Claude/Anthropic 官方出品。** | **辩证参考、不当真值**：① 文中「官方文档未收录」是其写作时点的状态，**现已过时**——特性已正式收录于 [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)（见 [E.0.1](#e01-官方文档一级权威信源-r11-新增)），启用与可用性一律以官方为准；② 其涉及 API 形态/字段的表述，以官方类型定义（[E.1](#e1-官方类型定义api-字段的权威来源)）与本机实跑（[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制)）为准，与本书实测冲突处以本书为准；③ 其环境/UX 类声称（如「v2.1.150 需设 `DISABLE_GROWTHBOOK`」）列入**待测清单**，未经本书实测复现前一律标「第三方声称、未核实」。完整辩证核实记录见 `assets/transcripts/examples-r8.md` §6。 |
 
-> 之所以把它们单列并反复强调「非照抄」：本书的承诺是**事实优先 + 原创真实**。参考资料可以启发理解，但不能替代「亲手跑一遍、记录真实数字」——后者才是本书每一个论断的底座。**特别地，`claude-code-workflow-creator` 是第三方 YouTuber 仓库而非官方**：本书只借它的思路，凡其声称均须经本书实测复现才升级为事实，否则显式标注「未核实」。
+> 之所以把它们单列并反复强调「非照抄」：本书的承诺是**事实优先 + 原创真实**。参考资料可以启发理解，但不能替代「亲手跑一遍、记录真实数字」，后者才是本书每一个论断的底座。**特别地，`claude-code-workflow-creator` 是第三方 YouTuber 仓库而非官方**：本书只借它的思路，凡其声称均须经本书实测复现才升级为事实，否则显式标注「未核实」。
 
 ---
 
@@ -206,4 +206,4 @@ flowchart TD
 
 ---
 
-> **致谢与边界**：感谢四大社区系统的作者们在原生 Workflow 之前的探索。本书是站在他们与官方分发包之上的独立实践总结——所有错误归本书作者，所有原创真实数据可经 `assets/transcripts/` 复核。这是一本会随特性演进而需要更新的书；当你本机实测与书中不符时，请相信你的实测。
+> **致谢与边界**：感谢四大社区系统的作者们在原生 Workflow 之前的探索。本书是站在他们与官方分发包之上的独立实践总结，所有错误归本书作者，所有原创真实数据可经 `assets/transcripts/` 复核。这是一本会随特性演进而需要更新的书；当你本机实测与书中不符时，请相信你的实测。

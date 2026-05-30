@@ -1,8 +1,8 @@
 # Chapter 03 · The Positioning Matrix: Five Extension Mechanisms
 
-> In the last chapter we made the case for "why you need deterministic orchestration." But Workflow is no island — it lands in an already-bustling ecosystem: Subagents, Agent Teams, Skills, MCP, each with its own job.
+> In the last chapter we made the case for "why you need deterministic orchestration." But Workflow is no island; it lands in an already-bustling ecosystem: Subagents, Agent Teams, Skills, MCP, each with its own job.
 >
-> What trips up beginners most isn't "how do I use Workflow," but "**with so many mechanisms, when exactly do I use which? Will they fight each other?**" This chapter welds the boundaries shut with a positioning matrix, then tells you something that matters even more: **they are orthogonal and composable** — only once you understand the boundaries can you stack them together.
+> What trips up beginners most isn't "how do I use Workflow," but "**with so many mechanisms, when exactly do I use which? Will they fight each other?**" This chapter welds the boundaries shut with a positioning matrix, then tells you something that matters even more: **they are orthogonal and composable.** Only once you understand the boundaries can you stack them together.
 
 ---
 
@@ -13,7 +13,7 @@ First, put the five protagonists on stage, each with one sentence pinning down *
 | Mechanism | The question it answers | One-line positioning |
 |---|---|---|
 | **Subagents** | "Can I **send a clone** to do this one thing and bring back the result?" | Fork a child agent once, returns text |
-| **Workflow** | "**Many** clones — in what order / parallelism / verification do they work?" | Use code to **deterministically orchestrate** multiple subagents |
+| **Workflow** | "**Dozens to hundreds** of clones — in what order / parallelism / verification do they work?" | Use code to **deterministically orchestrate subagents at scale** (dozens to hundreds per run, hard cap 1000) |
 | **Agent Teams** | "Can a group of clones **collaborate long-term like a team and talk to each other**?" | Stateful, communicating, long-term collaborating multi-agent |
 | **Skills** | "The **specialized knowledge** this thing needs — how do I feed it to the agent on demand?" | On-demand-injected prompt knowledge pack |
 | **MCP** | "How does the agent **connect to external tools and data**?" | A protocol connecting external tools / data sources |
@@ -40,7 +40,7 @@ flowchart TD
 
 <div class="callout info">
 
-**Why split into three planes first?** Because the things genuinely easy to mix up — the ones that really force an either-or choice — all live *within* the "orchestration plane" (Subagents / Workflow / Agent Teams); Skills (cognition plane) and MCP (connectivity plane), on the other hand, aren't **on the same dimension** as those at all — there's no "either-or" to speak of; they stack on top. Get the planes straight first, and the later trade-offs won't get tangled.
+**Why split into three planes first?** Because the things genuinely easy to mix up, the ones that really force an either-or choice, all live *within* the "orchestration plane" (Subagents / Workflow / Agent Teams). Skills (cognition plane) and MCP (connectivity plane), on the other hand, aren't **on the same dimension** as those at all; there's no "either-or" to speak of, and they stack on top. Get the planes straight first, and the later trade-offs won't get tangled.
 
 </div>
 
@@ -55,7 +55,7 @@ A subagent is the smallest unit: **the main loop forks a child agent, hands it a
 Its traits are sharp and clear:
 
 - **One-off**: dispatched, run, handed back, done. It doesn't remember what the previous subagent did, and the next subagent has no idea it was ever there.
-- **Isolated context**: it has its own independent context window — and that's exactly where its value lies: the dirty, heavy work happens on its side, and the raw material need not be stuffed back into the main loop (echoing Wall ① of Chapter 02).
+- **Isolated context**: it has its own independent context window, and that's exactly where its value lies. The dirty, heavy work happens on its side, and the raw material need not be stuffed back into the main loop (echoing Wall ① of Chapter 02).
 - **Returns text**: what it hands back is a piece of writing.
 
 ### Its relationship to Workflow: atom vs molecule
@@ -64,9 +64,9 @@ This is the pair that most needs sorting out, because **what Workflow's `agent()
 
 Think of it this way:
 
-> **A subagent is the "atom," Workflow is the "molecule."** A single subagent solves "send one clone to do one thing"; Workflow uses **code** to assemble many subagents into structure — parallel, pipeline, loop, verification, consolidation.
+> **A subagent is the "atom," Workflow is the "molecule."** A single subagent solves "send one clone to do one thing"; Workflow uses **code** to assemble many subagents into structure: parallel, pipeline, loop, verification, consolidation.
 
-Chapter 01's `hello-workflow` dispatched just **one** agent — there, Workflow collapsed into "just a subagent," with no orchestration value on show. The real power shows up when `parallel` / `pipeline` orchestrate 3, 6, or dozens of subagents (recall Chapter 02's real data: parallel 3, pipeline 6 agents).
+Chapter 01's `hello-workflow` dispatched just **one** agent, so there Workflow collapsed into "just a subagent," with no orchestration value on show. Its real stage is **scale**: dozens to hundreds of subagents per run (hard cap 1000). That's exactly the axis the official "when to use" table draws on: Workflow runs "dozens to hundreds of agents per run," while subagents are "a few delegated tasks per turn." That said, **you don't need hundreds to benefit.** Many examples later in this book run just 3 or 6 agents (recall Chapter 02's real data: parallel 3, pipeline 6 agents) and still pay off the orchestration. They're demonstrations that small scale works too, not Workflow's ceiling.
 
 ```mermaid
 flowchart LR
@@ -86,7 +86,7 @@ flowchart LR
 
 <div class="callout tip">
 
-**When do you reach for just a Subagent and skip the Workflow?** When you only need to **send one clone off to do one fairly self-contained job** — "explore this directory and summarize it," "read this long document and pull out the key points." A single Task subtask does the trick; wrapping it in a Workflow is using a cannon to swat a fly. **Only when the clones become "multiple" and have an "order / parallelism / dependency / verification" relationship among them do you upgrade to Workflow.**
+**When do you reach for just a Subagent and skip the Workflow?** When you only need to **send one clone (or a few in a single turn) off to do one fairly self-contained job**, like "explore this directory and summarize it" or "read this long document and pull out the key points." A single Task subtask does the trick; wrapping it in a Workflow is using a cannon to swat a fly. **The real signal to upgrade to Workflow is that the clones you structurally orchestrate reach scale, dozens to hundreds per run (hard cap 1000), with an "order / parallelism / dependency / verification" relationship among them.** Even just 3 or 6 are worth it once that structural relationship holds; scale is simply the axis that truly separates Workflow from a plain subagent.
 
 </div>
 
@@ -96,19 +96,19 @@ flowchart LR
 
 ### What it is
 
-Agent Teams is gated by the experimental flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` (in the session environment of this book's writing, **that flag is enabled** — see `_grounding.md` section A, tested; `CLAUDE_CODE_WORKFLOWS=1` was also set in the same environment, but that's just a power-user environment variable, not Workflow's official enable switch — Workflow goes through `/config` and is on by default on paid plans). It takes a **fundamentally different approach to collaboration**:
+Agent Teams is gated by the experimental flag `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`; in the session environment of this book's writing, **that flag is enabled** (see `_grounding.md` section A, tested). It takes a **fundamentally different approach to collaboration**:
 
-> A group of agents form a **team** — **stateful**, **able to communicate with each other**, engaged in **long-term collaboration.** They aren't "dispatched and done"; they stay present like a real team, calling out to each other, splitting up the work, and coordinating via messages.
+> A group of agents form a **team**: **stateful**, **able to communicate with each other**, engaged in **long-term collaboration.** They aren't "dispatched and done"; they stay present like a real team, calling out to each other, splitting up the work, and coordinating via messages.
 
 <div class="callout info">
 
-**You're watching it happen right now.** The writing of this book itself runs on Agent Teams — this very chapter you're reading was written by a guest-author agent on the "Loom" writing team, which coordinated tasks and reported progress to team-lead via the messaging mechanism. This feel of "stateful + communicating + long-term presence" is exactly what sets Agent Teams apart from a one-off subagent.
+**You're watching it happen right now.** The writing of this book itself runs on Agent Teams: this very chapter you're reading was written by a guest-author agent on the "Loom" writing team, which coordinated tasks and reported progress to team-lead via the messaging mechanism. This feel of "stateful, communicating, long-term presence" is exactly what sets Agent Teams apart from a one-off subagent.
 
 </div>
 
 ### Its relationship to Workflow: stateful team vs stateless pipeline
 
-This is another **easily mixed-up** pair, because both "involve multiple agents." But at their core they're polar opposites:
+This is another **easily mixed-up** pair, because both involve multiple agents. But at their core they're polar opposites:
 
 | Dimension | **Agent Teams** | **Workflow** |
 |---|---|---|
@@ -150,7 +150,7 @@ flowchart TD
 
 <div class="callout warn">
 
-**Don't cram Agent Teams' open collaboration into a Workflow.** If your task is full of "it depends" and "members need to align as they go," forcing a deterministic script to orchestrate it gets very awkward — that's Agent Teams' home turf. The other way round, a fixed-shape pipeline that's after reproducibility, run via Agent Teams, wastes the "stateful team" capability and throws away determinism. **The boundary is exactly this sentence: the flowchart can be fixed → Workflow; needs improvisation → Agent Teams.**
+**Don't cram Agent Teams' open collaboration into a Workflow.** If your task is full of "it depends" and "members need to align as they go," forcing a deterministic script to orchestrate it gets very awkward; that's Agent Teams' home turf. The other way round, a fixed-shape pipeline that's after reproducibility, run via Agent Teams, wastes the "stateful team" capability and throws away determinism. **The boundary is exactly this sentence: the flowchart can be fixed → Workflow; needs improvisation → Agent Teams.**
 
 </div>
 
@@ -162,13 +162,13 @@ flowchart TD
 
 Skills are **on-demand-injected prompt knowledge packs.** The moment a certain kind of task shows up, the matching Skill **injects a body of specialized knowledge** (domain conventions, methodology, best practices, operating steps) **into the agent's context**, thereby changing how it "**thinks.**"
 
-Note the verb — what a Skill changes is the agent's **cognition**, not its **control flow.** It makes the agent "know a bit more, think a bit more professionally," but does **not** decide "what to do first, what next."
+Note the verb: what a Skill changes is the agent's **cognition**, not its **control flow.** It makes the agent know a bit more and think a bit more professionally, but does **not** decide what to do first or what next.
 
 ### Its relationship to Workflow: how to think vs how to arrange
 
 This pair is the textbook case of **orthogonality**; Chapter 01 already touched on this line, and here we drive it all the way home:
 
-> **Skills decide how the agent "thinks" (cognition); Workflow decides "in what order it acts" (control flow).** One governs the knowledge in the head, one governs how the steps join up — they sit on two different axes and simply don't conflict.
+> **Skills decide how the agent "thinks" (cognition); Workflow decides "in what order it acts" (control flow).** One governs the knowledge in the head, one governs how the steps join up; they sit on two different axes and simply don't conflict.
 
 Precisely because they're orthogonal, they **can stack.** `agent()` has an `agentType` option (`_grounding.md` section B) that lets a subagent run as a certain custom type (e.g., `'Explore'`, `'code-reviewer'`); and an agent carrying a particular skill, when dispatched in some step of a Workflow, **is both orchestrated by Workflow's control flow and thinks with the knowledge the skill injected.**
 
@@ -183,7 +183,7 @@ flowchart LR
 
 <div class="callout tip">
 
-**Picture it this way:** Workflow is the **script** (laying out which act, who enters first, how many lines run in parallel); a Skill is the **actor's professional training** (so when the actor plays a doctor, they genuinely know the medical terminology). The script won't reshuffle the acts just because the actor is more skilled, and the actor won't forget their expertise just because the script is fixed — each minds its own department, and together they make a good play.
+**Picture it this way:** Workflow is the **script** (laying out which act, who enters first, how many lines run in parallel); a Skill is the **actor's professional training** (so when the actor plays a doctor, they genuinely know the medical terminology). The script won't reshuffle the acts just because the actor is more skilled, and the actor won't forget their expertise just because the script is fixed. Each minds its own department, and together they make a good play.
 
 </div>
 
@@ -193,13 +193,13 @@ flowchart LR
 
 ### What it is
 
-MCP (Model Context Protocol) is **a protocol for connecting external tools and data sources.** It lets an agent reach things "outside itself" — a database, a search engine, a browser, a company-internal API. Chapter 01 spelled it out: **MCP is a protocol connecting external tools / data sources; Workflow is an engine orchestrating internal subagents.**
+MCP (Model Context Protocol) is **a protocol for connecting external tools and data sources.** It lets an agent reach things outside itself: a database, a search engine, a browser, a company-internal API. Chapter 01 spelled it out: **MCP is a protocol connecting external tools / data sources; Workflow is an engine orchestrating internal subagents.**
 
 ### Its relationship to Workflow: outward connection vs inward orchestration
 
 This pair is almost impossible to genuinely mix up, but it's still worth anchoring the direction in one sentence:
 
-> **MCP points "outward" — connecting the agent to the external world; Workflow points "inward" — orchestrating the internal subagents.** One solves "what can it reach," one solves "how to organize your own people."
+> **MCP points "outward," connecting the agent to the external world; Workflow points "inward," orchestrating the internal subagents.** One solves "what can it reach," one solves "how to organize your own people."
 
 They're just as **composable**: some subagent within a Workflow can, while running its step, call an MCP tool to fetch external data, then hand the result back to the pipeline as a structured output. For example, a "deep research" pipeline (Chapter 13) might have its "retrieval" step let a subagent call a search engine via MCP.
 
@@ -219,21 +219,21 @@ flowchart LR
 
 ## 3.6 The Decision Matrix: Clearing Up Five Mechanisms in One Table
 
-Lay the five mechanisms out side by side across a few key dimensions — this is the chapter's core quick-reference table:
+Lay the five mechanisms out side by side across a few key dimensions. This is the chapter's core quick-reference table:
 
 | Dimension | Subagents | **Workflow** | Agent Teams | Skills | MCP |
 |---|---|---|---|---|---|
 | **Solves what** | Send one clone to work | **Deterministically orchestrate multiple subagents** | Stateful team long-term collaboration | Inject domain knowledge | Connect external tools/data |
 | **Which plane** | Orchestration | **Orchestration** | Orchestration | Cognition | Connectivity |
-| **Agent count** | One | **Multiple** | Multiple | N/A | N/A |
+| **Agent count / scale** | A few delegated per turn | **Dozens to hundreds per run (hard cap 1000)** | A small team (a few long-lived members) | N/A | N/A |
 | **State** | One-off | **Stateless** | Stateful | Effective once injected | Connected state |
 | **Inter-member comms** | None | **None (values via script variables)** | Yes | N/A | N/A |
 | **Control style** | Main loop dispatches directly | **Deterministic code** | Emergent coordination | Prompt injection | Protocol call |
 | **Reproducible** | Single-shot | **Yes (same script+args cacheable)** | No | Yes (knowledge fixed) | Depends on external |
-| **Gating flag** | Built-in | `/config` "Dynamic workflows" row / on by default on paid plans (turn off via `disableWorkflows` / `CLAUDE_CODE_DISABLE_WORKFLOWS`; `CLAUDE_CODE_WORKFLOWS` is a power-user env only — not the main switch, doesn't replace `/config`) | `..._AGENT_TEAMS` | Built-in / skill system | MCP config |
+| **Gating flag** | Built-in | `/config` "Dynamic workflows" row (available on all paid plans + API/Bedrock/Vertex/Foundry, Pro must enable it here; `CLAUDE_CODE_WORKFLOWS` is a power-user env only, not the main switch. Full enable/disable in [p2-ops](#/en/p2-ops)) | `..._AGENT_TEAMS` | Built-in / skill system | MCP config |
 | **Typical scenario** | Explore/summarize one thing | **Sharded review, adversarial verification, pipeline** | Open-ended multi-role collaboration | Inject specialized conventions into a step | Fetch external data |
 
-> Workflow's official enablement is the "Dynamic workflows" row in `/config` (on by default on every paid plan except Pro), not an environment variable. `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is the experimental flag that gates Agent Teams; in this book's writing session both it and `CLAUDE_CODE_WORKFLOWS=1` were tested as set (`_grounding.md` section A), but the latter is just a power-user environment variable, not the official enable switch.
+> Workflow's official enablement is the "Dynamic workflows" row in `/config` (available on all paid plans plus API/Bedrock/Vertex/Foundry, with Pro required to enable it from that row; the official docs don't state whether Max/Team/Enterprise default on or off, so check the toggle in your own `/config`), not an environment variable. `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is the experimental flag that gates Agent Teams; in this book's writing session both it and `CLAUDE_CODE_WORKFLOWS=1` were tested as set (`_grounding.md` section A), but the latter is just a power-user environment variable, not the official enable switch. The two-layer enablement model and the zero-cost probe are in Chapter 01 §1.5; the full enable/disable surface (including `disableWorkflows` / `CLAUDE_CODE_DISABLE_WORKFLOWS` and org-wide managed settings) lives in [p2-ops](#/en/p2-ops).
 
 ---
 
@@ -247,10 +247,10 @@ flowchart TD
 
     Start -->|"I want to connect<br/>external tools/data"| MCP["Use MCP<br/>(stacks onto any mechanism)"]
     Start -->|"I want to inject<br/>specialized knowledge into the agent"| SK["Use a Skill<br/>(stacks onto any mechanism)"]
-    Start -->|"I want the agent<br/>to do work (orchestration plane)"| Q1{"How many<br/>agents involved?"}
+    Start -->|"I want the agent<br/>to do work (orchestration plane)"| Q1{"What scale?<br/>(a few delegated vs orchestrate at scale)"}
 
-    Q1 -->|"Just one"| SA["Use a Subagent<br/>(one Task)"]
-    Q1 -->|"Multiple"| Q2{"Can it be drawn as a fixed flowchart<br/>(A then B, which run in parallel)?"}
+    Q1 -->|"Just one / a few per turn"| SA["Use a Subagent<br/>(one Task)"]
+    Q1 -->|"Orchestrate at scale<br/>(dozens to hundreds, hard cap 1000)"| Q2{"Can it be drawn as a fixed flowchart<br/>(A then B, which run in parallel)?"}
 
     Q2 -->|"Yes, and want<br/>reproducible/testable/shareable"| WF["Use Workflow"]
     Q2 -->|"No, want open collaboration,<br/>conferring while working"| AT["Use Agent Teams"]
@@ -262,17 +262,17 @@ flowchart TD
     style MCP fill:#ffcdd2,stroke:#e53935
 ```
 
-The key fork of this tree is that last judgment — **"can it be drawn as a fixed flowchart":**
+The key fork of this tree is that last judgment, **"can it be drawn as a fixed flowchart":**
 
 - **Can be fixed** → Workflow. E.g., "five-dimension review → per-item verify → deduped consolidation," every step clear, order and parallelism nailed down.
 - **Can't be fixed** → Agent Teams. E.g., "several roles keep discussing a fuzzy goal and split the work dynamically as progress dictates."
 
 <div class="callout warn">
 
-**The two most common misjudgments — commit them to memory:**
+**The two most common misjudgments, committed to memory:**
 
-1. **Seeing "multiple agents" and jumping straight to Agent Teams** — wrong. Multiple agents but a **fixed process** should use Workflow. Agent Teams' admission ticket is "needs stateful communication and improvisation."
-2. **Treating "Workflow / Skill / MCP" as a pick-one** — wrong. They aren't on the same dimension; they are **not mutually exclusive at all.** A subagent within a Workflow step can perfectly well carry a Skill's knowledge and call an MCP tool at the same time. The next section is all about this.
+1. **Seeing "multiple agents" and jumping straight to Agent Teams.** Wrong. Multiple agents but a **fixed process** should use Workflow. Agent Teams' admission ticket is "needs stateful communication and improvisation."
+2. **Treating "Workflow / Skill / MCP" as a pick-one.** Wrong. They aren't on the same dimension; they are **not mutually exclusive at all.** A subagent within a Workflow step can perfectly well carry a Skill's knowledge and call an MCP tool at the same time. The next section is all about this.
 
 </div>
 
@@ -280,7 +280,7 @@ The key fork of this tree is that last judgment — **"can it be drawn as a fixe
 
 ## 3.8 To Be Honest: They Are Orthogonal and Composable
 
-Up to now, to keep the boundaries clear, we "cut" the five mechanisms apart. But in the real world, the strongest usage is precisely **stacking them together.** This section must honestly add: **these mechanisms aren't competitors but orthogonal and composable** — understanding the boundaries is about composing better, not picking one over the others.
+Up to now, to keep the boundaries clear, we "cut" the five mechanisms apart. But in the real world, the strongest usage is precisely **stacking them together.** This section must honestly add: **these mechanisms aren't competitors but orthogonal and composable.** Understanding the boundaries is about composing better, not picking one over the others.
 
 Workflow sits at the center of the orchestration plane, and is naturally the **carrier** for the other mechanisms:
 
@@ -296,18 +296,18 @@ flowchart TD
 
 Each of these composition points has API backing (`_grounding.md` section B):
 
-- **Workflow + custom Agent**: `agent()`'s `agentType` option can specify a subagent type (e.g., `'Explore'`, `'code-reviewer'`), and it **can combine with schema** — using a specialized agent while forcing structured output.
-- **Workflow + Skill**: a subagent dispatched by Workflow can, while running its step, trigger / carry a skill's knowledge — Workflow governs "when this step happens," the skill governs "how to think professionally in this step."
+- **Workflow + custom Agent**: `agent()`'s `agentType` option can specify a subagent type (e.g., `'Explore'`, `'code-reviewer'`), and it **can combine with schema**, using a specialized agent while forcing structured output.
+- **Workflow + Skill**: a subagent dispatched by Workflow can, while running its step, trigger / carry a skill's knowledge. Workflow governs "when this step happens," the skill governs "how to think professionally in this step."
 - **Workflow + MCP**: some subagent in the pipeline reaches external data via MCP as it runs (e.g., the retrieval step of "deep research").
-- **Workflow + Workflow**: `workflow(name, args?)` can inline-call another already-settled named workflow (**nesting is one level only**; calling again inside a sub-workflow throws), turning a validated pipeline into a reusable building block — this is the basis of Part V "Build Your Own Library" and Chapter 20 "Nested Workflows."
+- **Workflow + Workflow**: `workflow(name, args?)` can inline-call another already-settled named workflow (**nesting is one level only**; calling again inside a sub-workflow throws), turning a validated pipeline into a reusable building block. This is the basis of Part V "Build Your Own Library" and Chapter 20 "Nested Workflows."
 
 One sentence to wrap up this composition view:
 
-> **Workflow is the "skeleton" of the orchestration plane; a Skill injects "professional judgment" into each joint of the skeleton, MCP lets a joint reach the "external world," and a custom agentType makes a joint the "right specialist."** They don't steal the scene — they co-star.
+> **Workflow is the "skeleton" of the orchestration plane; a Skill injects "professional judgment" into each joint of the skeleton, MCP lets a joint reach the "external world," and a custom agentType makes a joint the "right specialist."** They don't steal the scene; they co-star.
 
 <div class="callout tip">
 
-**This is exactly the "Loom" metaphor echoing at the ecosystem level.** Workflow is the warp (the deterministic structural skeleton), while Skill / MCP / custom agents are the weft shuttling through it (the intelligence and connectivity of each step). The warp fixes the form, the weft brings the splendor — the five mechanisms aren't a pick-one-of-five question, but a toolbox whose warp and weft can interlace.
+**This is exactly the "Loom" metaphor echoing at the ecosystem level.** Workflow is the warp (the deterministic structural skeleton), while Skill / MCP / custom agents are the weft shuttling through it (the intelligence and connectivity of each step). The warp fixes the form, the weft brings the splendor. The five mechanisms aren't a pick-one-of-five question, but a toolbox whose warp and weft can interlace (the metaphor comes from the [Preface](#/en/00-preface)).
 
 </div>
 
@@ -316,9 +316,9 @@ One sentence to wrap up this composition view:
 ## 3.9 Chapter Summary
 
 - The five extension mechanisms belong to three planes: the **orchestration plane** (Subagents / Workflow / Agent Teams), the **cognition plane** (Skills), the **connectivity plane** (MCP). What's easy to mix up and forces a trade-off lies only within the orchestration plane.
-- **Subagents vs Workflow**: atom vs molecule. One clone → Subagent; multiple clones to be organized in order/parallelism/verification → Workflow.
-- **Workflow vs Agent Teams**: stateless deterministic pipeline vs stateful communicating team. **Flowchart can be fixed → Workflow; needs open collaboration and improvisation → Agent Teams.** Workflow's official enablement is the "Dynamic workflows" row in `/config`, on by default on paid plans; Agent Teams is gated by the experimental flag `..._AGENT_TEAMS`, enabled on the local machine. (The same environment also had `CLAUDE_CODE_WORKFLOWS=1` set, but that's just a power-user environment variable, not the official enable switch.)
-- **Skills** (how to think) and **MCP** (what to reach) are **orthogonal** to Workflow (in what order to act); there's no either-or — they stack on top.
+- **Subagents vs Workflow**: atom vs molecule, separated by **scale**. A few clones per turn → Subagent; clones to be organized at scale in order/parallelism/verification (dozens to hundreds per run, hard cap 1000) → Workflow. Even orchestrating just 3 or 6 pays off; scale is the ceiling, not the threshold.
+- **Workflow vs Agent Teams**: stateless deterministic pipeline vs stateful communicating team. **Flowchart can be fixed → Workflow; needs open collaboration and improvisation → Agent Teams.** Workflow's official enablement is the "Dynamic workflows" row in `/config` (full details in the gating footnote above and [p2-ops](#/en/p2-ops)); Agent Teams is gated by the experimental flag `..._AGENT_TEAMS`, enabled on the local machine.
+- **Skills** (how to think) and **MCP** (what to reach) are **orthogonal** to Workflow (in what order to act); there's no either-or, they stack on top.
 - The strongest usage is **composition**: Workflow as the skeleton, using `agentType` to call specialist agents, in-step agents triggering skills / calling MCP, `workflow()` inline-reusing sub-pipelines (nesting one level only).
 - The boundary in one sentence: **if it can be drawn as a flowchart of "what first → what next → what in parallel," use Workflow; for open-ended dialogue and improvisation, it's not its home turf.**
 

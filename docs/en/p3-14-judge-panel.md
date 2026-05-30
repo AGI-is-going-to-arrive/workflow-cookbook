@@ -1,18 +1,18 @@
 # Chapter 14 · Judge Panel: A/B Evaluation
 
-> You've got two (or N) candidate answers — how do you objectively pick the better one? The worst move is to hand it to **one** agent and ask it to "see which is better" — a single judge brings both its own preferences and its own blind spots. This chapter ports the real-world **judge panel** into Workflow: **N candidates → multiple mutually independent judges score against the same rubric → tally and aggregate to decide the winner.** The whole recipe runs through one real run: two candidate answers, 3 independent judges, a **3:0** verdict for the winner — and those judges also pulled off something unexpected yet extremely valuable.
+> You've got two (or N) candidate answers. How do you objectively pick the better one? The worst move is to hand it to one agent and ask it to "see which is better." A single judge brings both its own preferences and its own blind spots. This chapter ports the real-world judge panel into Workflow: take N candidates, have multiple mutually independent judges score them against the same rubric, then tally and aggregate to decide the winner. The whole recipe runs through one real run: two candidate answers, 3 independent judges, a **3:0** verdict for the winner. Those judges also pulled off something unexpected and valuable.
 
 ---
 
 ## 14.1 Recipe Motivation
 
-"LLM-as-judge" itself is nothing new; the hard part is **how to judge** reliably. A single judge has three hard flaws:
+LLM-as-judge itself is nothing new; the hard part is judging reliably. A single judge has three hard flaws:
 
-- **Preference bias.** A single agent has its own taste for "verbose but comprehensive" versus "concise but shallow," and that preference bleeds into its one verdict — so you can't tell "B really is better" apart from "this judge just happens to like B's style."
-- **Instability.** Put the same judge on the same pair of candidates and a slight change of wording might flip it — you have no way to know how stable the result is.
-- **Not tally-able.** One judge gives only one conclusion; you can't get **confidence** information like "what proportion thinks B is better."
+- **Preference bias.** A single agent has its own taste for "verbose but comprehensive" versus "concise but shallow," and that preference bleeds into its one verdict. So you can't tell "B really is better" apart from "this judge just happens to like B's style."
+- **Instability.** Put the same judge on the same pair of candidates and a slight change of wording might flip it, and you have no way to know how stable the result is.
+- **Not tally-able.** One judge gives only one conclusion; you can't get confidence information like "what proportion thinks B is better."
 
-The judge panel tackles all three head-on with **multiple non-communicating independent judges**:
+The judge panel tackles all three head-on with multiple non-communicating independent judges:
 
 ```mermaid
 flowchart TB
@@ -27,17 +27,17 @@ flowchart TB
   T --> W["winner"]
 ```
 
-Three key designs — and the rest of the chapter just unpacks them:
+The rest of the chapter unpacks three key designs:
 
-1. **Judges must be independent**: use `parallel` to let each judge score **on its own**, blind to the others' conclusions (otherwise they follow the crowd and collapse back into a single judge).
-2. **Scoring needs a rubric**: use `schema` to **pin the scoring dimensions (accuracy / clarity / completeness) down to numbers**, forcing judges to think structurally instead of tossing out a single "I think B is better."
-3. **Aggregate by tally, not by a single agent's call**: the final verdict is **counted out from the votes**, not handed to another agent to "synthesize everyone's opinions" — that would squeeze the multi-judge independence back down to a single point.
+1. **Judges must be independent.** Use `parallel` to let each judge score **on its own**, blind to the others' conclusions. Otherwise they follow the crowd and collapse back into a single judge.
+2. **Scoring needs a rubric.** Use `schema` to **pin the scoring dimensions (accuracy / clarity / completeness) down to numbers**, forcing judges to think structurally instead of tossing out a single "I think B is better."
+3. **Aggregate by tally.** The final verdict is **counted out from the votes**, not handed to another agent to "synthesize everyone's opinions." That would squeeze the multi-judge independence back down to a single point.
 
 ---
 
 ## 14.2 The Full Script
 
-**(An illustrative script fleshed out from the transcript skeleton — not run verbatim; the actual run's Run ID and usage are in 14.3.)** Below is the script of this real run — its structure matches `assets/transcripts/judge-panel.md`. The transcript elides the two schemas `answer` and `SCORE` with `{...}`; here they're **filled out into a runnable form** and tagged inline as "(illustrative completion)," while the parts that genuinely exist in the transcript (`meta`, `q`, the `parallel` drafting, the 3-judge `parallel` scoring, the Tally count and `return`) are left exactly as-is.
+**(An illustrative script fleshed out from the transcript skeleton, not run verbatim; the actual run's Run ID and usage are in 14.3.)** Below is the script of this real run, with a structure that matches `assets/transcripts/judge-panel.md`. The transcript elides the two schemas `answer` and `SCORE` with `{...}`; here they're **filled out into a runnable form** and tagged inline as "(illustrative completion)." The parts that genuinely exist in the transcript (`meta`, `q`, the `parallel` drafting, the 3-judge `parallel` scoring, the Tally count and `return`) are left exactly as-is.
 
 ```javascript
 export const meta = {
@@ -117,12 +117,12 @@ return {
 }
 ```
 
-Note that this structure and Chapter 11's Multi-dimension PR Review **look alike but differ in spirit**: both use the `parallel` barrier to run concurrently, but —
+This structure and Chapter 11's Multi-dimension PR Review look alike but differ in spirit. Both use the `parallel` barrier to run concurrently, but they divide the work in opposite ways:
 
 - Chapter 11: each agent looks at a **different** dimension (division of labor), then **synthesizes** their outputs.
 - This chapter: each judge looks at the **same pair** of candidates (repeated judgment), then **tallies** their votes.
 
-**"Synthesize after division of labor" leans on an agent; "tally after repetition" leans on code.** That's the soul of the judge panel — it demotes aggregation from "call another agent to make the call" down to a piece of **deterministic vote-counting code**, which is how each judge's independence stays intact.
+Synthesize after division of labor, and you lean on an agent; tally after repetition, and you lean on code. That's the soul of the judge panel: it demotes aggregation from "call another agent to make the call" down to a piece of deterministic vote-counting code, which is how each judge's independence stays intact.
 
 ---
 
@@ -144,11 +144,11 @@ The value the script really returned:
 }
 ```
 
-**The 3 judges unanimously (3:0) ruled B the winner.** The reasons converged cleanly: B (performance-engineering perspective) was overwhelmingly ahead on **completeness** — it brought **real measurement data** and nailed the core anti-pattern of "back-to-back parallel barrier waste" (the very topic of Chapter 08); A (beginner perspective) edged ahead on **clarity**, but didn't have the depth to settle it. Across the three dimensions, the gap on completeness outweighed clarity's small advantage.
+**The 3 judges unanimously (3:0) ruled B the winner.** The reasons converged cleanly. B (performance-engineering perspective) was overwhelmingly ahead on **completeness**: it brought **real measurement data** and nailed the core anti-pattern of "back-to-back parallel barrier waste" (the very topic of Chapter 08). A (beginner perspective) edged ahead on **clarity** but didn't have the depth to settle it. Across the three dimensions, the gap on completeness outweighed clarity's small advantage.
 
 <div class="callout tip">
 
-**Note how `agent_count=5` lines up with the script structure.** 2 drafts + 3 judges = 5 agents, matching the real usage exactly (which confirms Chapter 08's rule of thumb "tokens ≈ agent count × per-agent context": `201852 / 5 ≈ 40K/agent`). `tool_uses=26` runs high; the next section reveals why — the judges did something extra.
+**Note how `agent_count=5` lines up with the script structure.** 2 drafts plus 3 judges is 5 agents, matching the real usage exactly, which confirms Chapter 08's rule of thumb "tokens ≈ agent count × per-agent context" (`201852 / 5 ≈ 40K/agent`). `tool_uses=26` runs high; the next section reveals why: the judges did something extra.
 
 </div>
 
@@ -158,25 +158,25 @@ The most interesting part of this run isn't that "B won," but **how** the judges
 
 <div class="callout info">
 
-**Observation 1 · Judges proactively verify.** All 3 judges spelled it out in their reasons: they **actually read `docs/en/p2-08-parallel-vs-pipeline.md` and `assets/_grounding.md` to cross-check**, checking the numbers in the candidate answers one by one — `8.4s / 78844 token`, `26.7s / 158982 token`, the `3×5.5≈16.5s` baseline, the `min(16, cores−2)` concurrency cap, the `1000` agent fallback. All three judges' independent conclusions were "zero factual errors, every number matches precisely."
+**Observation 1 · Judges proactively verify.** All 3 judges spelled it out in their reasons: they **actually read `docs/en/p2-08-parallel-vs-pipeline.md` and `assets/_grounding.md` to cross-check**, checking the numbers in the candidate answers one by one: `8.4s / 78844 token`, `26.7s / 158982 token`, the `3×5.5≈16.5s` baseline, the `min(16, cores−2)` concurrency cap, the `1000` agent fallback. All three judges' independent conclusions were "zero factual errors, every number matches precisely."
 
-This is why `tool_uses=26` runs so high: the judges didn't "score from impression," they **actually went and read the source of facts.** **A side effect**: this amounts to **verifying in passing that all of this book's Chapter p2-08 real data is accurate** — a single judge-panel run came with a free fact-check.
+This is why `tool_uses=26` runs so high: the judges didn't score from impression, they **actually went and read the source of facts.** It also has a side effect: it **verifies in passing that all of this book's Chapter p2-08 real data is accurate.** A single judge-panel run came with a free fact-check.
 
-**Observation 2 · Independent judges converge.** Three **non-communicating** judges each landed independently on exactly the same conclusion (3:0). This is the judge panel's core value cashed in: when candidates "clearly differ in quality," multiple independent perspectives **converge steadily**; if their quality is close, you'd see 2:1 or even split scores instead — which is itself a signal that "these two are about the same."
+**Observation 2 · Independent judges converge.** Three **non-communicating** judges each landed independently on exactly the same conclusion (3:0). This is the judge panel's core value cashed in: when candidates clearly differ in quality, multiple independent perspectives **converge steadily**. If their quality is close, you'd see 2:1 or even split scores instead, which is itself a signal that "these two are about the same."
 
 </div>
 
-Put together, these two observations make one point: **a structured rubric (schema) pushes judges into serious verification rather than pleasantries.** Once the schema asks it for a concrete number on `accuracy`, a conscientious judge naturally goes and checks the facts — that's the "side-effect dividend" of schema constraints.
+Put together, these two observations make one point: **a structured rubric (schema) pushes judges into serious verification rather than pleasantries.** Once the schema asks for a concrete number on `accuracy`, a conscientious judge naturally goes and checks the facts. That's the dividend schema constraints throw in for free.
 
 ---
 
 ## 14.4 Design Points
 
-**① Judge independence is a non-negotiable red line.** Use `parallel` to let judges score **concurrently, blind to** each other's verdicts. The moment you write "judge 2 scores after seeing judge 1's score," the panel collapses into "one judge + a few echoers," and the whole value of multi-perspective bias reduction drops to zero.
+**① Judge independence is a non-negotiable red line.** Use `parallel` to let judges score concurrently, blind to each other's verdicts. The moment you write "judge 2 scores after seeing judge 1's score," the panel collapses into one judge plus a few echoers, and the whole value of multi-perspective bias reduction drops to zero.
 
 <div class="callout warn">
 
-**Counter-example**: don't feed conclusions serially like this —
+**Counter-example**: don't feed conclusions serially like this:
 
 ```javascript
 // ✗ Wrong: judges 2/3 can see the prior verdicts → follow the crowd, independence lost
@@ -186,17 +186,17 @@ for (const i of [1, 2, 3]) {
 }
 ```
 
-The right way is the `parallel([1,2,3].map(...))` in the script — three judges run at the same time, none of them sees another.
+The right way is the `parallel([1,2,3].map(...))` in the script: three judges run at the same time, and none of them sees another.
 
 </div>
 
-**② The rubric must be fixed into numbers with a schema.** Having judges give a `number` each for `accuracy / clarity / completeness` beats having them write a paragraph of "overall feel" by a wide margin: numbers are comparable, explainable (you can see "B won on completeness"), and weightable (Variant B). The schema gets validated at the tool-call layer (Chapter 07), and a non-conforming judge is sent back to re-score — which turns "scoring" from a soft suggestion into a hard structure.
+**② The rubric must be fixed into numbers with a schema.** Having judges give a `number` each for `accuracy / clarity / completeness` beats having them write a paragraph of "overall feel" by a wide margin. Numbers are comparable, explainable (you can see "B won on completeness"), and weightable (Variant B). The schema gets validated at the tool-call layer (Chapter 07), and a non-conforming judge is sent back to re-score, which turns scoring from a soft suggestion into a hard structure.
 
-**③ Aggregate by tally, never with a "synthesize agent."** The final `Tally` stage is **pure JavaScript** — `filter` plus counting votes. **Don't** drop an agent in here to "synthesize the three judges' opinions into a final conclusion": that crushes the three independent signals back into a single-point judgment, throwing away the independence you carefully preserved earlier. **Tallying is deterministic, reproducible, zero extra tokens** — exactly the part the Workflow "deterministic skeleton" is meant to carry (echoing Chapter 02).
+**③ Aggregate by tally, never with a "synthesize agent."** The final `Tally` stage is **pure JavaScript**: `filter` plus counting votes. Don't drop an agent in here to synthesize the three judges' opinions into a final conclusion. That crushes the three independent signals back into a single-point judgment, throwing away the independence you carefully preserved earlier. Tallying is deterministic, reproducible, and costs zero extra tokens, exactly the part the Workflow "deterministic skeleton" is meant to carry (echoing Chapter 02).
 
-**④ Candidates should create a real difference.** This example deliberately sends A in on the "beginner perspective" and B on the "performance-engineering perspective," which is what produces a quality gap you can actually tell apart. If the two candidates are nearly identical, the judges can only force a pick out of the noise, and the result tells you nothing. Candidates can come from **different prompts, different models, different temperatures, or multiple samples of the same prompt.**
+**④ Candidates should create a real difference.** This example deliberately sends A in on the beginner perspective and B on the performance-engineering perspective, which is what produces a quality gap you can actually tell apart. If the two candidates are nearly identical, the judges can only force a pick out of the noise, and the result tells you nothing. Candidates can come from different prompts, different models, different temperatures, or multiple samples of the same prompt.
 
-**⑤ Use an odd number of judges.** 3, 5, 7… an odd count keeps you out of ties. Here 3 is enough to converge steadily when "quality clearly differs"; if the candidates are evenly matched or the stakes are high, bumping to 5 further damps single-judge noise (it costs you linearly growing tokens, but the wall clock is still bounded by the barrier and doesn't grow linearly with the number of judges).
+**⑤ Use an odd number of judges.** An odd count (3, 5, 7) keeps you out of ties. Here 3 is enough to converge steadily when quality clearly differs; if the candidates are evenly matched or the stakes are high, bumping to 5 further damps single-judge noise. It costs you linearly growing tokens, but the wall clock is still bounded by the barrier and doesn't grow linearly with the number of judges.
 
 ---
 
@@ -206,13 +206,13 @@ The right way is the `parallel([1,2,3].map(...))` in the script — three judges
 
 **Variant A · N-candidate tournament**: when there are more than two candidates, expand the schema's `winner` from `enum:['A','B']` to `enum:['A','B','C',...]` and let the judge pick the best directly; or have each judge **rank** all candidates (returning a ranking array), and let the Tally stage decide the winner with a rank-aggregation method like Borda count.
 
-**Variant B · Weighted rubric**: give the dimensions weights (e.g., `accuracy×3 + completeness×2 + clarity×1`), and in the Tally stage take a weighted sum of each judge's `scoreA/scoreB` before comparing — that upgrades "voting" into "weighted scoring," which fits cases where the dimensions don't matter equally.
+**Variant B · Weighted rubric**: give the dimensions weights (e.g., `accuracy×3 + completeness×2 + clarity×1`), and in the Tally stage take a weighted sum of each judge's `scoreA/scoreB` before comparing. That upgrades voting into weighted scoring, which fits cases where the dimensions don't matter equally.
 
-**Variant C · Judge + veto**: add a `disqualify: boolean` field to the schema (e.g., "contains a factual error," "out of scope"). At Tally, any judge's veto knocks that candidate out on the spot — which splits "scoring" apart from a "red-line check," echoing Chapter 17's adversarial verification.
+**Variant C · Judge + veto**: add a `disqualify: boolean` field to the schema (e.g., "contains a factual error," "out of scope"). At Tally, any judge's veto knocks that candidate out on the spot, which splits scoring apart from a red-line check, echoing Chapter 17's adversarial verification.
 
-**Variant D · After GCF / generation (best-of-N)**: this is exactly where Chapter 12 GCF's "Variant C" lands — in the Generate stage use `parallel` to produce N candidates, **use this chapter's judge panel to pick the best**, then run Critique→Fix on the winner. The judge panel is the **convergence gate** for any "diverge first, then converge" pipeline.
+**Variant D · After GCF / generation (best-of-N)**: this is exactly where Chapter 12 GCF's "Variant C" lands. In the Generate stage use `parallel` to produce N candidates, **use this chapter's judge panel to pick the best**, then run Critique→Fix on the winner. For any "diverge first, then converge" pipeline, the judge panel is the **convergence gate**.
 
-**Variant E · Graft-style synthesis (don't throw away the runners-up's good ideas)**: a stronger convergence does more than "pick the winner" — it **builds on the winning candidate as the trunk and grafts in the good ideas unique to the losing candidates.** Losing ≠ all lost — a candidate that came second overall might still be better on some specific dimension (e.g., an edge case the winner missed, a more precise phrasing). The approach: after tallying to pick the winner, **add one synthesis agent**, feed it "the winner's full text + the runners-up, plus the strengths the judges noted in each," and have it produce a final draft that "uses the winner as the skeleton and selectively absorbs the runners-up's strengths."
+**Variant E · Graft-style synthesis (don't throw away the runners-up's good ideas)**: a stronger convergence does more than pick the winner. It **builds on the winning candidate as the trunk and grafts in the good ideas unique to the losing candidates.** Losing is not the same as all lost: a candidate that came second overall might still be better on some specific dimension, such as an edge case the winner missed or a more precise phrasing. The approach: after tallying to pick the winner, **add one synthesis agent**, feed it the winner's full text, the runners-up, and the strengths the judges noted in each, and have it produce a final draft that uses the winner as the skeleton and selectively absorbs the runners-up's strengths.
 
 ```javascript
 // (illustrative, not run) — after tallying to pick the winner, graft-style synthesis
@@ -225,7 +225,7 @@ const final = await agent(
 )
 ```
 
-Note that this synthesis agent comes **after the tally**, it doesn't replace it — the verdict is still decided by §14.4's "③ Aggregate by tally" deterministic code, and synthesis happens only once "the trunk is fixed," so it doesn't break judge independence. It's fundamentally different from "letting one agent synthesize everyone's opinions to decide the winner" (that red line): **the former uses an agent to assemble text; the latter uses an agent to make the verdict call.**
+Note that this synthesis agent comes **after the tally** and doesn't replace it. The verdict is still decided by §14.4's "③ Aggregate by tally" deterministic code, and synthesis happens only once the trunk is fixed, so it doesn't break judge independence. It's fundamentally different from the red line "letting one agent synthesize everyone's opinions to decide the winner": the former uses an agent to assemble text, the latter uses an agent to make the verdict call.
 
 </div>
 
@@ -233,12 +233,11 @@ Note that this synthesis agent comes **after the tally**, it doesn't replace it 
 
 ## 14.6 Chapter Summary
 
-- Judge panel = **N candidates → multiple independent judges score against the same rubric → tally and aggregate**, leaning on multiple perspectives to damp a single judge's preference bias and instability.
-- Three red lines: judges **independent** (`parallel`, each scoring, blind to others), the rubric **fixed into numbers with a schema**, and aggregation **by vote-counting code** rather than a "synthesize agent" making the call.
-- Looks alike but differs in spirit from Chapter 11: PR review is "synthesize after division of labor (use an agent)," the judge panel is "tally after repetition (use code)."
+- Judge panel = N candidates, multiple independent judges scoring against the same rubric, then tally and aggregate. It leans on multiple perspectives to damp a single judge's preference bias and instability. The three red lines (independent judges, rubric fixed into numbers, aggregation by vote-counting code) are in §14.4.
+- Looks alike but differs in spirit from Chapter 11: PR review is "synthesize after division of labor" (use an agent), the judge panel is "tally after repetition" (use code).
 - Real run: `agent_count=5`, `total_tokens=201852`, `duration_ms=79462`; 2 candidates, 3 judges, **3:0 for B**.
 - Two empirical observations: judges **proactively read `docs/en/p2-08` and `_grounding.md` to cross-check** (where `tool_uses=26` comes from, verifying in passing that this book's p2-08 data is all correct); three non-communicating judges **landed independently on the same conclusion**.
-- Variants: N-candidate tournament, weighted rubric, veto, best-of-N after generation/GCF, **graft-style synthesis** (use the winner as the trunk and absorb the runners-up's unique good ideas, without wasting the insight in losing drafts).
+- Variants: N-candidate tournament, weighted rubric, veto, best-of-N after generation/GCF, and **graft-style synthesis** (use the winner as the trunk and absorb the runners-up's unique good ideas, without wasting the insight in losing drafts).
 
 The next chapter steps into the "Bug Hunter" recipe: a self-respawning finder pool flowing into adversarial verification, digging out a branch's latent defects with high precision.
 

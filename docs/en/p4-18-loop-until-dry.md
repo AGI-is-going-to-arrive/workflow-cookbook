@@ -1,6 +1,6 @@
 # Chapter 18 · Loop-Until-Dry & Completeness
 
-> In one sentence: **take an ordinary JavaScript `while` loop and repeatedly "generate → ask 'any omissions?'" until a completeness agent rules "nothing new can be squeezed out anymore" — that's "loop-until-dry."**
+> In one sentence: **take an ordinary JavaScript `while` loop and repeatedly "generate → ask 'any omissions?'" until a completeness agent rules "nothing new can be squeezed out anymore." That's "loop-until-dry."**
 >
 > The last chapter solved "is the product **right**" (adversarial verification); this chapter solves "is the product **complete**" (completeness). The two are non-overlapping axes of the quality gate: one checks truth, one checks coverage.
 
@@ -8,24 +8,24 @@
 
 ## 18.1 The Ceiling of Single-Shot Generation: The Model "Stops Early"
 
-First, a phenomenon that's both real and everywhere.
+Start with a phenomenon that's both real and everywhere.
 
-You ask a subagent to "list all the security hazards in this module," and it hands you 5, then stops. Are there really only 5? Usually not — once the model has produced "a set of answers that look reasonable," it tends to quit, because as far as it's concerned, "list a few" is already "done." It won't go back and ask itself "did I miss anything."
+You ask a subagent to "list all the security hazards in this module," and it hands you 5, then stops. Are there really only 5? Usually not. Once the model has produced "a set of answers that look reasonable," it tends to quit, because as far as it's concerned, "list a few" is already "done." It won't go back and ask itself "did I miss anything."
 
-This is the ceiling of a single `agent()` call: **it fires off one batch and that's it, with no 'think again' step.** You can write "please be as thorough as possible, list them all" in the prompt, which nudges the count up a bit, but it's still one-and-done — the model stops at whatever point it figures is "enough," and that point is almost always earlier than "truly exhaustive."
+This is the ceiling of a single `agent()` call: **it fires off one batch and that's it, with no 'think again' step.** You can write "please be as thorough as possible, list them all" in the prompt, which nudges the count up a bit, but it's still one-and-done: the model stops at whatever point it figures is "enough," and that point is almost always earlier than "truly exhaustive."
 
 The idea behind "loop-until-dry" is to take "think again" and move it **out of a plea in the prompt and into a loop in code**:
 
 1. Generate a batch of results.
 2. Take "the existing results" and ask: **any omissions?**
 3. If yes, merge the new findings and go back to step 2.
-4. If "no more" — **dry** — exit the loop.
+4. If "no more" (that is, **dry**), exit the loop.
 
-Each round, the model sees "the N already found" and is explicitly told to "find new things **not yet mentioned**." That "existing list" drags it past its own comfortable stopping point, squeezing out what's left round by round, until it's truly dry.
+Each round, the model sees "the N already found" and is explicitly told to find new things **not yet mentioned**. That "existing list" drags it past its own comfortable stopping point, squeezing out what's left round by round, until it's truly dry.
 
 <div class="callout info">
 
-**The community systems have validated this pattern over and over.** Per `_grounding.md` section D: one of superpowers' gems is "a two-stage review loop, each looping until it passes"; oh-my-claudecode's signature is "the `Stop` hook persistent loop — boulder never stops, making 'whether stopping is allowed' programmable." Both lean on Hooks and state files to **simulate** "won't quit until complete." Native Workflow lets you write the same logic as a **deterministic, self-braking** structure with a `while` loop + a schema-shaped "completeness verdict." That's what this chapter is about.
+**The community systems have validated this pattern over and over.** Per `_grounding.md` section D: one of superpowers' gems is "a two-stage review loop, each looping until it passes"; oh-my-claudecode's signature is "the `Stop` hook persistent loop," i.e. boulder never stops, making 'whether stopping is allowed' programmable. Both lean on Hooks and state files to **simulate** "won't quit until complete." Native Workflow lets you write the same logic as a **deterministic, self-braking** structure with a `while` loop plus a schema-shaped "completeness verdict." That's what this chapter is about.
 
 </div>
 
@@ -100,11 +100,11 @@ return found
 
 This skeleton has three key roles, matching the three things Advanced Patterns will fully explain:
 
-**Role 1: the generator (Harvest agent).** Each round it takes in "the list already found" and is asked to produce only **new** entries. Its schema is an array (`items`), each item structured — Chapter 07's "array pattern" applied exactly.
+**Role 1: the generator (Harvest agent).** Each round it takes in "the list already found" and is asked to produce only **new** entries. Its schema is an array (`items`), each item structured, which is Chapter 07's "array pattern" applied exactly.
 
-**Role 2: the completeness critic (Completeness agent).** It does **not** generate new content; it does one thing — judge "is it enough." The core of its schema is the **gate field** `done: boolean` — `while (!done)` reads it directly to decide whether to keep going.
+**Role 2: the completeness critic (Completeness agent).** It does **not** generate new content; it does one thing, judge "is it enough." The core of its schema is the **gate field** `done: boolean`, which `while (!done)` reads directly to decide whether to keep going.
 
-**Role 3: the loop itself (JS while).** This is what makes Workflow tick — **control flow is real JavaScript.** `while`, the `round` counter, `found.push(...)` are all ordinary code. The model handles "judgment," the code handles "orchestration," each minding its own job.
+**Role 3: the loop itself (JS while).** This is what makes Workflow tick: **control flow is real JavaScript.** `while`, the `round` counter, `found.push(...)` are all ordinary code. The model handles "judgment," the code handles "orchestration," each minding its own job.
 
 ```mermaid
 stateDiagram-v2
@@ -120,7 +120,7 @@ stateDiagram-v2
 
 <div class="callout tip">
 
-**Why split "generate" and "judge completeness" into two agents?** Have one agent both generate and self-assess "is it enough" and you fall right back into the self-assessment trap from Chapter 17 — having just generated, it leans toward saying "enough." Split out an independent completeness critic (independent context, the explicit "find omissions" duty) and the verdict becomes trustworthy. **It's the same idea as adversarial verification: keep the assessor separate from the assessed.**
+**Why split "generate" and "judge completeness" into two agents?** Have one agent both generate and self-assess "is it enough" and you fall right back into the self-assessment trap from Chapter 17: having just generated, it leans toward saying "enough." Split out an independent completeness critic (independent context, the explicit "find omissions" duty) and the verdict becomes trustworthy. **It's the same idea as adversarial verification: keep the assessor separate from the assessed.**
 
 </div>
 
@@ -128,7 +128,7 @@ stateDiagram-v2
 
 ## 18.3 The Brake: A Loop Must Be Bounded — This Is Discipline, Not Optional
 
-In the previous section's skeleton, the `while` condition is `!done && round < 6` — that `round < 6` isn't decoration, it's the **seatbelt.**
+In the previous section's skeleton, the `while` condition is `!done && round < 6`. That `round < 6` is the **seatbelt.**
 
 The biggest risk of "loop-until-dry" is an **infinite loop**: if the completeness agent forever rules `done=false` (it can always "make up" a direction that looks omitted), the loop never exits. And every round of Workflow really does burn tokens and wall clock; a runaway loop drains the budget fast.
 
@@ -136,7 +136,7 @@ Preventing runaway must be **multi-layered defense**:
 
 **Layer 1: a hard round cap.** `round < N` (say, 6). No matter what the completeness agent says, it stops at the cap. This is the simplest and most reliable brake.
 
-**Layer 2: budget fallback.** Per `_grounding.md`, `budget` is a **hard cap** — call `agent()` after `spent()` hits `total` and it **throws** (`WorkflowBudgetExceededError`). So even if you forget to set a round cap, running out of budget forcibly aborts. But be clear: this is a **throw-and-abort**, not a graceful close-out — it crashes the whole run at that moment rather than cleanly returning what you've found so far. So it can only serve as a fallback; the loop should still exit normally via explicit round conditions (echoing 18.6's "treating budget as the only brake = bad UX"). The more proactive approach is to watch `budget.remaining()` inside the loop:
+**Layer 2: budget fallback.** Per `_grounding.md`, `budget` is a **hard cap**: call `agent()` after `spent()` hits `total` and it **throws** (`WorkflowBudgetExceededError`). So even if you forget to set a round cap, running out of budget forcibly aborts. But be clear, this is a **throw-and-abort**, not a graceful close-out: it crashes the whole run at that moment rather than cleanly returning what you've found so far. So it can only serve as a fallback; the loop should still exit normally via explicit round conditions (echoing 18.6's "treating budget as the only brake makes for bad UX"). The more proactive approach is to watch `budget.remaining()` inside the loop:
 
 ```javascript
 // (illustrative, not run) — actively brake with budget.remaining()
@@ -151,7 +151,7 @@ while (!done && round < 6) {
 }
 ```
 
-**Layer 3: diminishing-returns detection.** If two consecutive rounds add 0 entries (or near 0), then even if the completeness agent stubbornly claims there are still omissions, you can bail out on your own — because the generator has nothing left to squeeze out:
+**Layer 3: diminishing-returns detection.** If two consecutive rounds add 0 entries (or near 0), then even if the completeness agent stubbornly claims there are still omissions, you can bail out on your own, because the generator has nothing left to squeeze out:
 
 ```javascript
 // (illustrative, not run) — diminishing returns: stop on consecutive empty rounds
@@ -172,7 +172,7 @@ while (!done && round < 6) {
 
 <div class="callout warn">
 
-**Never write an unbounded loop that exits only on the model's verdict.** The model's "done" is a probabilistic judgment, and it may hold back done because it "wants to look thorough." `_grounding.md` also gives a global fallback: the total agent count per workflow lifecycle is capped at **1000** — that's the last safety net, but you should **never** lean on it to terminate a business loop. The right discipline: **every loop spells out its exit conditions (round cap + diminishing returns), treating budget as the last line of defense, not the only one.**
+**Never write an unbounded loop that exits only on the model's verdict.** The model's "done" is a probabilistic judgment, and it may hold back done because it "wants to look thorough." `_grounding.md` also gives a global fallback: the total agent count per workflow lifecycle is capped at **1000**. That's the last safety net, but you should **never** lean on it to terminate a business loop. The right discipline: **every loop spells out its exit conditions (round cap plus diminishing returns), treating budget as the last line of defense, not the only one.**
 
 </div>
 
@@ -223,7 +223,7 @@ const unmet = review.items.filter((i) => !i.satisfied)
 // unmet non-empty → enter the fix loop; empty → dry
 ```
 
-The convergent form usually doesn't need a `while` to squeeze over and over; instead it's a "check → fix unmet items → re-check" loop, until `unmet` is empty. **This is exactly the structure of superpowers' "spec compliance loop"** (`_grounding.md` section D).
+The convergent form usually doesn't need a `while` to squeeze over and over; instead it's a "check → fix unmet items → re-check" loop, until `unmet` is empty. This is exactly the structure of superpowers' "spec compliance loop" (`_grounding.md` section D).
 
 | | Divergent | Convergent |
 |---|---|---|
@@ -242,7 +242,7 @@ The convergent form usually doesn't need a `while` to squeeze over and over; ins
 
 ## 18.5 The Production Skeleton: Harvest → Dedup → Verify → Close Out
 
-Combine divergent harvesting with dedup and verification, and you get a complete, production-usable skeleton. Note that loop-until-dry throws off **duplicate or near-duplicate** entries (generators in different rounds may hit the same problem from different angles), so you need to dedup before close-out.
+Combine divergent harvesting with dedup and verification, and you get a complete, production-usable skeleton. Note that loop-until-dry throws off **duplicate or near-duplicate** entries (generators in different rounds may hit the same problem from different angles), so dedup before close-out.
 
 ```javascript
 // (illustrative, not run) — complete production skeleton
@@ -349,7 +349,7 @@ This skeleton twists the first two chapters of Advanced Patterns into one rope: 
 
 <div class="callout warn">
 
-**Why must dedup be done with code, not another agent?** Because dedup is a **deterministic** operation — the same input necessarily yields the same output. A `Set` + a normalized key is zero-cost, replayable, and unambiguous. Spin up another agent to "dedup for me," on the other hand, and you not only burn extra tokens but drag in nondeterminism (the model may miss duplicates, or flag things that aren't). **Anything doable with deterministic code (dedup, count, filter, sort, aggregate) should not be handed to an agent** — this is the core discipline of Workflow's "code orchestrates, model judges" division.
+**Why must dedup be done with code, not another agent?** Because dedup is a **deterministic** operation: the same input necessarily yields the same output. A `Set` plus a normalized key is zero-cost, replayable, and unambiguous. Spin up another agent to "dedup for me," on the other hand, and you not only burn extra tokens but drag in nondeterminism (the model may miss duplicates, or flag things that aren't). **Anything doable with deterministic code (dedup, count, filter, sort, aggregate) should not be handed to an agent**, which is the core discipline of Workflow's "code orchestrates, model judges" division.
 
 </div>
 
@@ -369,7 +369,7 @@ This skeleton twists the first two chapters of Advanced Patterns into one rope: 
 
 <div class="callout info">
 
-**Cost intuition**: loop-until-dry's token cost is roughly "rounds × per round (generate + critique, two agents)." Going by real numbers — a single agent ≈ 26k tokens (hello `wf_dacbd480-d5d`) — one round runs about 50k, and 4 rounds about 200k tokens. Note that this "200k" is an order-of-magnitude figure **extrapolated from a per-round estimate**, not a measured value; the `158982` it's compared against is the **measured pipeline-demo** total — the two are not from the same source, so don't treat them as data from one and the same run. But they land in the same ballpark, which is enough for cost intuition. So the round cap is not only a runaway guard but also a **cost gate**: set it at the round count where "marginal returns have already dropped off" (empirically, 3–6 rounds cover the vast majority of divergent tasks).
+**Cost intuition**: loop-until-dry's token cost is roughly "rounds × per round (generate + critique, two agents)." Going by real numbers (a single agent ≈ 26k tokens, hello `wf_dacbd480-d5d`; the derivation of this "tokens ≈ agent count × per-agent context" rule is in [Chapter 09 · Progress, Logs, Resume, Budget](#/en/p2-09)), one round runs about 50k, and 4 rounds about 200k tokens. Note that this "200k" is an order-of-magnitude figure **extrapolated from a per-round estimate**, not a measured value; the `158982` it's compared against is the **measured pipeline-demo** total, so the two are not from the same source, and you shouldn't treat them as data from one and the same run. But they land in the same ballpark, which is enough for cost intuition. So the round cap is not only a runaway guard but also a **cost gate**: set it at the round count where "marginal returns have already dropped off" (empirically, 3–6 rounds cover the vast majority of divergent tasks).
 
 </div>
 
@@ -378,11 +378,11 @@ This skeleton twists the first two chapters of Advanced Patterns into one rope: 
 ## 18.7 Chapter Summary
 
 - **Loop-until-dry = use a JS `while` to repeatedly "generate increment → completeness critique," until it's ruled dry.** It punches past the "stops early" ceiling of a single `agent()`, turning "think again" from a prompt plea into a code loop.
-- The three-role division: the **generator** (produces new entries each round, array schema), the **completeness critic** (independent agent, `done: boolean` gate), and the **loop itself** (real JS while + counter).
-- **The brake is discipline**: must be multi-layered — a hard round cap, diminishing returns (consecutive empty rounds), `budget.remaining()` fallback. Never write an unbounded loop that exits only on the model's verdict (the global 1000-agent cap is a safety net, not a business-exit mechanism).
-- Two forms: **divergent** (exhaust an unknown open set, find omitted directions) and **convergent** (check off a known list item by item, find unmet items — the spec-compliance loop); they can be chained.
-- The production skeleton twists three chapters into one rope: **loop-until-dry** guarantees finding all, **adversarial verification** guarantees finding right, **JS dedup** guarantees no duplicates — deterministic work goes to code, judgment goes to agents.
+- The three-role division: the **generator** (produces new entries each round, array schema), the **completeness critic** (independent agent, `done: boolean` gate), and the **loop itself** (real JS while plus counter).
+- **The brake is discipline**: it must be multi-layered, with a hard round cap, diminishing returns (consecutive empty rounds), and a `budget.remaining()` fallback. Never write an unbounded loop that exits only on the model's verdict (the global 1000-agent cap is a safety net, not a business-exit mechanism).
+- Two forms: **divergent** (exhaust an unknown open set, find omitted directions) and **convergent** (check off a known list item by item, find unmet items, the spec-compliance loop); they can be chained.
+- The production skeleton twists three chapters into one rope: **loop-until-dry** guarantees finding all, **adversarial verification** guarantees finding right, **JS dedup** guarantees no duplicates. Deterministic work goes to code, judgment goes to agents.
 
-In the next chapter, we take on a problem you can't dodge when writing files in parallel: when multiple agents must modify code at once, how to keep them from trampling each other — `isolation: 'worktree'`.
+In the next chapter, we take on a problem you can't dodge when writing files in parallel: when multiple agents must modify code at once, how to keep them from trampling each other, with `isolation: 'worktree'`.
 
 > Continue reading: [Chapter 19 · Worktree Isolation](#/en/p4-19)

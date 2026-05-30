@@ -11,7 +11,7 @@
 | 术语（中 / 英） | 定义 | 定位 |
 |---|---|---|
 | **Workflow / 工作流** | Claude Code 的多 agent 编排原语：用一段 JS 脚本确定性地派发、串联多个 subagent。 | [第 1 章](#/zh/p1-01) |
-| **`workflow` / `workflows`（触发关键词）** | 消息里带上这个词，Claude 收到「该用 Workflow 工具」的系统提示——2.1.154 官方的触发关键词。 | [第 1 章 · §1.5](#/zh/p1-01) |
+| **`workflow` / `workflows`（触发关键词）** | 消息里带上这个词，Claude 收到「该用 Workflow 工具」的系统提示；这是 2.1.154 官方的触发关键词。 | [第 1 章 · §1.5](#/zh/p1-01) |
 | **ultrawork（已弃用为触发词）** | 早期社区昵称；2.1.154 官方二进制里它**仅作内部事件名** `ultrawork_request`，用户输入**不再触发**任何东西。触发请改用 `workflow`/`workflows`。（第三方 oh-my-openagent 仍用此词作入口，与官方无关。） | [附录 A · A.12](#/zh/app-a) |
 | **`/effort`** | 斜杠命令，定本会话 Claude「用多大力」：七挡 `low/medium/high/xhigh/max/ultracode/auto`。Opus 4.8 默认 `high`。 | [第 1 章 · §1.6](#/zh/p1-01) |
 | **ultracode** | `/effort` 的一个挡位 = **xhigh 推理 + 默认主动编排 workflow（仅本会话）**。论推理深度不及 `max`，胜在「默认就多开 agent」。只在 workflow 可用时才出现在 `/effort` 里。 | [第 1 章 · §1.6](#/zh/p1-01) |
@@ -20,10 +20,10 @@
 | **确定性编排 / deterministic orchestration** | 由代码（而非模型自由发挥）决定「派几个 agent、按什么顺序、如何汇合」的编排方式，区别于纯提示词驱动。 | [第 2 章](#/zh/p1-02) |
 | **subagent / 子智能体** | 由 `agent()` 派出去的一个独立干活单元，有自己的上下文和真实的工具权限；它「吐出的最后一段文本就是返回值」。 | [第 1 章](#/zh/p1-01) |
 | **主循环 / main loop** | 你正在跟它对话的这个 Claude 会话；Workflow 工具调用就是它发起的，而且它跟所有工作流**共用一个 token 预算池**。 | [第 9 章](#/zh/p2-09) |
-| **CLAUDE_CODE_WORKFLOWS** | 控制「能不能用」的**底层**环境变量。官方面向用户的开法是 `/config` 的 "Dynamic workflows" 行（Pro 必走）；这个 flag 是 power-user 的显式开关：`1` 可用（仍取服务端 flag，默认 true）、`0` 强制关、不设则看服务端 flag（非 Pro 默认开）——它不取代 `/config`。 | [附录 A · A.12](#/zh/app-a) |
+| **CLAUDE_CODE_WORKFLOWS** | 控制「能不能用」的**底层**环境变量。官方面向用户的开法是 `/config` 的 "Dynamic workflows" 行（Pro 必走）；这个 flag 是 power-user 的显式开关：`1` 可用（仍取服务端 flag，默认 true）、`0` 强制关、不设则看服务端 flag `tengu_workflows_enabled`（除非被 Anthropic 灰度关掉，否则默认按开算）。它不取代 `/config`，各档是否默认开请以自己 `/config` 那一行为准。 | [附录 A · A.12](#/zh/app-a) |
 | **CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS** | 关联的实验性标志（Agent Teams）；与 Workflow 同属实验能力族。 | [接地事实表](#/zh/p1-01) |
 | **CLAUDE_CODE_SUBAGENT_MODEL** | 用户/CI 级的环境变量；只要一设上，它就**覆盖一切 per-call `model`**（脚本里写的 `opts.model`/`phases[].model` 都被静默忽略）。跑该探针的早期会话（Run `wf_9c94951d-58c`）设成 `claude-opus-4-7[1m]`，5 个带不同 model 选项的 agent 全跑了 Opus；R11 复核会话该变量是 `claude-opus-4-8[1m]`（覆盖结论与型号无关）。 | [附录 E · R4 模型解析记录](#/zh/app-e) |
-| **ANTHROPIC_DEFAULT_HAIKU_MODEL / SONNET / OPUS** | 用户/CI 级的环境变量；把对应的**模型别名**整体重映射到你指定的模型。它跟 `CLAUDE_CODE_SUBAGENT_MODEL` 叠在一起，就是「两层模型覆盖」——本会话两层都指向 Opus，所以脚本里写 `model: 'haiku'` 实跑的还是 Opus（Run `wf_e8cb23ff-829`）。 | [附录 A · A.4](#/zh/app-a) |
+| **ANTHROPIC_DEFAULT_HAIKU_MODEL / SONNET / OPUS** | 用户/CI 级的环境变量；把对应的**模型别名**整体重映射到你指定的模型。它跟 `CLAUDE_CODE_SUBAGENT_MODEL` 叠在一起，就是「两层模型覆盖」：本会话两层都指向 Opus，所以脚本里写 `model: 'haiku'` 实跑的还是 Opus（Run `wf_e8cb23ff-829`）。 | [附录 A · A.4](#/zh/app-a) |
 
 ---
 
@@ -88,7 +88,7 @@
 | **opts.phase** | 明确把这个 agent 归到某个进度组里；**在 parallel/pipeline 内部必用**（不然会去抢全局 `phase()`）。 | [第 6 章](#/zh/p2-06) / [附录 B · B.12](#/zh/app-b) |
 | **model（opts）** | 覆盖这个 agent 用的模型；不写就继承主循环的模型；简单任务可以用 `'haiku'`。 | [第 6 章](#/zh/p2-06) |
 | **isolation: 'worktree'** | 让这个 agent 在一个独立的 git worktree 里跑；**昂贵**，仅当并行改文件会撞车时才用。工具契约说没改动会自动清理，但确切的清理时机本书没核实过。 | [第 19 章](#/zh/p4-19) |
-| **agentType** | 用自定义的 subagent 类型（比如 `'Explore'`、`'code-reviewer'`），跟 Agent 工具走的是同一个注册表来解析；可以跟 `schema` 一起用。**有校验**：填了个不认识的值，在生成模型前（0 token）就抛错，还把可用的 agent 列给你（Run `wf_a222f20f-0f5`）——跟无校验的 `model` 正好是个对比。 | [第 6 章](#/zh/p2-06) / [附录 B · B.21](#/zh/app-b) |
+| **agentType** | 用自定义的 subagent 类型（比如 `'Explore'`、`'code-reviewer'`），跟 Agent 工具走的是同一个注册表来解析；可以跟 `schema` 一起用。**有校验**：填了个不认识的值，在生成模型前（0 token）就抛错，还把可用的 agent 列给你（Run `wf_a222f20f-0f5`），跟无校验的 `model` 正好是个对比。 | [第 6 章](#/zh/p2-06) / [附录 B · B.21](#/zh/app-b) |
 | **workflow-subagent** | `agent()` 没指定 `agentType` 时用的**默认 subagent 类型**；它继承会话的 file/shell/Skill/ToolSearch 工具（延迟环境下默认 0 个 `mcp__` 工具、要用可经 ToolSearch 按需加载）。每个 agent 的 sidecar `agent-<id>.meta.json` 都记着这个类型（Run `wf_1d4c6a71-56a`）。 | [附录 E · R4 MCP 记录](#/zh/app-e) |
 
 ---
@@ -104,8 +104,8 @@
 | **并发上限 / concurrency limit** | 单个工作流同时能跑的 agent 数上限：`min(16, CPU核心数 − 2)`，超出去的就排队。 | [第 21 章](#/zh/p4-21) |
 | **agent 总数上限 / agent cap** | 单个工作流整个生命周期里 agent 总数的硬上限 **1000**（用来给失控循环兜底）。 | [附录 A · A.9](#/zh/app-a) |
 | **脚本体积上限 / script size cap** | 单个脚本的上限 **524288 字节（512KB）**（就是工具 input-schema 里的 `script.maxLength`）。 | [附录 A · A.9](#/zh/app-a) |
-| **VM 同步超时 / sync timeout** | 脚本**同步**执行的硬上限 **30000ms**——长的同步循环（比如 `for(;;){}`）会被掐断、workflow 变 `failed`（原文 `Error: Script execution timed out after 30000ms`，实测耗时 30222ms，Run `wf_e3b2b123-5f4`）。它**只约束同步段**：带 `await agent()` 的异步工作流跑上几分钟都没事。 | [附录 E · R4 沙箱记录](#/zh/app-e) |
-| **WorkflowAgentCapError / WorkflowBudgetExceededError** | 撞到 1000 agent 上限 / 预算耗尽时报的那个错误**类名**。官方只讲了行为、**未给类名**——这俩类名已由本书 **R10 二进制核查确认存在**（`effort-ultracode-r10.md §H`）；仍未实测的只是「撞上限那一刻在途 agent 的处置语义」。 | [附录 E · 参考解读](#/zh/app-e) |
+| **VM 同步超时 / sync timeout** | 脚本**同步**执行的硬上限 **30000ms**：长的同步循环（比如 `for(;;){}`）会被掐断、workflow 变 `failed`（原文 `Error: Script execution timed out after 30000ms`，实测耗时 30222ms，Run `wf_e3b2b123-5f4`）。它**只约束同步段**，带 `await agent()` 的异步工作流跑上几分钟都没事。 | [附录 E · R4 沙箱记录](#/zh/app-e) |
+| **WorkflowAgentCapError / WorkflowBudgetExceededError** | 撞到 1000 agent 上限 / 预算耗尽时报的那个错误**类名**。官方只讲了行为、**未给类名**；这俩类名已由本书 **R10 二进制核查确认存在**（`effort-ultracode-r10.md §H`），仍未实测的只是「撞上限那一刻在途 agent 的处置语义」。 | [附录 E · 参考解读](#/zh/app-e) |
 | **stallMs / 停滞重试** | 据**社区第三方资料声称**：agent 停滞的默认阈值是 180000ms、重试 ≤5 次。**本书未核实**（没触发过）。 | [附录 E · 参考解读](#/zh/app-e) |
 
 ---

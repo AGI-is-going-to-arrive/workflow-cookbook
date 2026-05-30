@@ -19,31 +19,31 @@
 
 ---
 
-> **「经之以天，纬之以地。」** ——《左传》
+> **「经之以天，纬之以地。」**（《左传》）
 >
-> 两千年前，织工以经线为骨、纬线为肉，一梭一梭织就锦缎。经是结构——纵贯始终、不可移易；纬是功能——穿梭其间、变化万千。
+> 两千年前，织工以经线为骨、纬线为肉，一梭一梭织就锦缎。经是结构，纵贯始终、不可移易；纬是功能，穿梭其间、变化万千。
 >
-> 今天，编排 AI Agent 亦如此：`meta` 与 `phase` 是经——确定性的结构骨架；`agent()` 与 `pipeline()` 是纬——在骨架中穿梭执行的智能单元。经纬交织，方成流水线。
+> 今天，编排 AI Agent 也是这样。`meta` 与 `phase` 是经，是确定性的结构骨架；`agent()` 与 `pipeline()` 是纬，是在骨架中穿梭执行的智能单元。经纬交织，方成流水线。
 >
-> **当所有人都在手动指挥 Agent——这本书教你让它们自己编队。**
+> 当所有人都在手动指挥 Agent，这本书教你让它们自己编队。
 
 ---
 
 ## 这本书讲什么
 
-Claude Code 的 **Workflow** 特性（由功能标志 `CLAUDE_CODE_WORKFLOWS` 控制可用性；工具可用时，v2.1.154 起还能用 `/effort ultracode` 让 Claude 本会话默认主动编排）是一个用 JavaScript 脚本**确定性编排多 Agent** 的引擎。它不是 MCP，不是 Skills，不是 Subagents，也不是 Agent Teams——而是一种全新的、**可复用、可测试、可分享**的工程流水线。
+**动态工作流（Dynamic workflows）** 是 Claude Code 的一个引擎，让你用一段 JavaScript 脚本**确定性地编排多个 Agent**。你在 `/config` 的 "Dynamic workflows" 这一行把它打开；这个开关底层对应 `CLAUDE_CODE_WORKFLOWS=1` 这个功能标志，power user 也可以直接设它。工具可用之后，从 v2.1.154 起你还能用 `/effort ultracode` 让 Claude 本会话默认主动编排。它和 MCP、Skills、Subagents、Agent Teams 都不是一回事，是一种全新的、**可复用、可测试、可分享**的工程流水线。
 
-本书从零到一带你：理解它的本质定位 → 掌握 `agent()`/`parallel()`/`pipeline()`/`schema` 全部 API → 实战 7 个真实运行的配方 → 解锁对抗验证 / 循环到干 / 预算 / 续传等进阶模式 → 横评四大社区系统并提取精华 → 构建属于你自己的 Workflow 库 → 掌握从意图到上线的创作、校验与调试全流程。
+本书从零到一带你走完整条路。你先理解工作流在几种扩展机制里的位置，再掌握 `agent()`/`parallel()`/`pipeline()`/`schema` 全部 API，然后实战 7 个真实运行的配方。接着你解锁对抗验证、循环到干、预算、续传这些进阶模式，横评四大社区系统并提取精华，构建属于你自己的 Workflow 库，最后掌握从意图到上线的创作、校验与调试全流程。
 
-> **这不是 API 文档，是一本实战 Cookbook。深入浅出——配方以真实运行为骨：已实跑的附 Run ID 与用量，仅作示意的脚本明确标注。**
+> **这是一本实战 Cookbook，不是 API 文档。它讲得深入浅出，配方都以真实运行为骨：已实跑的附 Run ID 与用量，仅作示意的脚本明确标注。**
 
 <details>
 <summary><b>本书数据一览</b></summary>
 
 | 指标 | 数量 |
 |------|------|
-| 正文章节 | **29 章 + 6 篇附录**（六部 · 认知/基础/食谱/进阶/生态/创作 + 附录 A–F） |
-| 全书篇幅 | 中文正文 14 万+ 汉字 ｜ `docs/zh` ↔ `docs/en` **36 篇逐篇对照** |
+| 正文章节 | **29 章 + 7 篇附录**（六部 · 认知/基础/食谱/进阶/生态/创作 + 附录 A–G） |
+| 全书篇幅 | 中文正文 14 万+ 汉字 ｜ `docs/zh` ↔ `docs/en` **38 篇逐篇对照** |
 | 真实 Workflow 运行 | **23 个唯一 Run ID**（R4 基线 17 + R5 应用级 3 + R6 应用级 3；原始记录见 [`assets/transcripts/`](assets/transcripts)） |
 | 实测环境 | Claude Code **v2.1.150 – v2.1.154**，`CLAUDE_CODE_WORKFLOWS=1`，Opus 4.7 / 4.8 (1M) |
 | 双语 | 中英完全对照，一键切换 |
@@ -85,7 +85,7 @@ log(`smoke result: ${JSON.stringify(r)}`)
 return r
 ```
 
-> **如何运行（重要）**：这是一段 **Workflow 脚本**，不是独立的 Node 脚本——`export`/`meta`/`phase`/`agent`/`log` 都是 Workflow 运行时注入的全局符号。**用 `node hello.js` 跑会立刻报 `phase is not defined`（Windows / macOS 皆然）。** 正确方式：在**已开启功能标志**的 Claude Code 会话里（macOS / Linux 用 `CLAUDE_CODE_WORKFLOWS=1 claude`；Windows 或想长期生效，写入 `~/.claude/settings.json` 的 `env`，这种 JSON 写法跨平台），直接让 Claude 执行它——例如在消息里带上 `workflow` 这个关键词（如「跑这个 workflow」），由 Claude 调用内置的 Workflow 工具运行。
+> **如何运行（重要）**：这是一段 **Workflow 脚本**，不是独立的 Node 脚本。`export`/`meta`/`phase`/`agent`/`log` 都是 Workflow 运行时注入的全局符号。**用 `node hello.js` 跑会立刻报 `phase is not defined`（Windows / macOS 皆然）。** 你要在已经开启工作流的 Claude Code 会话里跑它。官方台面入口是 `/config` 的 "Dynamic workflows" 这一行；在 macOS / Linux 上，power user 也可以用 `CLAUDE_CODE_WORKFLOWS=1 claude` 启动，Windows 或想长期生效则写入 `~/.claude/settings.json` 的 `env`，这种 JSON 写法跨平台。开好之后直接让 Claude 执行它，例如在消息里带上 `workflow` 这个关键词（如「跑这个 workflow」），由 Claude 调用内置的 Workflow 工具运行。
 >
 > 真实返回（`schema` 强制结构化，`sum` 为整数 `4` 而非字符串）：`{"message":"…","sum":4,"runtimeConfirmed":true}`（Run `wf_dacbd480-d5d`，1 agent / 26,338 token / 5.5s）。
 
@@ -177,17 +177,19 @@ workflow-cookbook/
 └─ manifest.json     # 站点目录与中英映射
 ```
 
-文档与网站解耦：`docs/` 是纯 Markdown 的「书」，`index.html` 是渲染层——零构建，可直接部署到 GitHub Pages。
+文档与网站解耦：`docs/` 是纯 Markdown 的「书」，`index.html` 是渲染层。它零构建，可直接部署到 GitHub Pages。
+
+本地预览：页面运行时用 `fetch` 读 `docs/`，直接用 `file://` 打开会被浏览器挡住，所以要从仓库根目录起一个本地 HTTP 服务器。macOS/Linux 跑 `python3 -m http.server 8000`，Windows 跑 `python -m http.server 8000`，然后打开 `http://localhost:8000`。（或任意系统用 `npx serve`，按它打印的地址打开。）
 
 ---
 
 ## 致谢
 
-- [Anthropic](https://anthropic.com) — Claude Code 及 Workflow 特性
-- [AI 超元域 · Claude Code Workflow 解析](https://www.aivi.fyi/llms/claude-code-workflow) — 最早系统解读这一特性的作者之一，本书的最初灵感来源
-- [御舆 · claude-code-book](https://github.com/lintsinghua/claude-code-book) — 架构深度剖析的先行者
-- ccg-workflow / oh-my-claudecode / oh-my-openagent / superpowers — 四大优秀社区 Workflow 系统
-- [Linux.Do 社区](https://linux.do/) — 技术交流与灵感激荡的中文社区
+- [Anthropic](https://anthropic.com)：Claude Code 及 Workflow 特性
+- [AI 超元域 · Claude Code Workflow 解析](https://www.aivi.fyi/llms/claude-code-workflow)：最早系统解读这一特性的作者之一，本书的最初灵感来源
+- [御舆 · claude-code-book](https://github.com/lintsinghua/claude-code-book)：架构深度剖析的先行者
+- ccg-workflow / oh-my-claudecode / oh-my-openagent / superpowers：四大优秀社区 Workflow 系统
+- [Linux.Do 社区](https://linux.do/)：技术交流与灵感激荡的中文社区
 
 ## License
 

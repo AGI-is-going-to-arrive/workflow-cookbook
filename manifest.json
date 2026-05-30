@@ -92,7 +92,8 @@
         { "id": "app-c", "num": "C", "title": { "zh": "最佳实践清单", "en": "Best Practices" }, "file": { "zh": "docs/zh/app-c-best-practices.md", "en": "docs/en/app-c-best-practices.md" } },
         { "id": "app-d", "num": "D", "title": { "zh": "术语表", "en": "Glossary" }, "file": { "zh": "docs/zh/app-d-glossary.md", "en": "docs/en/app-d-glossary.md" } },
         { "id": "app-e", "num": "E", "title": { "zh": "信源索引", "en": "Sources" }, "file": { "zh": "docs/zh/app-e-sources.md", "en": "docs/en/app-e-sources.md" } },
-        { "id": "app-f", "num": "F", "title": { "zh": "模式目录与场景速查", "en": "Pattern Catalog & Scenarios" }, "file": { "zh": "docs/zh/app-f-patterns.md", "en": "docs/en/app-f-patterns.md" } }
+        { "id": "app-f", "num": "F", "title": { "zh": "模式目录与场景速查", "en": "Pattern Catalog & Scenarios" }, "file": { "zh": "docs/zh/app-f-patterns.md", "en": "docs/en/app-f-patterns.md" } },
+        { "id": "app-g", "num": "G", "title": { "zh": "原理揭秘：一个 workflow 怎么跑", "en": "Under the Hood: How a Workflow Runs" }, "file": { "zh": "docs/zh/app-g-internals.md", "en": "docs/en/app-g-internals.md" } }
       ]
     }
   ]

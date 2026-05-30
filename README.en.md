@@ -19,11 +19,11 @@
 
 ---
 
-> **"Warp it with the heavens, weft it with the earth."** — *Zuo Zhuan* (4th c. BCE)
+> **"Warp it with the heavens, weft it with the earth."** (*Zuo Zhuan*, 4th c. BCE)
 >
-> Two millennia ago, weavers built brocade thread by thread: the **warp** runs lengthwise — the structure, fixed and unmovable; the **weft** shuttles across — the function, ever-changing. Warp and weft interlace, and only then is there cloth.
+> Two millennia ago, weavers built brocade thread by thread. The **warp** runs lengthwise: it is the structure, fixed and unmovable. The **weft** shuttles across: it is the function, ever-changing. Warp and weft interlace, and only then is there cloth.
 >
-> Orchestrating AI agents is the same: `meta` and `phase` are the warp — the deterministic skeleton; `agent()` and `pipeline()` are the weft — the intelligent units that shuttle through it. Interlace them, and you have a pipeline.
+> Orchestrating AI agents works the same way. `meta` and `phase` are the warp, the deterministic skeleton. `agent()` and `pipeline()` are the weft, the intelligent units that shuttle through it. Interlace them, and you have a pipeline.
 >
 > **While everyone else hand-conducts their agents, this book teaches you to make them form up on their own.**
 
@@ -31,19 +31,19 @@
 
 ## What this book is about
 
-Claude Code's **Workflow** feature (availability controlled by the feature flag `CLAUDE_CODE_WORKFLOWS`; once it's available, from v2.1.154 you can also use `/effort ultracode` to make Claude orchestrate proactively by default for the session) is an engine for **deterministically orchestrating multiple agents** with a JavaScript script. It is not MCP, not Skills, not Subagents, not Agent Teams — it is a new kind of engineering pipeline that is **reusable, testable, and shareable**.
+**Dynamic workflows** is Claude Code's engine for **deterministically orchestrating multiple agents** with a JavaScript script. You turn it on from the "Dynamic workflows" row in `/config`; under the hood that toggle maps to the `CLAUDE_CODE_WORKFLOWS=1` flag, which power users can also set directly. Once it's available, from v2.1.154 you can use `/effort ultracode` to make Claude orchestrate proactively by default for the session. Dynamic workflows stands apart from MCP, Skills, Subagents, and Agent Teams. It is a new kind of engineering pipeline that is **reusable, testable, and shareable**.
 
-This book takes you from zero to one: understand its essential positioning → master the full `agent()`/`parallel()`/`pipeline()`/`schema` API → work through 7 really-run recipes → unlock advanced patterns like adversarial verification / loop-until-dry / budget / resume → benchmark the four major community systems and extract their essence → build your own Workflow library → and master the full author → validate → debug flow from intent to ship.
+This book takes you from zero to one. You understand where Workflow sits among the extension mechanisms, master the full `agent()`/`parallel()`/`pipeline()`/`schema` API, and work through 7 really-run recipes. You then unlock advanced patterns like adversarial verification, loop-until-dry, budget, and resume, benchmark the four major community systems and extract their essence, build your own Workflow library, and master the full author → validate → debug flow from intent to ship.
 
-> **This is not API documentation — it's a hands-on Cookbook. Approachable, and grounded in real runs: recipes that were actually run carry their Run ID and usage; scripts shown only for illustration are clearly marked.**
+> **This is a hands-on Cookbook, not API documentation. It stays approachable and grounded in real runs. Recipes that were actually run carry their Run ID and usage; scripts shown only for illustration are clearly marked.**
 
 <details>
 <summary><b>The book at a glance</b></summary>
 
 | Metric | Value |
 |------|------|
-| Chapters | **29 chapters + 6 appendices** (six parts · Understanding / Foundations / Recipes / Advanced / Ecosystem / Authoring + Appendices A–F) |
-| Volume | Chinese source 140k+ Han characters ｜ `docs/zh` ↔ `docs/en` **36 files mirrored one-to-one** |
+| Chapters | **29 chapters + 7 appendices** (six parts · Understanding / Foundations / Recipes / Advanced / Ecosystem / Authoring + Appendices A–G) |
+| Volume | Chinese source 140k+ Han characters ｜ `docs/zh` ↔ `docs/en` **38 files mirrored one-to-one** |
 | Real Workflow runs | **23 unique Run IDs** (R4 baseline 17 + R5 application-level 3 + R6 application-level 3; raw logs in [`assets/transcripts/`](assets/transcripts)) |
 | Tested on | Claude Code **v2.1.150 – v2.1.154**, `CLAUDE_CODE_WORKFLOWS=1`, Opus 4.7 / 4.8 (1M) |
 | Bilingual | Full zh/en parity, one-click switch |
@@ -85,7 +85,7 @@ log(`smoke result: ${JSON.stringify(r)}`)
 return r
 ```
 
-> **How to run it (important):** this is a **Workflow script**, not a standalone Node script — `export`/`meta`/`phase`/`agent`/`log` are global symbols injected by the Workflow runtime. **Running it with `node hello.js` immediately throws `phase is not defined` (on Windows and macOS alike).** The correct way: inside a Claude Code session with the **feature flag enabled** (macOS / Linux: `CLAUDE_CODE_WORKFLOWS=1 claude`; on Windows, or for a persistent setting, write it into the `env` of `~/.claude/settings.json` — that JSON form is cross-platform), just ask Claude to execute it — e.g. include the keyword `workflow` in your message (like "run this workflow"), and Claude invokes the built-in Workflow tool.
+> **How to run it (important):** this is a **Workflow script**, not a standalone Node script. `export`/`meta`/`phase`/`agent`/`log` are global symbols injected by the Workflow runtime. **Running it with `node hello.js` immediately throws `phase is not defined` (on Windows and macOS alike).** Run it inside a Claude Code session that has Workflow turned on. The official entry is the "Dynamic workflows" row in `/config`; on macOS or Linux a power user can also launch with `CLAUDE_CODE_WORKFLOWS=1 claude`, and on Windows (or for a persistent setting) you write that flag into the `env` of `~/.claude/settings.json`, a JSON form that works on every platform. Then just ask Claude to execute the script. For example, include the keyword `workflow` in your message (like "run this workflow"), and Claude invokes the built-in Workflow tool.
 >
 > Real return (`schema` forces structure; `sum` is the integer `4`, not a string): `{"message":"…","sum":4,"runtimeConfirmed":true}` (Run `wf_dacbd480-d5d`, 1 agent / 26,338 tokens / 5.5s).
 
@@ -177,17 +177,19 @@ workflow-cookbook/
 └─ manifest.json     # site table of contents and zh/en mapping
 ```
 
-Docs and site are decoupled: `docs/` is the "book" in plain Markdown; `index.html` is the rendering layer — zero build, deployable straight to GitHub Pages.
+Docs and site are decoupled. `docs/` is the "book" in plain Markdown, and `index.html` is the rendering layer. There is zero build, so you can deploy it straight to GitHub Pages.
+
+To preview locally: the page loads `docs/` at runtime with `fetch`, so opening it via `file://` gets blocked by the browser. Serve the repo root over HTTP instead. macOS/Linux: `python3 -m http.server 8000`; Windows: `python -m http.server 8000`; then open `http://localhost:8000`. (Or `npx serve` on any OS, and open the URL it prints.)
 
 ---
 
 ## Acknowledgements
 
-- [Anthropic](https://anthropic.com) — Claude Code and the Workflow feature
-- [AI Superdomain · Claude Code Workflow Analysis](https://www.aivi.fyi/llms/claude-code-workflow) — among the first to systematically explain this feature; the original inspiration for this book
-- [Yuyu · claude-code-book](https://github.com/lintsinghua/claude-code-book) — a pioneer in deep architectural analysis
-- ccg-workflow / oh-my-claudecode / oh-my-openagent / superpowers — four excellent community Workflow systems
-- [Linux.Do community](https://linux.do/) — a Chinese community for technical exchange and inspiration
+- [Anthropic](https://anthropic.com): Claude Code and the Dynamic workflows feature
+- [AI Superdomain · Claude Code Workflow Analysis](https://www.aivi.fyi/llms/claude-code-workflow): among the first to systematically explain this feature, and the original inspiration for this book
+- [Yuyu · claude-code-book](https://github.com/lintsinghua/claude-code-book): a pioneer in deep architectural analysis
+- ccg-workflow / oh-my-claudecode / oh-my-openagent / superpowers: four excellent community Workflow systems
+- [Linux.Do community](https://linux.do/): a Chinese community for technical exchange and inspiration
 
 ## License
 

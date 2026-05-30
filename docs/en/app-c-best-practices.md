@@ -1,6 +1,8 @@
 # Appendix C · Best Practices
 
-> This appendix is a **checklist you can tick off.** Each entry tells you "what to do," "why," and "how to land it," with a link to the matching chapter. When you design or review a Workflow, run through it top to bottom: the more boxes you tick, the more deterministic, economical, resume-able, and observable your script gets.
+> This appendix is a **checklist you can tick off.** Each entry tells you what to do, why, and how to land it, with a link to the matching chapter. When you design or review a Workflow, run through it top to bottom. The more boxes you tick, the more deterministic, economical, resume-able, and observable your script gets.
+>
+> This checklist covers "how to do a shape right and well." To decide **which shape** first (pipeline or parallel, whether to wrap adversarial verification), see [Appendix F · Pattern Catalog & Scenarios](#/en/app-f), pick the shape, then come back and tick the boxes.
 >
 > The API basis for every claim lives in [Appendix A](#/en/app-a); the behavioral basis lives in [Appendix E](#/en/app-e)'s real runs. The companion reverse checklist (pitfalls and troubleshooting) is in [Appendix B](#/en/app-b).
 
@@ -20,11 +22,11 @@
 ## C.2 Structure & Orchestration
 
 - [ ] **Use `pipeline()` by default for multi-stage; don't chain `parallel()`.** ⚠️
-  - **Why**: `parallel` is a **barrier** — it waits for a whole batch to finish before moving on. Write multi-stage as "`parallel` then `parallel`" and you burn time waiting for the slowest one at every stage boundary. `pipeline` is different: it lets each item flow **independently** through all stages, with **no barrier** between them, so wall clock ≈ the slowest single chain rather than the sum of each stage's slowest.
+  - **Why**: `parallel` is a **barrier**: it waits for a whole batch to finish before moving on. Write multi-stage as "`parallel` then `parallel`" and you burn time waiting for the slowest one at every stage boundary. `pipeline` is different. It lets each item flow **independently** through all stages, with **no barrier** between them, so wall clock ≈ the slowest single chain rather than the sum of each stage's slowest.
   - **How**: see [Chapter 8 · parallel vs pipeline](#/en/p2-08). Reach for `parallel` only when "all results genuinely need to appear together" (e.g., fan-out then synthesize).
 
 - [ ] **Pass `parallel()` only thunks (`() => agent(...)`), never Promises.** ⚠️
-  - **Why**: pass `agent(...)` (a Promise) and it runs the moment the array is built — it doesn't conform to the `parallel(thunks)` API, so `parallel()` can't manage it as a thunk, and it loses the "async reject / agent error → `null`" error-gathering semantics (the concurrency cap is throttled uniformly **per workflow**, and you can't slip past it this way).
+  - **Why**: pass `agent(...)` (a Promise) and it runs the moment the array is built. It doesn't conform to the `parallel(thunks)` API, so `parallel()` can't manage it as a thunk, and it loses the "async reject / agent error → `null`" error-gathering semantics. (The concurrency cap is throttled uniformly **per workflow**, and you can't slip past it this way.)
   - **How**: `parallel(items.map(it => () => agent(prompt(it), { schema })))`. See [Appendix B · B.4](#/en/app-b).
 
 - [ ] **Write `meta` as a pure literal, with the first line being `export const meta = {…}`.** ⚠️
@@ -40,7 +42,7 @@
   - **How**: have each concurrent agent carry its own `phase:'Review'`. The real scripts `frontend-review`/`judge-panel` both do exactly this. See [Appendix B · B.12](#/en/app-b).
 
 - [ ] **The script body only orchestrates; side effects go to agents.** ⚠️
-  - **Why**: the script body is a restricted `async` sandbox — no file system, no network, no `require`, no Node global. Reading or writing files and hitting the network must be done by the subagents that `agent()` dispatches (those are the ones holding real tool permissions).
+  - **Why**: the script body is a restricted `async` sandbox: no file system, no network, no `require`, no Node global. To read or write files or hit the network, dispatch a subagent with `agent()` (those subagents are the ones holding real tool permissions).
   - **How**: to read a file, `agent('Read x and ...')`; for data, pass it in via `args`. See [Appendix B · B.16](#/en/app-b).
 
 ---
@@ -48,7 +50,7 @@
 ## C.3 schema & Products
 
 - [ ] **Constrain the shape of key products with `schema`.** ⚠️
-  - **Why**: with a `schema`, validation happens at the **tool-call layer**, the model **auto-retries** until it matches, and you get back a **validated object** — downstream can just reach for `.field`, no parsing free text.
+  - **Why**: with a `schema`, validation happens at the **tool-call layer**: the model **auto-retries** until it matches, and you get back a **validated object**. Downstream can just reach for `.field`, no parsing free text.
   - **How**: `agent(prompt, { schema: { type:'object', properties:{…}, required:[…] } })`. See [Chapter 7 · Structured Output & Schema](#/en/p2-07). Real confirmation: `hello`'s `sum` is strictly the number `4` (Run `wf_dacbd480-d5d`).
 
 - [ ] **The schema constrains the shape but leaves the model room to express (don't over-strict).**
@@ -72,11 +74,11 @@
   - **How**: `agent(prompt, { label: \`review:${d.key}\` })`. See [Chapter 6 · The agent() Reference](#/en/p2-06).
 
 - [ ] **`log()` at milestones, writing out key counts/decisions.**
-  - **Why**: `log()` prints a narration line above the progress tree — your main clue when you go back to see "what happened" (like "barrier released with 3/3 results," "pipeline kept N/M items").
-  - **How**: a phase switch, how many items survived a filter, why something exited early — they all deserve a `log`. Real scripts commonly do this. See [Chapter 9 · Progress, Logs, Resume, Budget](#/en/p2-09).
+  - **Why**: `log()` prints a narration line above the progress tree, your main clue when you go back to see "what happened" (like "barrier released with 3/3 results," "pipeline kept N/M items").
+  - **How**: a phase switch, how many items survived a filter, why something exited early all deserve a `log`. Real scripts commonly do this. See [Chapter 9 · Progress, Logs, Resume, Budget](#/en/p2-09).
 
 - [ ] **Explicitly record "dropouts/downgrades."**
-  - **Why**: `parallel`'s async rejects and throws inside a `pipeline` stage both mark that item `null`; if you only look at the final count, you'll misread it as data loss. (Note: a **sync** throw inside a `parallel` thunk does *not* turn into `null` — it throws through the `parallel` call and crashes the whole run; see [C.6](#c6-resilience-verification) and [C.2 "only thunks"](#c2-structure-orchestration).)
+  - **Why**: `parallel`'s async rejects and throws inside a `pipeline` stage both mark that item `null`; if you only look at the final count, you'll misread it as data loss. (Note: a **sync** throw inside a `parallel` thunk does *not* turn into `null`. It throws through the `parallel` call and crashes the whole run; see [C.6](#c6-resilience-verification) and [C.2 "only thunks"](#c2-structure-orchestration).)
   - **How**: `log(\`pipeline kept ${ok.length}/${items.length}\`)`. See [Appendix B · B.15](#/en/app-b).
 
 - [ ] **Keep the `taskId`/`runId`.**
@@ -97,7 +99,7 @@
 
 - [ ] **Use `model: 'haiku'` for simple/mechanical subtasks.**
   - **Why**: leave out `model` and it inherits the main loop model (usually a strong one); jobs like classification, extraction, or formatting do just fine on a light model, and you save tokens and time.
-  - **How**: what actually sets the model is `opts.model` in `agent(prompt, { model: 'haiku' })`; whether `meta.phases[].model` does anything at runtime is not independently verified by this book — treat it as a display label, don't rely on it alone. See [Chapter 6](#/en/p2-06), [Chapter 21 · Dynamic Budget & Scaling](#/en/p4-21).
+  - **How**: what actually sets the model is `opts.model` in `agent(prompt, { model: 'haiku' })`; whether `meta.phases[].model` does anything at runtime is not independently verified by this book, so treat it as a display label and don't rely on it alone. See [Chapter 6](#/en/p2-06), [Chapter 21 · Dynamic Budget & Scaling](#/en/p4-21).
 
 - [ ] **Respect the concurrency limit; don't expect infinite parallelism.**
   - **Why**: a single workflow runs `min(16, CPU cores−2)` agents at once and the rest queue up; on top of that, the agent total per workflow has a hard cap of **1000**.
@@ -116,7 +118,7 @@
   - **How**: use `parallel` to dispatch several judges that each score on their own, then tally `votesA/votesB`. See [Chapter 14 · Judge Panel](#/en/p3-14).
 
 - [ ] **Always `.filter(Boolean)` `parallel`/`pipeline` results before consuming.** ⚠️
-  - **Why**: a position that async-rejected (a thunk returning a rejected promise, or an `async` throw) or that threw inside a `pipeline` stage is `null`; skip the filter and the `.map(r => r.x)` that follows will throw. `.filter(Boolean)` only catches *that* kind of `null` — it **can't** catch a **sync** throw inside a `parallel` thunk: that throws straight through the `parallel` call and crashes the whole run. So don't put logic that might throw synchronously bare inside a thunk (see [C.2 "only thunks"](#c2-structure-orchestration) and [Appendix B · B.4](#/en/app-b)).
+  - **Why**: a position that async-rejected (a thunk returning a rejected promise, or an `async` throw) or that threw inside a `pipeline` stage is `null`; skip the filter and the `.map(r => r.x)` that follows will throw. `.filter(Boolean)` only catches *that* kind of `null`. It **can't** catch a **sync** throw inside a `parallel` thunk: that throws straight through the `parallel` call and crashes the whole run. So don't put logic that might throw synchronously bare inside a thunk (see [C.2 "only thunks"](#c2-structure-orchestration) and [Appendix B · B.4](#/en/app-b)).
   - **How**: `(await parallel(thunks)).filter(Boolean)`. See [Appendix B · B.11](#/en/app-b).
 
 - [ ] **When the critical path can't drop items, `try` within the stage and return a degraded result rather than throwing.**
@@ -132,7 +134,7 @@
 ## C.7 Iteration & Resume
 
 - [ ] **Land complex scripts as `.js`, call with `scriptPath`.**
-  - **Why**: the script is a file, so you can vet it with an editor or tools first; after a Write/Edit, just re-run with the same `scriptPath` — no resending the whole thing.
+  - **Why**: the script is a file, so you can vet it with an editor or tools first; after a Write/Edit, just re-run with the same `scriptPath`, no resending the whole thing.
   - **How**: `Workflow({ scriptPath: '.../my-wf.js' })`. `scriptPath` has the highest priority. See [Appendix A · A.1](#/en/app-a).
 
 - [ ] **To reuse already-run results, resume with `resumeFromRunId`, and keep the earlier script letter-for-letter unchanged.**
@@ -178,7 +180,7 @@
     ```
   - See [Chapter 21 · Dynamic Budget & Scaling](#/en/p4-21), [Appendix B · B.6](#/en/app-b).
 
-- [ ] **The budget pool is shared — the main loop + all workflows (incl. nested sub-flows) share one pool.**
+- [ ] **The budget pool is shared: the main loop + all workflows (incl. nested sub-flows) share one pool.**
   - **Why**: `budget.spent()` counts every output token this turn, and what nested sub-flows spend goes into that count too.
   - **How**: when you estimate a nested workflow's cost, fold the sub-flows in. See [Chapter 20](#/en/p4-20).
 

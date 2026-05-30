@@ -1,18 +1,18 @@
 # Chapter 17 · Adversarial Verification
 
-> In one sentence: **have an independent subagent "pick holes" in the previous subagent's product — its task is not to agree but to try its hardest to falsify. Converge that falsification result into a trustworthy verdict with a schema, and you get a self-correcting pipeline.**
+> In one sentence: **have an independent subagent "pick holes" in the previous subagent's product. Its task is to try its hardest to falsify, not to agree. Converge that falsification result into a trustworthy verdict with a schema, and you get a self-correcting pipeline.**
 >
-> This is the first chapter of Advanced Patterns, and the parent of every "quality gate" pattern that follows. Foundations already taught you `agent` / `pipeline` / `schema`; this chapter wires them into a structure that earns its keep in engineering — **separating generation from verification.**
+> This is the first chapter of Advanced Patterns, and the parent of every "quality gate" pattern that follows. Foundations already taught you `agent` / `pipeline` / `schema`; this chapter wires them into a structure that earns its keep in engineering: **separating generation from verification.**
 
 ---
 
 ## 17.1 Why Adversarial Verification: The Fundamental Flaw of Self-Assessment
 
-Let's start with a pothole everyone has stepped in.
+Here is a pothole everyone has stepped in.
 
-You ask a subagent to "find the bugs in this code," and it hands back three. You offhandedly ask, "are you sure these are all real bugs?" — and it almost always answers "Yes, I confirm these are all genuine issues."
+You ask a subagent to "find the bugs in this code," and it hands back three. You offhandedly ask, "are you sure these are all real bugs?", and it almost always answers "Yes, I confirm these are all genuine issues."
 
-**Here's the catch: ask the same model to grade its own work and it leans hard into confirmation bias.** It just generated these bugs, its context is packed with "this is a bug" arguments, so by the time you ask it to self-examine, its stance is already locked in. It defends itself instead of questioning itself. This isn't about the model "not being smart enough"; the **very task structure of self-assessment** is flawed — assessor and assessed share the same context, the same stance.
+**Here's the catch: ask the same model to grade its own work and it leans hard into confirmation bias.** It just generated these bugs, its context is packed with "this is a bug" arguments, so by the time you ask it to self-examine, its stance is already locked in. It defends itself instead of questioning itself. This isn't about the model being slow-witted. The flaw lives in **the very task structure of self-assessment**: assessor and assessed share the same context and the same stance.
 
 The core insight of adversarial verification: **swap the verifier for a brand-new, independent subagent, and tell it flat out that "your job is to falsify."**
 
@@ -20,11 +20,11 @@ The core insight of adversarial verification: **swap the verifier for a brand-ne
 - It has an **adversarial stance**: the prompt tells it point-blank to be a skeptic, hunt for counterexamples, and pick holes, not to agree.
 - Its verdict is **structured**: a schema pins "real/false/uncertain" into an enum, rather than a vague paragraph of prose.
 
-Stack those three together and "the model feeling good about itself" becomes "an adversarial contest between two independent perspectives" — and adversarial contest is the oldest, most reliable way to close in on the truth.
+Stack those three together and "the model feeling good about itself" becomes "an adversarial contest between two independent perspectives." Pitting two perspectives against each other is the oldest, most reliable way to close in on the truth.
 
 <div class="callout info">
 
-**Really, this is Workflow rewriting wisdom the community validated long ago.** Per `_grounding.md` section D, one of the superpowers system's gems is exactly the "two-stage review loop" (spec compliance → code quality, each looping until it passes), oh-my-claudecode leans on "independent reviewer sign-off," and oh-my-openagent uses "VERIFICATION_REMINDER injection for correction." These systems all lean on prompts and Hooks to **simulate** "separating generation from verification." Native Workflow lets you write it straight up as a **deterministic, reusable** structure with `pipeline` + `schema` — which is what this chapter teaches.
+**Really, this is Workflow rewriting wisdom the community validated long ago.** Per `_grounding.md` section D, one of the superpowers system's gems is exactly the "two-stage review loop" (spec compliance → code quality, each looping until it passes), oh-my-claudecode leans on "independent reviewer sign-off," and oh-my-openagent uses "VERIFICATION_REMINDER injection for correction." These systems all lean on prompts and Hooks to **simulate** "separating generation from verification." Native Workflow lets you write it straight up as a **deterministic, reusable** structure with `pipeline` + `schema`, which is what this chapter teaches.
 
 </div>
 
@@ -32,7 +32,7 @@ Stack those three together and "the model feeling good about itself" becomes "an
 
 ## 17.2 The Minimal Adversarial-Verification Skeleton from a Real Run
 
-The fastest way to get adversarial verification is to watch it **actually run.** The `pipeline-demo` from Foundations (Run ID `wf_bf086b98-6ec`, `agent_count=6`) happens to be a minimal adversarial verification: **the Find stage produces a candidate bug, the Verify stage adversarially checks whether it's a real bug.**
+The fastest way to get adversarial verification is to watch it **actually run.** The `pipeline-demo` from Foundations (Run ID `wf_bf086b98-6ec`, `agent_count=6`) happens to be a minimal adversarial verification. Its Find stage produces a candidate bug, and its Verify stage adversarially checks whether it's a real bug.
 
 ```javascript
 const items = ['off-by-one', 'null-dereference', 'race-condition']
@@ -82,11 +82,11 @@ Here's what it **actually returned** (source: `assets/transcripts/primitives.md`
 
 This skeleton already has every element of adversarial verification; let's pull them apart one by one:
 
-**First, the verifier is a brand-new agent.** The Verify stage's `agent()` call and the Find stage are **two entirely independent subagents** — independent context (tokens draw from the shared run budget, not a separate per-agent one) (confirmed by real data: 3 items × 2 stages = `agent_count=6`). Verify doesn't see "the bug I generated"; it sees "a claim to be checked, `found.example`."
+**First, the verifier is a brand-new agent.** The Verify stage's `agent()` call and the Find stage are two entirely independent subagents, each with its own context (tokens draw from the shared run budget, not a separate per-agent one). Real data confirms it: 3 items × 2 stages = `agent_count=6`. Verify doesn't see "the bug I generated"; it sees a claim to be checked, `found.example`.
 
-**Second, the verifier is told to judge, not to restate.** The prompt asks "Is this genuinely a ... bug?" — a yes/no question that forces it to take a stance.
+**Second, the verifier is told to judge, not to restate.** The prompt asks "Is this genuinely a ... bug?", a yes/no question that forces it to take a stance.
 
-**Third, the verdict is converged by a schema.** `real: boolean` is a **gate field**: it pins "is this a real bug" from a possibly vague sentence down to a `true`/`false`. The orchestration script can then `filter` on it — and that's the key to making "separating generation from verification" land as a deterministic process.
+**Third, the verdict is converged by a schema.** `real: boolean` is a **gate field**: it pins "is this a real bug" from a possibly vague sentence down to a `true`/`false`. The orchestration script can then `filter` on it, and that's the key to making "separating generation from verification" land as a deterministic process.
 
 ```mermaid
 flowchart LR
@@ -102,7 +102,7 @@ flowchart LR
 
 <div class="callout tip">
 
-**Notice how neatly `pipeline` fits here**: per `_grounding.md`, pipeline has **no barrier** between stages — while one candidate is still at Verify, another may still be at Find. Adversarial verification is a natural fit for pipeline, because "generate → verify" is a natural two-stage chain, and you often run that chain in parallel over **multiple** candidates. Wall clock is about "the slowest single Find→Verify chain," not the sum of all Finds plus the sum of all Verifies.
+**Notice how neatly `pipeline` fits here**: pipeline has no barrier between stages, so while one candidate is still at Verify, another may still be at Find (these parallel semantics are covered in [Chapter 08 · parallel (Barrier) vs pipeline](#/en/p2-08)). Adversarial verification is a natural fit for pipeline, because "generate → verify" is a natural two-stage chain, and you often run that chain in parallel over multiple candidates. That makes wall clock about the slowest single Find→Verify chain, not the sum of all Finds plus the sum of all Verifies.
 
 </div>
 
@@ -110,7 +110,7 @@ flowchart LR
 
 ## 17.3 Upgrading the Verdict: From boolean to a Three-State Enum
 
-`real: boolean` is fine for the simplest scenarios, but production-grade adversarial verification often needs **three states**, because beyond "yes" and "no," the real world is full of "not enough evidence, can't decide" cases. Force the verifier to pick one of two on incomplete information and it just guesses blindly — which runs straight against adversarial verification's whole point of "rigor."
+`real: boolean` is fine for the simplest scenarios, but production-grade adversarial verification often needs **three states**, because beyond "yes" and "no," the real world is full of "not enough evidence, can't decide" cases. Force the verifier to pick one of two on incomplete information and it just guesses blindly, which runs straight against adversarial verification's whole point of rigor.
 
 Upgrade the verdict to three states with `enum`:
 
@@ -145,7 +145,7 @@ Each of the three fields pulls its own weight:
 |---|---|---|
 | `verdict` | three-state enum | The core verdict, pinned values, what downstream routes its state machine on |
 | `confidence` | number | Degree of certainty, handy for "re-verifying low-confidence ones" or weighting |
-| `reasoning` | string | Makes the verdict auditable — especially `refuted` must give a counterexample, forcing the verifier to actually think |
+| `reasoning` | string | Makes the verdict auditable; especially `refuted` must give a counterexample, forcing the verifier to actually think |
 
 `enum` is the lifeline here. Recall `_grounding.md`: schema gets validated at the tool-call layer, and an `enum`-limited field triggers a retry the moment it falls outside the value set. So downstream you can write this with **total confidence**:
 
@@ -156,7 +156,7 @@ const needsReview = results.filter((r) => r.verdict === 'uncertain')
 // refuted ones are discarded directly, no longer polluting downstream
 ```
 
-No need to fret over whether the model came back with `'Confirmed'`, a localized word, or `'I think it is confirmed'` — the runtime guarantees it'll only be one of those three values. **Enum turns adversarial verification's output into a reliable state-machine transition.**
+No need to fret over whether the model came back with `'Confirmed'`, a localized word, or `'I think it is confirmed'`; the runtime guarantees it'll only be one of those three values. **Enum turns adversarial verification's output into a reliable state-machine transition.**
 
 ---
 
@@ -164,13 +164,13 @@ No need to fret over whether the model came back with `'Confirmed'`, a localized
 
 The other half of whether adversarial verification works isn't in the schema, but in **the verifier's prompt.** The schema guarantees the verdict's structure is right, but "whether the verifier is actually being adversarial" comes down to how you set its role.
 
-A common way this fails is a too-gentle prompt: "Please check whether this finding is correct" — the model just nods politely. To force out a real contest, the prompt needs to do three things:
+A common way this fails is a too-gentle prompt: "Please check whether this finding is correct," and the model just nods politely. To force out a real contest, the prompt needs to do three things:
 
-**One, hand it an adversarial role.** Tell it flat out that "you are a skeptic / red team / hole-picker," and its success criterion is "find where this claim doesn't hold up."
+**One, hand it an adversarial role.** Tell it flat out that "you are a skeptic / red team / hole-picker," and its success criterion is to find where this claim doesn't hold up.
 
 **Two, demand evidence, not a stance.** Don't just ask "is it right"; require that "if you think it's a false positive, you must give a counterexample or specific reason." The burden of proof forces the model to actually deliberate instead of voting on a hunch.
 
-**Three, give it the raw evidence, not the original author's reasoning.** Hand it only "the conclusion to be verified + the necessary raw material," and do **not** feed it the generator's "why I think this is a bug" reasoning — otherwise the verifier gets pulled along by the original author's train of thought, and the adversarial edge is gone.
+**Three, give it the raw evidence, not the original author's reasoning.** Hand it only "the conclusion to be verified + the necessary raw material," and do **not** feed it the generator's "why I think this is a bug" reasoning. Otherwise the verifier gets pulled along by the original author's train of thought, and the adversarial edge is gone.
 
 ```javascript
 // (illustrative, not run) — an adversarial verifier prompt
@@ -186,11 +186,11 @@ const verify = (claim, evidence) =>
   )
 ```
 
-Note that the generator's reasoning is **not** passed in here — `claim` is the conclusion, `evidence` is the raw code, and the verifier must judge it **fresh, on its own.**
+Note that the generator's reasoning is **not** passed in here. `claim` is the conclusion, `evidence` is the raw code, and the verifier must judge it fresh, on its own.
 
 <div class="callout warn">
 
-**Adversarial isn't the same as contrarian.** A common over-correction is tuning the verifier so suspicious that it rules even real bugs as refuted (false negatives). The key to balance is `confidence` and `reasoning`: require that when it rules refuted, it **must give a concrete counterexample.** If it can't produce a counterexample and just "feels off," then it should really rule `uncertain`. Let the burden of proof rein in how hard it pushes, so it doesn't slide from "confirmation bias" into "denial bias."
+**Adversarial isn't the same as contrarian.** A common over-correction is tuning the verifier so suspicious that it rules even real bugs as refuted (false negatives). The key to balance is `confidence` and `reasoning`: require that when it rules refuted, it **must give a concrete counterexample.** If it can't produce a counterexample and just "feels off," then it should really rule `uncertain`. Let the burden of proof rein in how hard it pushes, keeping it from sliding out of "confirmation bias" into "denial bias."
 
 </div>
 
@@ -258,9 +258,9 @@ return { confirmed, uncertain }
 
 A few engineering details worth calling out:
 
-- **`.filter(Boolean)` can't be skipped.** Per `_grounding.md`, the user skipping an agent midway makes that call return `null`; a pipeline stage throwing also turns that item into `null`. Filter them out before you consume them.
+- **`.filter(Boolean)` can't be skipped.** The user skipping an agent midway makes that call return `null`; a pipeline stage throwing also turns that item into `null` (this null idiom is covered in [Chapter 06 · The agent() Reference](#/en/p2-06)). Filter them out before you consume them.
 - **`phase` marked explicitly.** Inside the pipeline, pass `phase: 'Find'` / `'Verify'` to each `agent()` so they don't race the global `phase()`, which keeps the progress tree cleanly grouped. This is the approach `_grounding.md` explicitly recommends.
-- **Three-state close-out.** `confirmed` is adopted directly, `refuted` thrown out, `uncertain` set aside on its own — handed to a human for review or sent into re-verification (see next section).
+- **Three-state close-out.** `confirmed` is adopted directly, `refuted` thrown out, `uncertain` set aside on its own, handed to a human for review or sent into re-verification (see next section).
 
 ```mermaid
 flowchart TD
@@ -279,7 +279,7 @@ flowchart TD
 
 ## 17.6 Advanced: Multi-Verifier Voting and Confidence Weighting
 
-A single verifier already beats self-assessment by a mile, but it's still **one** perspective. When a verdict's cost runs high (say, deciding whether to block a release), you can have **multiple independent verifiers** each cast a vote, then aggregate with code — upgrading from "adversarial contest" to a "jury."
+A single verifier already beats self-assessment by a mile, but it's still **one** perspective. When a verdict's cost runs high (say, deciding whether to block a release), you can have **multiple independent verifiers** each cast a vote, then aggregate with code. That upgrades "adversarial contest" to a "jury."
 
 The mechanism is simple: for the same claim, fan out N verifiers with `parallel`, each judging on its own, then take a majority vote.
 
@@ -305,19 +305,19 @@ const avgConfidence = votes.reduce((s, v) => s + v.confidence, 0) / votes.length
 
 <div class="callout tip">
 
-**The recommended reusable default rule: default to `refuted` unless a majority of the independent jurors (e.g., at least 2 of 3) vote `confirmed`.** Put differently, a finding **survives only when a majority of jurors affirmatively confirm it**; ties or "insufficient evidence" all default to refuted. That `confirmedVotes > votes.length / 2` line above is precisely this rule in code — 3 votes need ≥2, 5 votes need ≥3 to count as `confirmed`, otherwise it closes out as `refuted`. Make it your default close-out posture for adversarial verification: **the burden of proof is on the "confirm" side; silence and disagreement both fall toward refuted.** This lines up with §17.3's stance that "`uncertain` is not adopted as `confirmed`" — uncertain does not mean pass.
+**The recommended reusable default rule: default to `refuted` unless a majority of the independent jurors (e.g., at least 2 of 3) vote `confirmed`.** A finding **survives only when a majority of jurors affirmatively confirm it**; ties or "insufficient evidence" all default to refuted. That `confirmedVotes > votes.length / 2` line above is precisely this rule in code: 3 votes need ≥2, 5 votes need ≥3 to count as `confirmed`, otherwise it closes out as `refuted`. Make it your default close-out posture for adversarial verification, where **the burden of proof is on the "confirm" side; silence and disagreement both fall toward refuted.** This lines up with §17.3's stance that "`uncertain` is not adopted as `confirmed`": uncertain does not mean pass.
 
 </div>
 
 Two details here echo the book-wide hard constraints:
 
-**Use `index` to create perspective variation, not randomness.** Per `_grounding.md`, scripts forbid `Math.random()` (it breaks replayability → resume fails). To keep multiple verifiers from coming out identical, the right move is to **vary the prompt using the index `i`** — e.g., have juror 0 look at exploitability and juror 1 at blast radius. That gives you diversity and keeps determinism intact.
+**Use `index` to create perspective variation, not randomness.** Scripts forbid `Math.random()` because it breaks replayability and makes resume fail (the full explanation of this determinism ban is in [Chapter 01 · What Workflow Is](#/en/p1-01) §1.2). To keep multiple verifiers from coming out identical, the right move is to **vary the prompt using the index `i`**, e.g., have juror 0 look at exploitability and juror 1 at blast radius. That gives you diversity and keeps determinism intact.
 
-**`parallel` is a barrier, aggregating only after all votes are in.** This is exactly what the voting scenario needs — you have to have every ballot before you can tally. The cost is that tokens grow linearly with jury size: for reference, 3 concurrent agents run about `78844` tokens (`wf_52957913-6d2`), roughly 3× a single agent. More verifiers buy more reliability but cost more too — let the verdict's cost decide the jury's size.
+**`parallel` is a barrier, aggregating only after all votes are in.** This is exactly what the voting scenario needs: you have to have every ballot before you can tally. The cost is that tokens grow linearly with jury size: for reference, 3 concurrent agents run about `78844` tokens (`wf_52957913-6d2`), roughly 3× a single agent (the derivation of this "tokens ≈ agent count × per-agent context" rule is in [Chapter 09 · Progress, Logs, Resume, Budget](#/en/p2-09)). More verifiers buy more reliability but cost more too, so let the verdict's cost decide the jury's size.
 
 <div class="callout tip">
 
-**This is where Chapter 14, "Judge Panel," ties into this chapter.** The judge panel points this "multiple independent assessors + vote aggregation" pattern at A/B option evaluation; this chapter points it at truth-or-falsehood calls. Both rest on the same underlying structure: **independent perspectives + structured verdict + code aggregation.** Once you've got adversarial verification down, the judge panel is just a swap of the assessment object.
+**This is where Chapter 14, "Judge Panel," ties into this chapter.** The judge panel points this "multiple independent assessors + vote aggregation" pattern at A/B option evaluation, and this chapter points it at truth-or-falsehood calls. Both rest on the same underlying structure: **independent perspectives + structured verdict + code aggregation.** Once you've got adversarial verification down, the judge panel is just a swap of the assessment object.
 
 </div>
 
@@ -325,7 +325,7 @@ Two details here echo the book-wide hard constraints:
 
 ## 17.7 Anti-Patterns: Several Postures of Misusing Adversarial Verification
 
-Finally, a few common mistakes that make adversarial verification "look the part but miss the spirit":
+A few common mistakes make adversarial verification "look the part but miss the spirit":
 
 | Anti-pattern | Problem | Correct approach |
 |---|---|---|
@@ -338,7 +338,7 @@ Finally, a few common mistakes that make adversarial verification "look the part
 
 <div class="callout warn">
 
-**Adversarial verification isn't free — it at least doubles the agent count.** A "generate + verify" pipeline runs 2× the agent count of pure generation (real confirmation: pipeline-demo 3 items two stages = 6 agents, `158982` tokens). Stack a jury on top and it's several times that. So spend adversarial verification where the **cost of judging wrong is high**: deciding whether to merge, whether to release, whether to report a security vulnerability. For low-risk products "just for reference," a single generation may be enough. Match the strength of verification to the cost of judging wrong.
+**Adversarial verification isn't free; it at least doubles the agent count.** A "generate + verify" pipeline runs 2× the agent count of pure generation (real confirmation: pipeline-demo 3 items two stages = 6 agents, `158982` tokens). Stack a jury on top and it's several times that. So spend adversarial verification where the **cost of judging wrong is high**: deciding whether to merge, whether to release, whether to report a security vulnerability. For low-risk products "just for reference," a single generation may be enough. Match the strength of verification to the cost of judging wrong.
 
 </div>
 
@@ -348,11 +348,11 @@ Finally, a few common mistakes that make adversarial verification "look the part
 
 - **Adversarial verification = separating generation from verification.** Send an **independent** subagent in to falsify the previous stage's product, sidestepping the confirmation bias of "the same model grading itself."
 - The minimal skeleton is the real `pipeline-demo` (Run `wf_bf086b98-6ec`): the Find stage generates a candidate, the Verify stage uses an independent agent to adversarially check, and `real: boolean` gates the close-out.
-- A production-grade verdict uses an **`enum` three states** (`confirmed` / `refuted` / `uncertain`) + `confidence` + `reasoning`, turning the verdict into a reliable state-machine transition; `refuted` must give a counterexample.
-- Three essentials of the adversary's prompt: **hand it a red-team role, demand evidence, give only the conclusion + raw evidence** (not the original author's reasoning).
-- High-cost verdicts can be upgraded to **multi-verifier voting** (`parallel` barrier aggregation), using the **index** (not `Math.random`) to create perspective variation while keeping replayability.
-- Stay cost-aware: adversarial verification at least doubles the agent count (tokens double right along with it); match the verification strength to the cost of judging wrong.
+- A production-grade verdict uses an **`enum` three states** (`confirmed` / `refuted` / `uncertain`) plus `confidence` plus `reasoning`, turning the verdict into a reliable state-machine transition; `refuted` must give a counterexample.
+- Three essentials of the adversary's prompt: **hand it a red-team role, demand evidence, give only the conclusion plus raw evidence** (not the original author's reasoning).
+- High-cost verdicts can be upgraded to **multi-verifier voting** (`parallel` barrier aggregation), using the **index** rather than `Math.random` to create perspective variation while keeping replayability.
+- Stay cost-aware: adversarial verification at least doubles the agent count, and tokens double right along with it; match the verification strength to the cost of judging wrong.
 
-In the next chapter, we push "verification" from "judging true or false" to "judging complete" — how to use a loop to make the pipeline **generate-critique over and over** until a completeness agent rules "nothing new can be squeezed out anymore."
+In the next chapter, we push "verification" from "judging true or false" to "judging complete": how to use a loop to make the pipeline **generate-critique over and over** until a completeness agent rules "nothing new can be squeezed out anymore."
 
 > Continue reading: [Chapter 18 · Loop-Until-Dry & Completeness](#/en/p4-18)

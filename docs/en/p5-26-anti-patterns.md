@@ -1,6 +1,6 @@
 # Chapter 26 · Anti-patterns and Pitfalls
 
-> The first twenty-five chapters covered "how to do it." This last one flips it around — "**how not to do it**" — turning the whole book's hard constraints into a pitfall-avoidance checklist. Every anti-pattern follows the same three-part shape: **wrong way → consequence → right way**, plus a note on which rule it breaks (source: `assets/_grounding.md`).
+> The first twenty-five chapters covered "how to do it." This last one flips it around to "**how not to do it**," turning the whole book's hard constraints into a pitfall-avoidance checklist. Every anti-pattern follows the same three-part shape: **wrong way → consequence → right way**, plus a note on which rule it breaks (source: `assets/_grounding.md`).
 >
 > These pitfalls aren't hypothetical. They're the writings the Workflow runtime **really punishes**: some throw on the spot, some quietly burn through the budget, some rob your script of replayability and make regression tests fail wholesale. Once you've read this chapter, you've got a "pre-submission self-check sheet" in hand.
 
@@ -8,7 +8,7 @@
 
 ## 26.1 Why Anti-patterns Deserve Their Own Chapter
 
-Positive rules are easy to remember, but people trip up because of **some intuition that looks perfectly reasonable** — like "parallel is always faster than serial," "the stricter the schema the safer," "letting the model decide when to stop in a loop is the smartest." Those intuitions hold elsewhere, but in Workflow they walk you straight into a pitfall. What makes this chapter worth its keep is that it names these **counter-intuitive traps** one by one.
+Positive rules are easy to remember, but people trip up on **some intuition that looks perfectly reasonable**: "parallel is always faster than serial," "the stricter the schema the safer," "letting the model decide when to stop in a loop is the smartest." Those intuitions hold elsewhere, but in Workflow they walk you straight into a pitfall. This chapter earns its keep by naming these **counter-intuitive traps** one by one.
 
 The whole book's hard constraints (`_grounding.md` section B "hard constraints" and the various "prohibited" notes) sort into four categories, and that's how this chapter is laid out:
 
@@ -28,7 +28,7 @@ Let's take them one category at a time. Each comes with a "self-check question" 
 
 ### Anti-pattern A1: passing `parallel` a Promise instead of a thunk
 
-This is the most common and most insidious error, because it **doesn't error** — it just quietly wrecks your concurrency.
+This is the most common and most insidious error, because it **doesn't error**. It just quietly wrecks your concurrency.
 
 **Wrong way:**
 
@@ -41,7 +41,7 @@ const results = await parallel([
 ])
 ```
 
-**Consequence:** `parallel`'s signature is `parallel(thunks: Array<() => Promise<any>>)` (section B) — it wants a set of **functions** (thunks). But in the writing above, `agent(...)` **is already called the moment the array literal is evaluated** — the three `agent()`s have already started running before `parallel` even gets the array. This **violates the thunk API contract**, and the most direct cost is **losing `parallel()`'s async-failure aggregation semantics**: an async reject / agent error is supposed to turn into `null` at that position, but once you pass in already-executing Promises, that aggregation can't catch it, and one agent rejection may reject the whole `await` outright. **It "runs," so you won't catch it right away — not until some agent errors and gives it away.** (Note: the issue here is the API contract and error aggregation, not "bypassing the concurrency cap" — throttling is applied uniformly by the runtime.)
+**Consequence:** `parallel`'s signature is `parallel(thunks: Array<() => Promise<any>>)` (section B). It wants a set of **functions** (thunks). But in the writing above, `agent(...)` **is already called the moment the array literal is evaluated**: the three `agent()`s have already started running before `parallel` even gets the array. This **violates the thunk API contract**, and the most direct cost is **losing `parallel()`'s async-failure aggregation semantics**. An async reject or agent error is supposed to turn into `null` at that position, but once you pass in already-executing Promises, that aggregation can't catch it, and one agent rejection may reject the whole `await` outright. It "runs," so you won't catch it right away, not until some agent errors and gives it away. (Note: the issue here is the API contract and error aggregation, not concurrency-cap bypass; throttling is applied uniformly by the runtime.)
 
 **Right way:**
 
@@ -63,7 +63,7 @@ const results2 = await parallel(
 
 <div class="callout warn">
 
-`pipeline` doesn't suffer this — its signature is `pipeline(items, stage1, stage2, ...)`, where `items` is **data** and stages are **callback functions**, so you wouldn't write `agent()` calls there anyway. But `parallel` looks like "pass in a set of tasks," so it's all too easy to write it as direct `agent()` calls. **Remember: `parallel` wants thunks, not Promises.**
+`pipeline` doesn't suffer this. Its signature is `pipeline(items, stage1, stage2, ...)`, where `items` is **data** and stages are **callback functions**, so you wouldn't write `agent()` calls there anyway. But `parallel` looks like "pass in a set of tasks," so it's all too easy to write it as direct `agent()` calls. **Remember: `parallel` wants thunks, not Promises.**
 
 </div>
 
@@ -81,9 +81,9 @@ phase('Synthesize')
 const synths = await parallel(reviews.map((r) => () => agent(`synthesize ${JSON.stringify(r)}`, { schema: S })))
 ```
 
-**Consequence:** `parallel` is a **barrier** — "wait for all to complete" (section B). So the first line has to wait for **the slowest review** to finish before any item can move into the synthesis stage together. If one item's review is especially slow, every other item's synthesis stage sits there idling, waiting on it. The wall clock = `max(review) + max(synthesize)`, not "each chain finishing as fast as it can on its own."
+**Consequence:** `parallel` is a **barrier** that means "wait for all to complete" (section B). So the first line has to wait for **the slowest review** to finish before any item can move into the synthesis stage together. If one item's review is especially slow, every other item's synthesis stage sits there idling, waiting on it. The wall clock is `max(review) + max(synthesize)`, not "each chain finishing as fast as it can on its own."
 
-**Right way:** use `pipeline` — "each item flows independently through all stages, no barrier between stages" (section B):
+**Right way:** use `pipeline`, where "each item flows independently through all stages, no barrier between stages" (section B):
 
 ```javascript
 // ✓ pipeline: each item passes through the two stages independently, no barrier
@@ -94,7 +94,7 @@ const out = await pipeline(
 )
 ```
 
-`pipeline`'s wall clock is "≈ the slowest single chain, not the sum of each stage's slowest" (section B). An item that finishes reviewing can step **immediately** into its own synthesis stage, without waiting on the others. This book's real pipeline run (pipeline-demo, Run ID `wf_bf086b98-6ec`, 3 items × 2 stages, `agent_count=6`, `total_tokens=158982`, 26.7s) is exactly what proves this out — 6 agents, yet a wall clock far below "3 review barriers then 3 synthesis barriers."
+`pipeline`'s wall clock is "≈ the slowest single chain, not the sum of each stage's slowest" (section B). An item that finishes reviewing can step **immediately** into its own synthesis stage, without waiting on the others. This book's real pipeline run (pipeline-demo, Run ID `wf_bf086b98-6ec`, 3 items × 2 stages, `agent_count=6`, `total_tokens=158982`, 26.7s) proves this out: 6 agents, yet a wall clock far below "3 review barriers then 3 synthesis barriers."
 
 > **Self-check question**: between these stages, do I really need "all items to finish stage 1 before stage 2 can start"? If each item can move along on its own, use `pipeline`. **Multi-stage defaults to `pipeline`** (section B's exact words); only use `parallel` when you "genuinely need all results together."
 
@@ -108,7 +108,7 @@ const drafts = await parallel(tasks.map((t) => () => agent(`...${t}`, { schema: 
 const merged = drafts.map((d) => d.content).join('\n')   // if one is null → throws TypeError
 ```
 
-**Consequence:** with `parallel`, an async reject / agent error turns into `null` (section B); `agent()` has yet another path that produces `null` — "the user skips that agent midway → returns `null`" (section B). So `drafts` may have `null` mixed in, and `d.content` throws `TypeError: Cannot read properties of null` right there.
+**Consequence:** with `parallel`, an async reject or agent error turns into `null` (section B). `agent()` has yet another path that produces `null`: "the user skips that agent midway → returns `null`" (section B). So `drafts` may have `null` mixed in, and `d.content` throws `TypeError: Cannot read properties of null` right there.
 
 **Right way:**
 
@@ -119,7 +119,7 @@ const merged = drafts.map((d) => d.content).join('\n')
 log(`${drafts.length}/${tasks.length} drafts succeeded (the rest threw or were skipped)`)
 ```
 
-> **Self-check question**: before I use the result of `parallel`/`pipeline`, did I filter `null`? The judge-panel real script has this very line `const valid = judges.filter(Boolean)` — it's a standard action, not optional.
+> **Self-check question**: before I use the result of `parallel`/`pipeline`, did I filter `null`? The judge-panel real script has this very line `const valid = judges.filter(Boolean)`. It's a standard action, not optional.
 
 <div class="callout info">
 
@@ -151,13 +151,13 @@ const c = await workflow({ scriptPath: '.../C.js', args: { fromB: b } })
 const cResult = await agent('what C was originally supposed to do ...', { schema: CS })
 ```
 
-> **Self-check question**: will this workflow of mine get called by another workflow via `workflow()`? If so, it **cannot** call `workflow()` again internally. Test workflows (Chapter 25) especially need to watch this — they already nested-call the workflow under test, so they themselves cannot be nested by a third layer.
+> **Self-check question**: will this workflow of mine get called by another workflow via `workflow()`? If so, it **cannot** call `workflow()` again internally. Test workflows (Chapter 25) especially need to watch this. They already nested-call the workflow under test, so they themselves cannot be nested by a third layer.
 
 ---
 
 ## 26.3 Category B · Replayability Breakage
 
-Everything in this category ends the same way: **it breaks "the same script + the same args → 100% cache hit,"** and that drags resume (Chapter 22) and regression testing (Chapter 25) down with it, wholesale.
+Everything in this category ends the same way: **it breaks "the same script + the same args → 100% cache hit,"** and that drags resume (Chapter 22) and regression testing (Chapter 25) down with it, wholesale. This section just points at the rule; for the full empirical proof of that cache guarantee, see [Chapter 22 · Resume & Caching](#/en/p4-22).
 
 ### Anti-pattern B1: using `Date.now()` / `Math.random()` / arg-less `new Date()` in the script
 
@@ -170,7 +170,7 @@ const sample = items[Math.floor(Math.random() * items.length)]  // banned
 const stamp = new Date().toISOString()               // banned (arg-less new Date())
 ```
 
-**Consequence:** "the script bans `Date.now()` / `Math.random()` / arg-less `new Date()`" (section B hard constraint), they "break replayability → resume fails" (section B note). At best they throw; at worst — even if they don't throw — each run comes out different, so resume never hits the cache (that "unchanged agent 0 token/8ms" dividend from Chapter 22 is gone entirely), and regression testing degenerates into "a full re-run every time."
+**Consequence:** "the script bans `Date.now()` / `Math.random()` / arg-less `new Date()`" (section B hard constraint), they "break replayability → resume fails" (section B note). At best they throw. At worst, even when they don't throw, each run comes out different, so resume never hits the cache (that "unchanged agent 0 token/8ms" dividend from Chapter 22 is gone entirely), and regression testing degenerates into "a full re-run every time."
 
 **Right way:** inject every "external nondeterministic quantity" you need from `args`; when you need randomness, reach for a **deterministic index** instead:
 
@@ -188,11 +188,11 @@ const variants = await parallel(
 )
 ```
 
-> **Self-check question**: does my script have `Date.now`, `Math.random`, `new Date()` (arg-less)? If so, switch it to `args` injection or index variation. **This is the precondition for regression testing to hold** — Chapter 25 hammered on it.
+> **Self-check question**: does my script have `Date.now`, `Math.random`, `new Date()` (arg-less)? If so, switch it to `args` injection or index variation. **This is the precondition for regression testing to hold**, and Chapter 25 hammered on it.
 
 <div class="callout warn">
 
-Standard JS built-ins (the pure functions of `JSON`/`Math`/`Array`…) **are available** (section B: "standard JS built-ins available") — the only banned ones are those that **introduce nondeterminism**: `Math.random()`, `Date.now()`, arg-less `new Date()`. `Math.floor`, `Math.max`, `new Date(args.iso)` (with an argument) are all fine. Don't steer clear of the whole `Math` object out of overcaution.
+Standard JS built-ins (the pure functions of `JSON`/`Math`/`Array`…) **are available** (section B: "standard JS built-ins available"). The only banned ones are those that **introduce nondeterminism**: `Math.random()`, `Date.now()`, arg-less `new Date()`. `Math.floor`, `Math.max`, `new Date(args.iso)` (with an argument) are all fine. Don't steer clear of the whole `Math` object out of overcaution.
 
 </div>
 
@@ -211,7 +211,7 @@ export const meta = {
 }
 ```
 
-**Consequence:** "`meta` must be a pure literal (statically read before runtime execution)" (section B hard constraint); "`meta` must be a pure literal — no variables, function calls, spread operators, or template interpolation" (Chapter 01). The runtime has to statically read `meta` **before it ever runs the script** (to show the permission dialog), and at that point `args`, variables, and functions don't exist yet. Written as above, the runtime **simply cannot evaluate it in the static-parsing phase** — the script is rejected (`WorkflowOutput` carries an `error`, the syntax check fails). `description: \`...${args.target}\`` is an especially common slip-up: `args` simply isn't there when `meta` is evaluated.
+**Consequence:** "`meta` must be a pure literal (statically read before runtime execution)" (section B hard constraint); "`meta` must be a pure literal, with no variables, function calls, spread operators, or template interpolation" (Chapter 01). The runtime has to statically read `meta` **before it ever runs the script** (to show the permission dialog), and at that point `args`, variables, and functions don't exist yet. Written as above, the runtime **simply cannot evaluate it in the static-parsing phase**, so the script is rejected (`WorkflowOutput` carries an `error`, the syntax check fails). `description: \`...${args.target}\`` is an especially common slip-up: `args` simply isn't there when `meta` is evaluated.
 
 **Right way:**
 
@@ -246,9 +246,9 @@ while (!done) {                          // no hard ceiling at all
 }
 ```
 
-**Consequence:** this is the very writing Chapter 18 lists as the number-one anti-pattern ("unbounded `while` (exiting only by the model's done) → infinite loop, burning through the budget," the 18.6 quick reference). The model's "done" is a **probabilistic judgment**; "wanting to look thorough," it might keep putting off `done=true`, so the loop **never exits**, with every round really burning tokens and wall clock. Section B does have the global fallback of "a per-workflow-lifecycle agent total cap of **1000**," but that's a **safety net, not a business exit mechanism** (Chapter 18's exact words) — hitting 1000 to stop means you've already burned the tokens of over a thousand agents.
+**Consequence:** this is the very writing Chapter 18 lists as the number-one anti-pattern ("unbounded `while` (exiting only by the model's done) → infinite loop, burning through the budget," the 18.6 quick reference). The model's "done" is a **probabilistic judgment**. Wanting to look thorough, it might keep putting off `done=true`, so the loop **never exits**, with every round really burning tokens and wall clock. Section B does have the global fallback of "a per-workflow-lifecycle agent total cap of **1000**," but that's a **safety net, not a business exit mechanism**: by the time you hit 1000 you've already burned the tokens of over a thousand agents. The 1000 cap is owned by [Chapter 18 · Loop-Until-Dry & Completeness](#/en/p4-18), which spells out the full rationale.
 
-**Right way:** stack up your defenses — a hard round ceiling + budget fallback (plus optional diminishing returns):
+**Right way:** stack up your defenses, a hard round ceiling plus a budget fallback (plus optional diminishing returns):
 
 ```javascript
 // ✓ Chapter 18's standard brakes: a hard ceiling + budget fallback
@@ -284,7 +284,7 @@ while (!done && round < 10) {
 }
 ```
 
-**Consequence:** `budget` is a **hard cap** — "calling `agent()` after `spent()` reaches `total` throws" (section B). If the user set a budget this turn (a `+500k`-style instruction), and your loop doesn't proactively look at `budget.remaining()`, then some round's `agent()` will **throw directly** the moment the budget runs out, and the whole workflow **fails along with its already-completed partial results** — you never get the chance to "close gracefully."
+**Consequence:** `budget` is a **hard cap**: "calling `agent()` after `spent()` reaches `total` throws" (section B). If the user set a budget this turn (a `+500k`-style instruction), and your loop doesn't proactively look at `budget.remaining()`, then some round's `agent()` will **throw directly** the moment the budget runs out, and the whole workflow **fails along with its already-completed partial results**. You never get the chance to "close gracefully."
 
 **Right way:** proactively check the remaining budget at the **start** of each round, and leave at least "the amount this round will spend" of headroom before you decide whether to keep going:
 
@@ -306,7 +306,7 @@ while (!done && round < 10) {
 
 <div class="callout info">
 
-You can anchor cost estimates to this book's real data: a single agent runs about **25–30K tokens** (hello `wf_dacbd480-d5d` measured 26,338; the rule of thumb "tokens ≈ agent count × per-agent context," sections B/C). A round of "generate + accept" with two agents is about 50–60K. Chapter 18 gave the same cost intuition: "running 4 rounds is about 200K tokens." Use these anchors to set `ROUND_COST_EST` and the fallback threshold.
+You can anchor cost estimates to this book's real data: a single agent runs about **25–30K tokens** (hello `wf_dacbd480-d5d` measured 26,338; the rule of thumb is "tokens ≈ agent count × per-agent context," whose derivation lives in [Chapter 09 · Progress, Logs, Resume, Budget](#/en/p2-09)). A round of "generate + accept" with two agents is about 50–60K. Chapter 18 gave the same cost intuition: "running 4 rounds is about 200K tokens." Use these anchors to set `ROUND_COST_EST` and the fallback threshold.
 
 </div>
 
@@ -333,7 +333,7 @@ const schema = {
 }
 ```
 
-**Consequence:** with a schema, "a mismatch makes the model retry" (section B). If the schema is so harsh that **the model semantically cannot satisfy it** (asking it to report an issue that actually has no CVE, forcing a high score where it should be low), the model will **retry over and over** — each retry really burns tokens, and in the worst case it exhausts the budget cap and throws (C2). A schema is for **constraining structure**, not for **forcing semantics**.
+**Consequence:** with a schema, "a mismatch makes the model retry" (section B). If the schema is so harsh that **the model semantically cannot satisfy it** (asking it to report an issue that actually has no CVE, forcing a high score where it should be low), the model will **retry over and over**. Each retry really burns tokens, and in the worst case it exhausts the budget cap and throws (C2). A schema constrains **structure**, it does not force **semantics**.
 
 **Right way:** let the schema pin down only objective contracts like "structure and type," and leave "semantic judgment" for the model to express in the field **values**:
 
@@ -351,17 +351,17 @@ const schema = {
 }
 ```
 
-> **Self-check question**: in my schema, does each `enum` cover all the reasonable values? Is each `required` field "definitely present in any reasonable output"? Are there constraints like `pattern`/`minimum` that **the model can't satisfy in some reasonable cases**? Recall Chapter 18: gating fields (`done`/`pass`/`accepted`) must be `required` and `boolean` — that's where to be strict; business values should stay loose.
+> **Self-check question**: in my schema, does each `enum` cover all the reasonable values? Is each `required` field "definitely present in any reasonable output"? Are there constraints like `pattern`/`minimum` that **the model can't satisfy in some reasonable cases**? Recall Chapter 18: gating fields (`done`/`pass`/`accepted`) must be `required` and `boolean`. That's where to be strict; business values should stay loose.
 
 <div class="callout warn">
 
-**Don't treat a schema as a way to "make the model think harder."** Some people deliberately make the schema very complex, figuring it'll force the model into a better result. In reality it just forces it to retry over and over, burning tokens. To steer quality, lean on **the prompt** (spell out what you want, give a rubric — see how judge-panel uses a schema to pin accuracy/clarity/completeness into **numeric fields**, but with loose value ranges); the schema is responsible for **machine-readability**, not for **forcing thought.**
+**Don't treat a schema as a way to "make the model think harder."** Some people deliberately make the schema very complex, figuring it'll force the model into a better result. In reality it just forces it to retry over and over, burning tokens. To steer quality, lean on **the prompt** (spell out what you want, give a rubric; see how judge-panel uses a schema to pin accuracy/clarity/completeness into **numeric fields**, but with loose value ranges). The schema is responsible for **machine-readability**, not for **forcing thought.**
 
 </div>
 
 ### Anti-pattern D2: treating script-body/subprocess disk writes as persistent side effects
 
-This one gets misread all the time as "subagents can't write files" — **that's wrong**. First, let's pull apart three things that keep getting conflated:
+This one gets misread all the time as "subagents can't write files," and **that's wrong**. First, let's pull apart three things that keep getting conflated:
 
 | # | Statement | True/False | Basis |
 |---|---|---|---|
@@ -380,7 +380,7 @@ await someBashStepThatWrites('./state.json')           // doesn't land
 const next = await agent('Read ./state.json and continue ...', { schema: S })  // it can't read it
 ```
 
-**Consequence:** the script body's "write a file → another step reads the file" chain snaps at the "write" link (①) — the data never actually lands, the downstream gets empty or stale values, and it fails **silently** (no error, it just can't read). Note: this does **not** say subagents can't do the file-writing job (② they can; the worktree scenario has them Write/Edit in parallel); the problem is **treating the script body as having a persistent FS**, and **replacing explicit data passing with a "disk write side effect."**
+**Consequence:** the script body's "write a file → another step reads the file" chain snaps at the "write" link (①). The data never actually lands, the downstream gets empty or stale values, and it fails **silently** (no error, it just can't read). Note: this does **not** say subagents can't do the file-writing job (② they can; the worktree scenario has them Write/Edit in parallel). The problem is **treating the script body as having a persistent FS**, and **replacing explicit data passing with a "disk write side effect."**
 
 **Right way:** cross-agent data flow goes through **the return value / structured output**, not by assuming the script body has a writable FS to lean on:
 
@@ -393,7 +393,7 @@ const next = await agent(`Continue based on the following state: ${JSON.stringif
 return next
 ```
 
-If you **do need to land an output to disk**: either (A) have the workflow **return** the content to the main loop, and let the main loop (outside Workflow) land it with the native `Write` tool; or (B) when the task genuinely is "have multiple agents change files in parallel," give those **subagents** `isolation: 'worktree'` (Chapter 19) — that's the proper way for subagents to really write files, physically isolated.
+If you **do need to land an output to disk**: either (A) have the workflow **return** the content to the main loop, and let the main loop (outside Workflow) land it with the native `Write` tool; or (B) when the task genuinely is "have multiple agents change files in parallel," give those **subagents** `isolation: 'worktree'` (Chapter 19). That's the proper way for subagents to really write files, physically isolated.
 
 > **Self-check question**: am I leaning on "write a file then have another step read it" **in the script body** to pass data? Cross-agent data should flow through **the return value + structured output**; if you really need to land it, leave it to the main loop's native `Write`, or to a subagent's own `Edit`/`Write` in the worktree scenario.
 
@@ -408,7 +408,7 @@ const top = all.slice(0, 5)              // only want the top 5, the rest silent
 return top
 ```
 
-**Consequence:** the caller gets `top` and **has no idea**: ① how many were there to begin with? ② how many became `null` from throwing/being skipped and got `filter`ed out? ③ were any of the ones dropped by `slice` more important? When the result comes out wrong, there's **no way to investigate** — because the key information got silently swallowed inside the script. Workflow runs in the background and returns asynchronously; all you can see is the final return value and the `log` output; truncation without `log` = a black box.
+**Consequence:** the caller gets `top` and **has no idea**: ① how many were there to begin with? ② how many became `null` from throwing/being skipped and got `filter`ed out? ③ were any of the ones dropped by `slice` more important? When the result comes out wrong, there's **no way to investigate**, because the key information got silently swallowed inside the script. Workflow runs in the background and returns asynchronously; all you can see is the final return value and the `log` output; truncation without `log` = a black box.
 
 **Right way:** any "discard/truncate/filter" leaves a trace via `log`, and put the count information into the return value:
 
@@ -424,7 +424,7 @@ log(`Returning top ${top.length}, plus ${valid.length - top.length} valid result
 return { top, totalValid: valid.length, totalDropped: dropped }   // counts handed back along with the result
 ```
 
-> **Self-check question**: for every `filter` / `slice` / `find` / early `return` in the script, did I `log` "how many got dropped, and why"? `log` is "outputting progress to the user (a narrative line above the progress tree)" (section B) — it's a background workflow's only observability window, so don't waste it.
+> **Self-check question**: for every `filter` / `slice` / `find` / early `return` in the script, did I `log` "how many got dropped, and why"? `log` is "outputting progress to the user (a narrative line above the progress tree)" (section B). It's a background workflow's only observability window, so don't waste it.
 
 <div class="callout info">
 
@@ -462,7 +462,7 @@ This sheet is also the reverse check of Chapter 25's "shareable-workflow finishe
 
 ## 26.7 The Root of Anti-patterns: Treating Workflow as an "Ordinary Script"
 
-Looking back at these 11 items, most come down to the same misunderstanding: **writing a Workflow script as a piece of ordinary Node.js.** But it isn't — it runs in a special runtime, and that runtime has four distinctive "laws of physics":
+Looking back at these 11 items, most come down to the same misunderstanding: **writing a Workflow script as a piece of ordinary Node.js.** But it isn't. It runs in a special runtime, and that runtime has four distinctive "laws of physics":
 
 ```mermaid
 flowchart TD
@@ -482,19 +482,19 @@ flowchart TD
 
 Once you've got these four (plus the nesting limit, five) "laws of physics," anti-patterns are no longer a list to memorize, but **natural corollaries of the laws.** When you subconsciously ask "does this break any law?" as you write each line, you'll intercept the vast majority of pitfalls before submitting.
 
-This also echoes the whole book's through-line: native Workflow hands you a deterministic skeleton built from **code + Schema** (Chapter 23), but "determinism" comes with **preconditions** — the script must be replayable, loops must be bounded, scheduling must be handed to the runtime, the output must go through the contract. Hold these preconditions, and you truly own the "reusable, testable, shareable" orchestration engine that Chapter 01 promised.
+This also echoes the whole book's through-line: native Workflow hands you a deterministic skeleton built from **code + Schema** (Chapter 23), but "determinism" comes with **preconditions**. The script must be replayable, loops must be bounded, scheduling must be handed to the runtime, the output must go through the contract. Hold these preconditions, and you truly own the "reusable, testable, shareable" orchestration engine that Chapter 01 promised.
 
 ---
 
 ## 26.8 Chapter Summary
 
-- Anti-patterns are grouped into four categories by the runtime's "laws of physics": **A control-flow misuse, B replayability breakage, C runaway loops, D contract and boundary misunderstanding** (plus nesting only one layer).
-- **Category A**: `parallel` wants thunks (`() =>`) not Promises (A1); multi-stage defaults to `pipeline` rather than a `parallel` barrier (A2); `.filter(Boolean)` the result first (A3); `workflow()` nesting only one layer (A4).
-- **Category B**: ban `Date.now`/`Math.random`/arg-less `new Date()`, inject time via `args`, use the index for diversity (B1); `meta` must be a pure literal, dynamic info goes in `log()` (B2). Otherwise resume and regression testing both fail wholesale.
-- **Category C**: a `while` must have an exit condition that doesn't depend on the model (a round ceiling), otherwise an infinite loop burns the budget — the global 1000 cap is a safety net, not a business exit (C1); the loop proactively looks at `budget.remaining()` at the start of each round, otherwise it hits the hard cap and throws (C2).
-- **Category D**: a schema constrains structure rather than forcing semantics, `enum`/`required` must be definitely satisfiable by the model, otherwise repeated retries (D1); cross-agent data flows via the return value + structured output — don't treat script-body/subprocess disk writes as persistent side effects for passing data — but subagents themselves can Write/Edit files (worktree scenario, Chapter 19), and to land output leave it to the main loop's native Write (D2); any truncation/filter leaves a trace via `log` and drops the counts into the return value (D3).
-- **Run through the 11-item self-check sheet before submitting**; it's also the reverse check of the "shareable-workflow finished-product checklist," worth pasting into the library `README.md` as the submission spec.
-- Most anti-patterns stem from "writing Workflow as an ordinary script" — remember the runtime's five laws of physics (replayable, scheduling controlled, budget hard cap, data flows via return value/schema, nesting limited), and anti-patterns become natural corollaries of the laws.
+- Anti-patterns sort into four categories by the runtime's "laws of physics" (the per-item "wrong → consequence → right" for all 11 lives in 26.2–26.5; the one-line self-check questions are the 26.6 sheet):
+  - **A control-flow misuse**: `parallel` wants thunks not Promises (A1), multi-stage defaults to `pipeline` (A2), `.filter(Boolean)` the result first (A3), `workflow()` nesting only one layer (A4).
+  - **B replayability breakage**: ban `Date.now`/`Math.random`/arg-less `new Date()` (B1), `meta` must be a pure literal (B2); break these two and resume and regression testing both fail wholesale.
+  - **C runaway loops**: a `while` needs an exit condition that doesn't depend on the model, and note the global 1000 cap is a safety net, not a business exit (C1); look at `budget.remaining()` at the start of each round, or you hit the hard cap and throw (C2).
+  - **D contract and boundary misunderstanding**: a schema constrains structure, it doesn't force semantics (D1); cross-agent data flows via return values, don't treat script-body disk writes as persistent side effects, but subagents themselves can Write/Edit files (worktree scenario, Chapter 19), and to land output leave it to the main loop's native Write (D2); any truncation/filter leaves a trace via `log` (D3).
+- **Run through the 11-item 26.6 sheet before submitting**; it's also the reverse check of the "shareable-workflow finished-product checklist," worth pasting into the library `README.md` as the submission spec.
+- Most anti-patterns stem from "writing Workflow as an ordinary script." Remember the 26.7 five laws of physics (replayable, scheduling controlled, budget hard cap, data flows via return value/schema, nesting limited), and anti-patterns become natural corollaries of the laws.
 
 With that, Part V "Ecosystem and Borrowing" is complete: Chapter 23 saw clearly the real mechanisms of the four major systems, Chapter 24 extracted their essence into your own Workflow, Chapter 25 settled these Workflows into a shareable library, and Chapter 26 held the bottom line that makes all of this hold.
 

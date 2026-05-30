@@ -2,11 +2,11 @@
 
 > **The warp is the lengthwise thread of weaving; drawn taut and never slack, raise the cord and the meshes open.**
 >
-> On a loom, the first thing stretched tight is the warp. It runs the length of the whole bolt, fixing the cloth's length, width, and tension — before the weft is even threaded in, the cloth's "form" is already set.
+> On a loom, the first thing stretched tight is the warp. It runs the length of the whole bolt, fixing the cloth's length, width, and tension. Before the weft is even threaded in, the cloth's "form" is already set.
 >
 > In a Workflow script, `meta` and `phase()` are exactly this warp. They run no subagent and produce no business result, yet before the first `agent()` is dispatched, they have already tensioned the entire workflow's **skeleton**: what it's called, what it does, how many phases it splits into, which model each phase intends to use, and how progress should be shown to a human.
 >
-> This chapter takes that warp completely apart. You'll see that behind a seemingly unremarkable "exported constant" hides one non-negotiable hard constraint of the runtime; you'll also see how `phase()`, a tiny "one-line, no-return-value" function, combs the tangle of dozens of subagents into a clear progress tree in `/workflows`.
+> This chapter takes that warp completely apart. You'll see that behind an unremarkable "exported constant" hides one non-negotiable hard constraint of the runtime. You'll also see how `phase()`, a tiny one-line function with no return value, combs the tangle of dozens of subagents into a clear progress tree in `/workflows`.
 
 ---
 
@@ -14,13 +14,13 @@
 
 To understand `meta`, you must first understand **when** the runtime reads it.
 
-Recall that real-run `hello-workflow` from Chapter 01. When you hand the script to the Workflow tool, a permission confirmation pops up almost instantly — it tells you "about to run a workflow called `hello-workflow`, description *Smoke test: one subagent returns schema-constrained structured output*, with 1 phase: Greet."
+Recall that real-run `hello-workflow` from Chapter 01. When you hand the script to the Workflow tool, a permission confirmation pops up almost instantly. It tells you "about to run a workflow called `hello-workflow`, description *Smoke test: one subagent returns schema-constrained structured output*, with 1 phase: Greet."
 
 Note this moment: **at this point not a single line of the script has run.** No `agent()` has been dispatched, no `await` has been evaluated, not even `phase('Greet')` has run. Yet the runtime already knows the workflow's name, description, and phases exactly.
 
 How does it know?
 
-The answer: before running the script, the runtime does a **static read** of it — it pulls out the exported constant `export const meta = {…}` and reads it as **data**, rather than running it as **code.**
+The answer: before running the script, the runtime does a **static read** of it. It pulls out the exported constant `export const meta = {…}` and reads it as **data**, rather than running it as **code.**
 
 ```mermaid
 flowchart LR
@@ -32,11 +32,11 @@ flowchart LR
     F --> G["Begin actually executing<br/>phase() / agent() ..."]
 ```
 
-This is the technical meaning of "the warp is tensioned first": **structural info must be readable before execution**, because it's used to generate the permission dialog and initialize the progress tree. And to read an object's value "without running code," that object **must be a pure literal** — no variable references, no function calls, no spread operators, no template interpolation. Anything that needs to "run" to be evaluated is blank during the static-read phase.
+This is the technical meaning of "the warp is tensioned first": **structural info must be readable before execution**, because it's used to generate the permission dialog and initialize the progress tree. And to read an object's value without running code, that object **must be a pure literal**: no variable references, no function calls, no spread operators, no template interpolation. Anything that needs to run to be evaluated is blank during the static-read phase.
 
 <div class="callout info">
 
-**What's the difference between "static reading" and "execution."** By analogy: `meta` is like the "title, synopsis, and act list" written on a script's cover — the theater manager **glances at the cover** before the show and prints it into the program, without having to perform the whole play. But if you wrote the title as "today's date + a random number," the manager sees only an incomprehensible formula on the cover and naturally can't print the program. The runtime reading `meta` is "glancing at the cover," not "performing the play."
+**What's the difference between "static reading" and "execution."** By analogy, `meta` is like the "title, synopsis, and act list" written on a script's cover. The theater manager glances at the cover before the show and prints it into the program, without having to perform the whole play. But if you wrote the title as "today's date + a random number," the manager sees only an incomprehensible formula on the cover and can't print the program. The runtime reading `meta` is "glancing at the cover," not "performing the play."
 
 </div>
 
@@ -50,11 +50,11 @@ This constraint is explicitly recorded in `_grounding.md`'s "hard constraints" s
 
 ## 5.2 The Boundary of "Pure Literal": What's Allowed, What's Rejected
 
-The phrase "pure literal" sounds abstract; let's pin it down with a set of contrasts.
+The phrase "pure literal" sounds abstract, so let's pin it down with a set of contrasts.
 
 ### 5.2.1 Legal meta: all "dead values"
 
-The following are all **pure literals** — every value is a constant hard-written in the source, readable by the runtime without running any code:
+The following are all **pure literals**: every value is a constant hard-written in the source, readable by the runtime without running any code.
 
 ```javascript
 export const meta = {
@@ -69,11 +69,11 @@ export const meta = {
 }
 ```
 
-Arrays, nested objects, booleans, numbers, `null` — as long as they're themselves literals, they're all legal. The key isn't "simple or complex" but "does reading it require running code."
+Arrays, nested objects, booleans, numbers, `null`: as long as they're themselves literals, they're all legal. The key isn't simple-versus-complex but whether reading it requires running code.
 
 ### 5.2.2 Illegal meta: any "live value" gets rejected
 
-Each of the following makes the runtime fail during the static-read phase, thereby **rejecting execution of the entire workflow**:
+Each of the following makes the runtime fail during the static-read phase, thereby **rejecting execution of the entire workflow**.
 
 ```javascript
 // Anti-example 1: contains a variable reference — NAME doesn't exist yet at static-read time
@@ -121,16 +121,16 @@ export const meta = {
 
 <div class="callout warn">
 
-**Remember one test: cut `meta` out alone into an empty file — can it still be "purely read" like `JSON.parse`?** If it leans on anything **else** in the file (variables, functions, imports), then it's not a pure literal and will be rejected. `meta` must be a **self-sufficient island.**
+**Remember one test: cut `meta` out alone into an empty file. Can it still be "purely read" like `JSON.parse`?** If it leans on anything **else** in the file (variables, functions, imports), then it's not a pure literal and will be rejected. `meta` must be a **self-sufficient island.**
 
 </div>
 
-So — **what if I genuinely need a dynamic name?** The answer: dynamic info shouldn't go into `meta`, but into `args` or `log()`.
+**What if you genuinely need a dynamic name?** Dynamic info shouldn't go into `meta`, but into `args` or `log()`.
 
 - Want the workflow name to carry the project name? Use `log()` to print at runtime `log(\`Reviewing project ${args.project}\`)`, and let `meta.name` stay a fixed, readable identifier.
-- Want a run to carry a timestamp? Chapter 01 already covered it: `Date.now()` is forbidden in scripts; if you need a timestamp, **pass it in from outside via `args`**, or have the main loop stamp it after the workflow finishes.
+- Want a run to carry a timestamp? `Date.now()` and other non-deterministic calls are forbidden in scripts (this ban is covered fully in [Chapter 02 · Why Deterministic Orchestration](#/en/p1-02)). If you need a timestamp, **pass it in from outside via `args`**, or have the main loop stamp it after the workflow finishes.
 
-`meta` describes "what this workflow is" (an **unchanging identity**), not "the specific parameters of this run" (a **mutable instance**). Keeping these two apart is the key to understanding the whole design.
+`meta` describes "what this workflow is," an **unchanging identity**, not "the specific parameters of this run," a **mutable instance**. Keeping these two apart is the key to understanding the whole design.
 
 ---
 
@@ -150,10 +150,10 @@ Let's take them one by one.
 
 ### 5.3.1 `name` and `description`: the two required fields
 
-These are the only two **required** fields. Their whole job is to **introduce themselves** to the user in the permission dialog:
+These are the only two **required** fields. Their whole job is to **introduce themselves** to the user in the permission dialog.
 
-- `name` — an identifier for humans and machines. It shows up in the permission dialog, the progress display, and (once you settle the script into a named workflow) the `{ name: '...' }` call. Use kebab-case, semantically clear and stable.
-- `description` — **one line** stating clearly "what this workflow does." It's shown directly in the dialog the user sees before approving the run, and is the main basis on which the user decides "should I allow this."
+- `name` is an identifier for humans and machines. It shows up in the permission dialog, the progress display, and (once you settle the script into a named workflow) the `{ name: '...' }` call. Use kebab-case, semantically clear and stable.
+- `description` is **one line** stating clearly what this workflow does. It's shown directly in the dialog the user sees before approving the run, and is the main basis on which the user decides whether to allow it.
 
 <div class="callout tip">
 
@@ -168,7 +168,7 @@ These are the only two **required** fields. Their whole job is to **introduce th
 - `description` answers "what this workflow **does**" (What);
 - `whenToUse` answers "**when** to choose it" (When).
 
-Its value really shows once the workflow is **settled and reused.** Recall Chapter 01, §1.7: a validated script can be filed into `.claude/workflows/` and later called like a named command with `{ name: 'my-workflow' }`. Once your library has amassed a dozen workflows, `whenToUse` is the index for "which one to use" — it shows in the workflow list, helping you (or your teammate) quickly pick the right tool out of many.
+Its value really shows once the workflow is **settled and reused.** Recall Chapter 01, §1.7: a validated script can be filed into `.claude/workflows/` and later called like a named command with `{ name: 'my-workflow' }`. Once your library has amassed a dozen workflows, `whenToUse` is the index for "which one to use." It shows in the workflow list, helping you (or your teammate) quickly pick the right tool out of many.
 
 ```javascript
 export const meta = {
@@ -181,24 +181,24 @@ export const meta = {
 
 ### 5.3.3 Model: The Only Reliable Knob Is `agent()`'s `model`
 
-Model, of all things, is exactly where `meta` (the warp) and `agent()` (the weft) meet. But there's an **extremely common misconception** to clear up first: many people assume that "mark a `'haiku'` on `meta.phases[].model` and that phase's agents will run Haiku" — **the runtime effect of this is actually undetermined.**
+Model, of all things, is exactly where `meta` (the warp) and `agent()` (the weft) meet. But there's an **extremely common misconception** to clear up first: many people assume that marking a `'haiku'` on `meta.phases[].model` will make that phase's agents run Haiku. **The runtime effect of this is actually undetermined.**
 
 Per `_grounding.md`'s grounding facts:
 
-- **`meta.phases[].model`** — written inside the `phases` array (e.g., `{ title: 'Verify', model: 'haiku' }`). The official tool description's wording for it is **vague** ("add it when overriding a phase to a specific model"); and because `CLAUDE_CODE_SUBAGENT_MODEL` overrode every per-call model this session (see `_grounding.md` A2, Run ID `wf_9c94951d-58c`), we **could not independently isolate** whether it has any runtime effect.
-- **agent `opts.model`** — a per-**call** override; the official definition clearly states "**omitted, it inherits the main loop model.**" This is the **only** model knob with clear official semantics.
+- **`meta.phases[].model`** is written inside the `phases` array (e.g., `{ title: 'Verify', model: 'haiku' }`). The official tool description's wording for it is **vague** ("add it when overriding a phase to a specific model"); and because `CLAUDE_CODE_SUBAGENT_MODEL` overrode every per-call model this session (see `_grounding.md` A2, Run ID `wf_9c94951d-58c`), we **could not independently isolate** whether it has any runtime effect.
+- **agent `opts.model`** is a per-**call** override; the official definition clearly states "**omitted, it inherits the main loop model.**" This is the **only** model knob with clear official semantics.
 
-When neither is written, the agent inherits the main loop model — **the earlier session these examples ran in** had Opus 4.7 as its main loop (set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`, see `_grounding.md` section A; a fact of that session, not a general Workflow guarantee). The R11 re-verification session switched to Opus 4.8 (`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-8[1m]`, confirmed by `printenv`) — but whichever model the main loop is, the conclusion "an agent with no `model` inherits the main loop model" stays the same.
+When neither is written, the agent inherits the main loop model. **The earlier session these examples ran in** had Opus 4.7 as its main loop (set by `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`, see `_grounding.md` section A; a fact of that session, not a general Workflow guarantee). The R11 re-verification session switched to Opus 4.8 (`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-8[1m]`, confirmed by `printenv`). But whichever model the main loop is, the conclusion "an agent with no `model` inherits the main loop model" stays the same.
 
 <div class="callout warn">
 
-**Common misconception: don't count on `meta.phases[].model` to single-handedly switch a phase to a model.** Its **runtime effect is undetermined** — the official wording is vague, and this session **could not independently verify** whether it takes effect on its own, because the env var `CLAUDE_CODE_SUBAGENT_MODEL` overrode it (in that 5-agent probe, one agent sat in a phase whose `meta.phases[]` marked `model:'haiku'`, yet still ran Opus, Run ID `wf_9c94951d-58c`). **Safe practice: to genuinely make a phase use Haiku, write `model:'haiku'` on every `agent()` in that phase** — treat `phases[].model` as "a label for humans and the permission dialog," not a switch that fires on its own. (Note: some third-party material claims it is "display-only, not read at runtime" — this book has **not** independently tested that, so we do **not** treat the claim as an established fact; we only affirm the safe practice that "`agent()`'s `model` is the reliable knob.")
+**Common misconception: don't count on `meta.phases[].model` to single-handedly switch a phase to a model.** Its **runtime effect is undetermined**: the official wording is vague, and this session **could not independently verify** whether it takes effect on its own, because the env var `CLAUDE_CODE_SUBAGENT_MODEL` overrode it (in that 5-agent probe, one agent sat in a phase whose `meta.phases[]` marked `model:'haiku'`, yet still ran Opus, Run ID `wf_9c94951d-58c`). **Safe practice: to genuinely make a phase use Haiku, write `model:'haiku'` on every `agent()` in that phase.** Treat `phases[].model` as a label for humans and the permission dialog, not a switch that fires on its own. (Note: some third-party material claims it is "display-only, not read at runtime." This book has **not** independently tested that, so we do **not** treat the claim as an established fact; we only affirm the safe practice that `agent()`'s `model` is the reliable knob.)
 
 </div>
 
 <div class="callout warn">
 
-**On top-level `meta.model`:** in the Workflow tool definition, `meta`'s fields are required `name`/`description` + optional `whenToUse`/`phases` (with `model` allowed inside `phases`) — it does **not** list a top-level `meta.model` as a meta field. So this book does **not** describe it as an effective "model layer"; its auto-resolution semantics are **unverified (to be verified).**
+**On top-level `meta.model`.** In the Workflow tool definition, `meta`'s fields are required `name`/`description` plus optional `whenToUse`/`phases` (with `model` allowed inside `phases`), and it does **not** list a top-level `meta.model` as a meta field. So this book does **not** describe it as an effective "model layer"; its auto-resolution semantics are **unverified (to be verified).**
 
 </div>
 
@@ -222,13 +222,13 @@ Each item's fields:
 |---|---|---|
 | `title` | Yes | Phase title. **This is a string that gets matched exactly** (see §5.5) |
 | `detail` | No | A one-sentence note on the phase, shown in the progress tree to help one understand what this phase does |
-| `model` | No | **Marks** "what model this phase intends to use"; whether it takes effect on its own at runtime is **undetermined** — to genuinely set the model, write `model` on the `agent()` (see §5.3.3, §5.6) |
+| `model` | No | **Marks** what model this phase intends to use; whether it takes effect on its own at runtime is **undetermined**. To genuinely set the model, write `model` on the `agent()` (see §5.3.3, §5.6) |
 
-`phases` is **pure declaration** — it only "draws the ticks" in `meta`, telling the runtime "this workflow plans to split into these phases, each named this." Actually **switching** to a phase during execution is `phase()`'s job (§5.4). How declaration and switching pair up (`meta.phases[].title` ↔ the string match of `phase('...')`) is the key mechanism of the whole chapter (§5.5).
+`phases` is **pure declaration**: it only draws the ticks in `meta`, telling the runtime this workflow plans to split into these phases, each named this. Actually **switching** to a phase during execution is `phase()`'s job (§5.4). How declaration and switching pair up (`meta.phases[].title` ↔ the string match of `phase('...')`) is the key mechanism of the whole chapter (§5.5).
 
 <div class="callout info">
 
-**Can `phases` be omitted?** Yes. `hello-workflow` runs fine without `phases` — the progress display just lacks "grouping ticks," and all agents lie flat in one default group. `phases` isn't a feature switch but a **readability boost**: it turns the `/workflows` progress tree from "a pile of agents" into "a tree organized by phase." For multi-phase, long-running workflows, declaring it is strongly recommended.
+**Can `phases` be omitted?** Yes. `hello-workflow` runs fine without `phases`; the progress display just lacks grouping ticks, and all agents lie flat in one default group. `phases` isn't a feature switch but a **readability boost**: it turns the `/workflows` progress tree from a pile of agents into a tree organized by phase. For multi-phase, long-running workflows, declaring it is strongly recommended.
 
 </div>
 
@@ -236,7 +236,7 @@ Each item's fields:
 
 ## 5.4 `phase(title)`: Switching the Current Phase During Execution
 
-If `meta.phases` are "ticks drawn on the blueprint," then `phase(title)` is the act of "moving the cursor onto a tick" during execution.
+If `meta.phases` are ticks drawn on the blueprint, then `phase(title)` is the act of moving the cursor onto a tick during execution.
 
 Its signature is minimal, per `_grounding.md` section B:
 
@@ -244,7 +244,7 @@ Its signature is minimal, per `_grounding.md` section B:
 phase(title: string): void
 ```
 
-No return value, doesn't take `await`. It does just one thing: **open a new phase; all `agent()` calls dispatched after it group under this phase's progress group, until the next `phase()` call.**
+No return value, doesn't take `await`. It does just one thing: **open a new phase, and all `agent()` calls dispatched after it group under this phase's progress group, until the next `phase()` call.**
 
 ### 5.4.1 A minimal runnable example
 
@@ -287,7 +287,7 @@ This workflow's **real usage** (from `assets/transcripts/primitives.md`) is:
 agent_count = 1   tool_uses = 1   total_tokens = 26338   duration_ms = 5506
 ```
 
-Note: `phase()` and `meta` themselves **consume no agents and count no tokens** — `agent_count=1` corresponds entirely to that one `smoke` agent. The warp is "free" structure; it doesn't figure into execution-cost accounting, it only shapes the **form** and **presentation** of execution.
+Note: `phase()` and `meta` themselves **consume no agents and count no tokens**; `agent_count=1` corresponds entirely to that one `smoke` agent. The warp is "free" structure. It doesn't figure into execution-cost accounting, it only shapes the **form** and **presentation** of execution.
 
 ### 5.4.2 Chaining multiple phases: the cursor advances with the script
 
@@ -341,7 +341,7 @@ log('Review complete')
 return report
 ```
 
-Look at this script's "warp-and-weft interlacing":
+Look at how warp and weft interlace in this script:
 
 - **Warp**: `meta.phases` declares three ticks `Plan / Review / Report`; the three `phase(...)` lines in the body are the cursor, advancing in turn.
 - **Weft**: the `agent()` / `parallel()` after each `phase()` automatically groups into the current phase. `planner` in the Plan group, all `review:*` in the Review group, `reporter` in the Report group.
@@ -366,7 +366,7 @@ sequenceDiagram
 
 <div class="callout tip">
 
-**`phase()` is a "global cursor," not a "scope."** It has no `{ }` range, and won't "auto-revert" after a block of code ends. Once you call `phase('Review')`, the cursor stays on Review **the whole time**, until you explicitly call the next `phase('Report')`. This "global mutable state" trait is natural in ordinary sequential scripts, but in **concurrent** scenarios like `parallel()` / `pipeline()` it plants a pitfall — the next section is dedicated to it.
+**`phase()` is a global cursor, not a scope.** It has no `{ }` range, and won't auto-revert after a block of code ends. Once you call `phase('Review')`, the cursor stays on Review **the whole time**, until you explicitly call the next `phase('Report')`. This global-mutable-state trait is natural in ordinary sequential scripts, but in **concurrent** scenarios like `parallel()` / `pipeline()` it plants a pitfall. The next section is dedicated to it.
 
 </div>
 
@@ -376,15 +376,15 @@ sequenceDiagram
 
 This is the chapter's **most error-prone, most worth-memorizing** mechanism.
 
-The runtime organizes progress into a tree: each `title` declared in `meta.phases` is a **predefined node** on the tree; and a `phase('...')` call "lights up" the matching node by **exact string match** on `title`, then hangs subsequent agents on it.
+The runtime organizes progress into a tree: each `title` declared in `meta.phases` is a **predefined node** on the tree; and a `phase('...')` call lights up the matching node by **exact string match** on `title`, then hangs subsequent agents on it.
 
 Per `_grounding.md`'s description:
 
 > `phase(title)` — open a new phase; subsequent `agent()` groups under it.
 
-And `meta.phases`'s `title` and `phase()`'s argument are tied together by **exact string match.** This means three things:
+And `meta.phases`'s `title` and `phase()`'s argument are tied together by **exact string match.** This means three things.
 
-**First: case, spaces, and punctuation must all be letter-for-letter exact.** Here's a **typical bug**:
+**First, case, spaces, and punctuation must all be letter-for-letter exact.** Here's a **typical bug**:
 
 ```javascript
 export const meta = {
@@ -396,15 +396,15 @@ phase('review')   // ⚠️ lowercase 'review' — does NOT match 'Review'!
 await agent('...')
 ```
 
-`meta.phases` writes `'Review'` (capitalized), while `phase('review')` passes lowercase. The two are **not the same string**, so the match fails. Result: the predeclared `Review` node in the progress tree stays empty, while your agent goes off to a place that doesn't line up. **Functionally the workflow runs as normal, but the progress display is a mess** — this kind of bug throws no error, it just makes `/workflows` look baffling.
+`meta.phases` writes `'Review'` (capitalized), while `phase('review')` passes lowercase. The two are **not the same string**, so the match fails. Result: the predeclared `Review` node in the progress tree stays empty, while your agent goes off to a place that doesn't line up. **Functionally the workflow runs as normal, but the progress display is a mess.** This kind of bug throws no error, it just makes `/workflows` look baffling.
 
-**Second: what happens if `phase()` is passed a title not declared in `meta.phases`?** Per the current sources, `meta.phases` are "predeclared ticks" and `phase()` lights them up by title match. What happens when you pass an undeclared title — the official tool description answers it: **a `phase()` call with no matching `meta.phases` entry simply gets its own progress group** (it is neither ignored nor an error); an extra ad-hoc title just opens its own group on the spot. Even so, the safe approach: **keep the titles declared in `meta.phases` and those used by `phase()` in the script one-to-one and letter-for-letter identical.** Treat the strings in the two places as "two writings of the same constant."
+**Second, what happens if `phase()` is passed a title not declared in `meta.phases`?** Per the current sources, `meta.phases` are predeclared ticks and `phase()` lights them up by title match. When you pass an undeclared title, the official tool description answers it: **a `phase()` call with no matching `meta.phases` entry simply gets its own progress group** (it is neither ignored nor an error); an extra ad-hoc title just opens its own group on the spot. Even so, the safe approach is to **keep the titles declared in `meta.phases` and those used by `phase()` in the script one-to-one and letter-for-letter identical.** Treat the strings in the two places as two writings of the same constant.
 
-**Third: this is the decoupling of "declaration" and "use," and the payoff is that the progress tree can "take shape in advance."** Because `meta.phases` is obtained by the runtime during the static-read phase, **before execution even begins**, `/workflows` can draw the complete phase skeleton (even for phases not yet reached). `phase()` lights up as far as execution reaches. This is yet another manifestation of "the warp is tensioned first": structure leads, execution fills in.
+**Third, this is the decoupling of declaration and use, and the payoff is that the progress tree can take shape in advance.** Because `meta.phases` is obtained by the runtime during the static-read phase, **before execution even begins**, `/workflows` can draw the complete phase skeleton (even for phases not yet reached). `phase()` lights up as far as execution reaches. This is yet another manifestation of "the warp is tensioned first": structure leads, execution fills in.
 
 <div class="callout warn">
 
-**Practical advice: extract phase names into a "single source of truth."** Since `meta` must be a pure literal and can't reference variables, you **cannot** use a single `const PHASE_REVIEW = 'Review'` to feed both `meta` and `phase()` (that would make `meta` no longer a pure literal and get it rejected). The next-best discipline: **write `meta.phases` first, then copy each `title` string verbatim into the corresponding `phase()` call**, never typing it a second time by hand. Copy-paste here isn't a bad habit but the most effective guard against "case drift."
+**Practical advice: extract phase names into a "single source of truth."** Since `meta` must be a pure literal and can't reference variables, you **cannot** use a single `const PHASE_REVIEW = 'Review'` to feed both `meta` and `phase()` (that would make `meta` no longer a pure literal and get it rejected). The next-best discipline: **write `meta.phases` first, then copy each `title` string verbatim into the corresponding `phase()` call**, never typing it a second time by hand. Copy-paste here isn't a bad habit but the most effective guard against case drift.
 
 </div>
 
@@ -412,7 +412,7 @@ await agent('...')
 
 The pitfall buried at the end of §5.4 is now revealed.
 
-`phase()` switches a **global current-phase cursor.** In a sequential script this is no problem. But in `parallel()` or `pipeline()`, multiple agents are **in flight at once**, and if they all rely on "where the global cursor currently points" to decide which phase they group into, you get a **race**:
+`phase()` switches a **global current-phase cursor.** In a sequential script this is no problem. But in `parallel()` or `pipeline()`, multiple agents are **in flight at once**, and if they all rely on where the global cursor currently points to decide which phase they group into, you get a **race.**
 
 Imagine a pipeline where you want stage-1 agents in the `Find` group and stage-2 in the `Verify` group. If you naively write `phase('Find')` / `phase('Verify')` in the stage callbacks:
 
@@ -425,9 +425,9 @@ await pipeline(
 )
 ```
 
-Because pipeline has "each item flow independently, no barrier between stages" (see Chapters 01 and 08), one item may be at Verify while another is still at Find — the two callbacks **concurrently** modify the same global cursor, and whoever writes last wins. The result is agents randomly tossed into `Find` or `Verify`, and a thoroughly scrambled progress tree.
+Because pipeline has "each item flow independently, no barrier between stages" (see Chapters 01 and 08), one item may be at Verify while another is still at Find. The two callbacks **concurrently** modify the same global cursor, and whoever writes last wins. The result is agents randomly tossed into `Find` or `Verify`, and a thoroughly scrambled progress tree.
 
-**The correct approach: don't use the global `phase()` in concurrent callbacks; instead use `opts.phase` on each `agent()` for explicit grouping.** This is exactly the form the real-run `pipeline-demo` (Run ID `wf_bf086b98-6ec`) in `assets/transcripts/primitives.md` adopts:
+**The correct approach is to skip the global `phase()` in concurrent callbacks and use `opts.phase` on each `agent()` for explicit grouping.** This is exactly the form the real-run `pipeline-demo` (Run ID `wf_bf086b98-6ec`) in `assets/transcripts/primitives.md` adopts:
 
 ```javascript
 export const meta = {
@@ -465,11 +465,11 @@ This workflow's **real usage** (from `assets/transcripts/primitives.md`) is:
 agent_count = 6   tool_uses = 8   total_tokens = 158982   duration_ms = 26743
 ```
 
-3 items × 2 stages = 6 agents; `agent_count=6` confirms "each stage callback dispatches one agent." And each agent, via `opts.phase: 'Find' | 'Verify'`, **pins** itself to the correct group; no matter what moment it actually runs, the progress tree is accurate.
+3 items × 2 stages = 6 agents; `agent_count=6` confirms each stage callback dispatches one agent. And each agent, via `opts.phase: 'Find' | 'Verify'`, **pins** itself to the correct group; no matter what moment it actually runs, the progress tree is accurate.
 
 <div class="callout tip">
 
-**One iron law: sequential scripts use the global `phase()`, concurrency (`parallel`/`pipeline`) uses `opts.phase`.** The former leans on "execution order = phase order," which holds in serial code; the latter **attaches** grouping info to each agent itself, unaffected by concurrent interleaving. `_grounding.md`'s description of `opts.phase` is exactly: "explicitly group into a progress group (especially important inside pipeline/parallel, to avoid racing the global phase())." The full usage of `opts.phase` is detailed again in Chapter 06's agent() guide.
+**One iron law: sequential scripts use the global `phase()`, concurrency (`parallel`/`pipeline`) uses `opts.phase`.** The former leans on "execution order = phase order," which holds in serial code; the latter **attaches** grouping info to each agent itself, unaffected by concurrent interleaving. `_grounding.md`'s description of `opts.phase` is exactly "explicitly group into a progress group (especially important inside pipeline/parallel, to avoid racing the global phase())." The full usage of `opts.phase` is detailed again in Chapter 06's agent() guide.
 
 </div>
 
@@ -477,7 +477,7 @@ agent_count = 6   tool_uses = 8   total_tokens = 158982   duration_ms = 26743
 
 ## 5.6 Model Override: The Only Reliable One Is `agent()`'s `model`
 
-Model is where `meta` the warp and `agent()` the weft **meet**, worth sorting out on its own. §5.3.3 already drew the conclusion: **the only model knob with clear official semantics, worth relying on, is `agent()`'s `opts.model`**; `meta.phases[].model` is an "intent label" written on the warp, whose standalone runtime effect is **undetermined.** Which model an agent finally uses can be read **from broad to narrow**:
+Model is where `meta` the warp and `agent()` the weft **meet**, worth sorting out on its own. §5.3.3 already drew the conclusion: **the only model knob with clear official semantics, worth relying on, is `agent()`'s `opts.model`**; `meta.phases[].model` is an "intent label" written on the warp, whose standalone runtime effect is **undetermined.** Which model an agent finally uses can be read **from broad to narrow.**
 
 ```mermaid
 flowchart TD
@@ -490,8 +490,8 @@ flowchart TD
 
 From broad to narrow:
 
-1. **Write no `agent({ model })`** → the agent inherits the **main loop model.** Per `_grounding.md`: "(agent's) `opts.model`, omitted, inherits the main loop model." **The earlier session these examples ran in** had Opus 4.7 as its main loop (a fact of that session, not a general Workflow guarantee; the R11 re-verification session was Opus 4.8 — the conclusion is model-independent).
-2. **Specify on `agent({ model })`** → the only reliable override. The finest granularity, precisely controlling what model **this one** agent uses, overriding the "inherit main loop" default. Take a workflow that first "cheaply fans out massively to find leads" and then "expensively reviews closely" — **the correct approach is to implement `model` on each agent** — while **also** marking the same intent on `phases`, so the permission dialog and the script reader can see the cost structure at a glance:
+1. **Write no `agent({ model })`**, and the agent inherits the **main loop model.** Per `_grounding.md`: "(agent's) `opts.model`, omitted, inherits the main loop model." **The earlier session these examples ran in** had Opus 4.7 as its main loop (a fact of that session, not a general Workflow guarantee; the R11 re-verification session was Opus 4.8, and the conclusion is model-independent).
+2. **Specify on `agent({ model })`**, the only reliable override. It is the finest granularity, precisely controlling what model **this one** agent uses, overriding the "inherit main loop" default. Take a workflow that first cheaply fans out massively to find leads and then expensively reviews closely. **The correct approach is to implement `model` on each agent**, while **also** marking the same intent on `phases`, so the permission dialog and the script reader can see the cost structure at a glance:
 
 ```javascript
 export const meta = {
@@ -518,17 +518,17 @@ const deep = await agent(`Closely review the hits: ${JSON.stringify(leads.filter
 
 <div class="callout warn">
 
-**The division of labor between `meta.phases[].model` and `agent({ model })` — plus one key caveat.** `meta.phases[].model` is **declarative** — written on the warp, expressing "this phase's intent is to use a certain model," and letting the script reader see the cost structure at a glance. `agent({ model })` is **imperative** — on the weft, **actually** deciding a specific agent's model. The key caveat: **don't write only the `model` on phases and assume it takes effect** — as §5.3.3 explains, because `CLAUDE_CODE_SUBAGENT_MODEL` overrode it this session (Run ID `wf_9c94951d-58c`), we couldn't confirm whether `phases[].model` works on its own, and the official wording is vague. So: `phases[].model` and each `agent({ model })` **come in pairs** — one "states the plan" for humans, the other "gives the order" so it actually takes effect. The details of `agent({ model })` (including what tasks `'haiku'` suits) are left to Chapter 06.
+**The division of labor between `meta.phases[].model` and `agent({ model })`, plus one key caveat.** `meta.phases[].model` is **declarative**: written on the warp, expressing "this phase's intent is to use a certain model," and letting the script reader see the cost structure at a glance. `agent({ model })` is **imperative**: on the weft, **actually** deciding a specific agent's model. The key caveat is **don't write only the `model` on phases and assume it takes effect.** As §5.3.3 explains, because `CLAUDE_CODE_SUBAGENT_MODEL` overrode it this session (Run ID `wf_9c94951d-58c`), we couldn't confirm whether `phases[].model` works on its own, and the official wording is vague. So let `phases[].model` and each `agent({ model })` **come in pairs**: one "states the plan" for humans, the other "gives the order" so it actually takes effect. The details of `agent({ model })` (including what tasks `'haiku'` suits, and how the env var `CLAUDE_CODE_SUBAGENT_MODEL` overrides every `model` you write) are left to [Chapter 06 · The agent() Reference](#/en/p2-06).
 
 </div>
 
-So why still mark the model intent on the phase? Because it maps to an extremely common cost trade-off: **the breadth phase uses a cheap model to fan out en masse, the depth phase uses a strong model to carve closely.** Writing the intent on `phases` lets the script reader and the permission dialog see at a glance "which segment of this workflow is expensive, which is cheap." But the move that **actually lowers tokens** is writing `model:'haiku'` on each `agent()` of that most-fanned-out phase — token cost, per `_grounding.md` section C's rule of thumb, is roughly "agent count × per-agent context"; swap the phase that fans out the most to haiku, and what you save is "agent count × the unit-price difference."
+So why still mark the model intent on the phase? Because it maps to an extremely common cost trade-off: **the breadth phase uses a cheap model to fan out en masse, the depth phase uses a strong model to carve closely.** Writing the intent on `phases` lets the script reader and the permission dialog see at a glance which segment of this workflow is expensive and which is cheap. But the move that **actually lowers tokens** is writing `model:'haiku'` on each `agent()` of that most-fanned-out phase. Token cost is roughly "agent count × per-agent context" (the measured derivation of this rule of thumb is in [Chapter 09 · Progress, Logs, Resume, Budget](#/en/p2-09)), so swapping the phase that fans out the most to haiku saves "agent count × the unit-price difference."
 
 ---
 
 ## 5.7 `/workflows`: The Live Progress Tree, and `log()`'s Narration Line
 
-The warp tensioned, the weft shuttling — the window that **shows** all this to a human is the slash command `/workflows` (`_grounding.md` section A: "Live progress — the slash command `/workflows`").
+The warp tensioned and the weft shuttling, the window that **shows** all this to a human is the slash command `/workflows` (`_grounding.md` section A: "Live progress — the slash command `/workflows`").
 
 ### 5.7.1 What the progress tree looks like
 
@@ -555,7 +555,7 @@ Every level of this tree comes from a concept in this chapter:
 
 <div class="callout tip">
 
-**The progress tree is the best answer to "why bother building the warp."** A workflow without `phases` and without `label`s still produces correct results, but its `/workflows` is a pile of flat, numbered, anonymous agents; a workflow with the warp tensioned, by contrast, reads like a **chaptered execution report.** When your workflow fans out dozens of agents and runs for minutes, this tree is your only window into "what is it doing right now." Structure isn't only for machines, but for humans.
+**The progress tree is the best answer to "why bother building the warp."** A workflow without `phases` and without `label`s still produces correct results, but its `/workflows` is a pile of flat, numbered, anonymous agents. A workflow with the warp tensioned, by contrast, reads like a **chaptered execution report.** When your workflow fans out dozens of agents and runs for minutes, this tree is your only window into what it's doing right now. Structure isn't only for machines, it's for humans.
 
 </div>
 
@@ -576,13 +576,13 @@ It prints a line of free text **above** the progress tree, as a human-readable a
 
 In the two real runs cited above, `log()` showed up in both:
 
-- `hello-workflow`: `log(\`smoke result: ${JSON.stringify(r)}\`)` — echoes the agent's result as a line of aside.
-- `pipeline-demo`: `log(\`pipeline produced ${out.filter(Boolean).length} verified items\`)` — reports "how many verified items were produced."
-- `parallel-demo` (Run ID `wf_52957913-6d2`): `log(\`barrier released with ${results.filter(Boolean).length}/${dims.length} results\`)` — at barrier release, narrates "got N/M results."
+- `hello-workflow`: `log(\`smoke result: ${JSON.stringify(r)}\`)` echoes the agent's result as a line of aside.
+- `pipeline-demo`: `log(\`pipeline produced ${out.filter(Boolean).length} verified items\`)` reports how many verified items were produced.
+- `parallel-demo` (Run ID `wf_52957913-6d2`): `log(\`barrier released with ${results.filter(Boolean).length}/${dims.length} results\`)` narrates, at barrier release, that it got N/M results.
 
 <div class="callout warn">
 
-**Don't use `Date.now()` to build timestamps in `log()`.** Chapter 01's prohibition applies to the whole script body, `log()` included — it runs in the script too. To reflect progress numbers in the log (how many done, of how many total), use a **pure computation over inputs** like `.filter(Boolean).length`, not time or randomness. Only this way does the workflow stay replayable and resume hit the cache (details in Chapter 22).
+**Don't use `Date.now()` to build timestamps in `log()`.** The ban on time and randomness applies to the whole script body, `log()` included (it runs in the script too; this ban is covered fully in [Chapter 02 · Why Deterministic Orchestration](#/en/p1-02)). To reflect progress numbers in the log (how many done, of how many total), use a **pure computation over inputs** like `.filter(Boolean).length`, not time or randomness. Only this way does the workflow stay replayable and resume hit the cache (details in Chapter 22).
 
 </div>
 
@@ -590,7 +590,7 @@ In the two real runs cited above, `log()` showed up in both:
 
 ## 5.8 An Example That Uses the Warp to the Fullest (illustrative, not run)
 
-Let's gather all this chapter's concepts into one example. The workflow below deliberately uses every confirmed field of `meta` to the fullest, multi-phase `phase()`, per-phase model selection, `opts.phase` concurrent grouping, and `log()` narration — it's a "warp checklist," not a production recipe, so it's marked **(illustrative, not run)**:
+Let's gather all this chapter's concepts into one example. The workflow below deliberately uses every confirmed field of `meta` to the fullest, multi-phase `phase()`, per-phase model selection, `opts.phase` concurrent grouping, and `log()` narration. It's a "warp checklist," not a production recipe, so it's marked **(illustrative, not run)**:
 
 ```javascript
 export const meta = {
@@ -652,12 +652,12 @@ return plan
 
 Let's check it against each chapter point one by one:
 
-- **`meta` pure literal**: all fields are dead values, no variables, no functions, no interpolation — it passes the static read (§5.1–5.2).
+- **`meta` pure literal**: all fields are dead values, no variables, no functions, no interpolation, so it passes the static read (§5.1–5.2).
 - **All four meta fields used**: `name` / `description` (required), `whenToUse` (list note), `phases` (three phases, Triage marked haiku) (§5.3).
 - **Sequential segments use the global `phase()`**: Triage and Suggest are serial code, so `phase('Triage')` / `phase('Suggest')` are safe (§5.4).
 - **Concurrent segments use `opts.phase`**: the Locate phase is `parallel()`, each agent uses `phase: 'Locate'` for explicit grouping, avoiding the global-cursor race (§5.5.1).
-- **Model: only the `model` on `agent()` takes effect**: the `triage` agent explicitly `model: 'haiku'` (this is what actually works, **coming in a pair** with the same-named marking on phases[0]); the `suggest` agent writes no model, so it inherits the **main loop model** (the top-level `meta.model` is not a meta field, and whether `phases[].model` works on its own is undetermined — neither participates here, §5.3.3, §5.6).
-- **`log()` narration**: a line of progress aside per phase, using only pure computation like `.length`, not touching time/randomness (§5.7.2).
+- **Model: only the `model` on `agent()` takes effect**: the `triage` agent explicitly sets `model: 'haiku'` (this is what actually works, **coming in a pair** with the same-named marking on phases[0]); the `suggest` agent writes no model, so it inherits the **main loop model** (the top-level `meta.model` is not a meta field, and whether `phases[].model` works on its own is undetermined; neither participates here, §5.3.3, §5.6).
+- **`log()` narration**: a line of progress aside per phase, using only pure computation like `.length`, not touching time or randomness (§5.7.2).
 
 Its `/workflows` progress tree would look like this (illustrative):
 
@@ -680,11 +680,11 @@ triage-and-fix
 - **The warp = the taut structural skeleton.** `meta` and `phase()` run no business and count no tokens, yet they set the workflow's "form" before the first `agent()`.
 - **`meta` must be a pure literal**, because the runtime **statically reads it before execution**, to show `name` / `description` / `phases` in the permission dialog. "Live values" containing variables, function calls, template interpolation, or spread operations all get **execution rejected** (§5.1–5.2).
 - **`meta` fields**: required `name` / `description` (introduce yourself); optional `whenToUse` (the workflow list's "when to use"), `phases` (phase ticks, each `{title, detail?, model?}`). Note: **top-level `meta.model` is NOT a confirmed meta field in the tool definition and its semantics are unverified** (§5.3, §5.6).
-- **`phase(title)`** switches the global current-phase cursor, and subsequent `agent()` groups under it; `meta.phases[].title` and `phase('...')` are tied by **exact string match** — one letter of difference in case or spacing scrambles the progress tree (§5.4–5.5).
+- **`phase(title)`** switches the global current-phase cursor, and subsequent `agent()` groups under it; `meta.phases[].title` and `phase('...')` are tied by **exact string match**, so one letter of difference in case or spacing scrambles the progress tree (§5.4–5.5).
 - **The iron law for concurrency**: sequential scripts use the global `phase()`, `parallel`/`pipeline` switch to each agent's `opts.phase` for explicit grouping, avoiding racing the global cursor (§5.5.1).
-- **Model: the only reliable knob is `agent()`'s `model`** (omitted, inherits the main loop; the earlier session these examples ran in had Opus 4.7, the R11 re-verification session was Opus 4.8 — the conclusion is model-independent). `meta.phases[].model` is just an "intent label" whose **standalone runtime effect is undetermined** — the official wording is vague, and this session couldn't isolate it because `CLAUDE_CODE_SUBAGENT_MODEL` overrode it (`wf_9c94951d-58c`). **To genuinely make a phase use a model, write `model` on every `agent()` in that phase, don't mark it only on phases** (§5.3.3, §5.6).
-- **`/workflows`** renders `meta.name` (root) / `phases[].title` (groups, taking shape in advance) / `agent`'s `label` (leaves) into a live progress tree; **`log()`** prints a human-readable narration line above the tree — one shapes, one narrates (§5.7).
+- **Model: the only reliable knob is `agent()`'s `model`** (omitted, inherits the main loop; the earlier session these examples ran in had Opus 4.7, the R11 re-verification session was Opus 4.8, and the conclusion is model-independent). `meta.phases[].model` is just an "intent label" whose **standalone runtime effect is undetermined**: the official wording is vague, and this session couldn't isolate it because `CLAUDE_CODE_SUBAGENT_MODEL` overrode it (`wf_9c94951d-58c`). **To genuinely make a phase use a model, write `model` on every `agent()` in that phase; don't mark it only on phases** (§5.3.3, §5.6).
+- **`/workflows`** renders `meta.name` (root), `phases[].title` (groups, taking shape in advance), and `agent`'s `label` (leaves) into a live progress tree; **`log()`** prints a human-readable narration line above the tree. One shapes, one narrates (§5.7).
 
-The warp is tensioned. In the next chapter, we turn our full attention to the **weft** that shuttles through it and does the real work — taking apart every option of `agent(prompt, opts)` (`label`, `schema`, `phase`, `model`, `isolation`, `agentType`) down to the bottom, to see a subagent's whole life from dispatch to return.
+The warp is tensioned. In the next chapter, we turn our full attention to the **weft** that shuttles through it and does the real work: taking apart every option of `agent(prompt, opts)` (`label`, `schema`, `phase`, `model`, `isolation`, `agentType`) down to the bottom, to see a subagent's whole life from dispatch to return.
 
 > Continue reading: [Chapter 06 · The agent() Reference](#/en/p2-06)

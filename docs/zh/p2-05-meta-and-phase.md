@@ -2,11 +2,11 @@
 
 > **经者，织之纵丝也；张而不弛，纲举而目张。**
 >
-> 一台织机上，最先被绷紧的是经线。它纵贯整匹布，决定了布的长度、宽度与张力——纬线还没穿进来之前，布的「形」已经定好了。
+> 一台织机上，最先被绷紧的是经线。它纵贯整匹布，决定布的长度、宽度与张力。纬线还没穿进来，布的「形」就已经定好了。
 >
-> 在一个 Workflow 脚本里，`meta` 与 `phase()` 就是这样的经线。它们不跑任何 subagent、不产出任何业务结果，却在第一个 `agent()` 派发之前，就把整个工作流的**骨架**张好了：它叫什么、要做什么、分几个阶段、每个阶段打算用哪个模型、进度该怎么呈现给人看。
+> 在一个 Workflow 脚本里，`meta` 与 `phase()` 就是这样的经线。它们不跑任何 subagent，也不产出任何业务结果，却在第一个 `agent()` 派发之前，就把整个工作流的**骨架**张好了：它叫什么、要做什么、分几个阶段、每个阶段打算用哪个模型、进度该怎么呈现给人看。
 >
-> 这一章我们就把这根经线彻底拆开。你会看到，一个看着不起眼的「导出常量」背后,藏着运行时一条不能妥协的硬约束;也会看到 `phase()` 这个「只有一行、没有返回值」的小函数,怎么把几十个 subagent 的乱麻,梳理成 `/workflows` 里一棵清晰的进度树。
+> 这一章把这根经线彻底拆开。你会看到，一个不起眼的「导出常量」背后藏着运行时一条不能妥协的硬约束；也会看到 `phase()` 这个只有一行、没有返回值的小函数，怎么把几十个 subagent 的乱麻梳理成 `/workflows` 里一棵清晰的进度树。
 
 ---
 
@@ -14,13 +14,13 @@
 
 要搞懂 `meta`，得先搞懂运行时**什么时候**读它。
 
-回忆第 01 章那个真实跑过的 `hello-workflow`。你把脚本交给 Workflow 工具,屏幕上几乎立刻弹出一个权限确认——它告诉你「即将运行一个叫 `hello-workflow` 的工作流,描述是 *Smoke test: one subagent returns schema-constrained structured output*,共 1 个阶段:Greet」。
+回忆第 01 章那个真实跑过的 `hello-workflow`。你把脚本交给 Workflow 工具，屏幕上几乎立刻弹出一个权限确认，告诉你「即将运行一个叫 `hello-workflow` 的工作流，描述是 *Smoke test: one subagent returns schema-constrained structured output*，共 1 个阶段：Greet」。
 
-注意这个时间点:**这会儿脚本一行都还没跑。** 没有任何 `agent()` 被派发,没有任何 `await` 被求值,连 `phase('Greet')` 这一句都还没运行。可运行时却已经把工作流的名字、描述和阶段摸得一清二楚。
+注意这个时间点：**这会儿脚本一行都还没跑。** 没有任何 `agent()` 被派发，没有任何 `await` 被求值，连 `phase('Greet')` 这一句都还没运行。可运行时已经把工作流的名字、描述和阶段摸得一清二楚。
 
-它是怎么知道的?
+它是怎么知道的？
 
-答案是:运行时在跑脚本**之前**,先把脚本**静态读**了一遍——它把 `export const meta = {…}` 这个导出常量当成一段**数据**抠出来读,而不是当成**代码**去跑。
+答案是：运行时在跑脚本**之前**，先把脚本**静态读**了一遍。它把 `export const meta = {…}` 这个导出常量当成一段**数据**读出来，而不是当成**代码**去跑。
 
 ```mermaid
 flowchart LR
@@ -32,15 +32,15 @@ flowchart LR
     F --> G["开始真正执行脚本<br/>phase() / agent() ..."]
 ```
 
-这就是「经线先张紧」的技术含义:**结构信息必须在执行之前就可读**,因为它要拿去生成权限弹窗、初始化进度树。而想在「不跑代码」的前提下读出一个对象的值,这个对象就**必须是纯字面量**——没有变量引用、没有函数调用、没有展开运算、没有模板插值。任何要「跑起来」才能求值的东西,在静态读取阶段都是一片空白。
+这就是「经线先张紧」的技术含义：**结构信息必须在执行之前就可读**，因为它要拿去生成权限弹窗、初始化进度树。而想在不跑代码的前提下读出一个对象的值，这个对象就**必须是纯字面量**：没有变量引用，没有函数调用，没有展开运算，没有模板插值。任何要跑起来才能求值的东西，在静态读取阶段都是一片空白。
 
 <div class="callout info">
 
-**「静态读取」和「执行」差在哪。** 打个比方:`meta` 就像写在剧本封面上的「剧名、简介、幕次表」——剧院经理开演前**翻一眼封面**就能印进节目单,根本不用把整出戏演一遍。可你要是把剧名写成「今天日期 + 随机数」,经理翻封面只看到一行看不懂的公式,自然没法印节目单。运行时读 `meta`,就是「翻封面」,不是「演戏」。
+**「静态读取」和「执行」差在哪。** 打个比方，`meta` 就像写在剧本封面上的「剧名、简介、幕次表」。剧院经理开演前翻一眼封面就能印进节目单，不用把整出戏演一遍。可你要是把剧名写成「今天日期 + 随机数」，经理翻封面只看到一行看不懂的公式，自然没法印节目单。运行时读 `meta` 是「翻封面」，不是「演戏」。
 
 </div>
 
-这条约束在 `_grounding.md` 的「硬约束」一节被明确记录:
+这条约束在 `_grounding.md` 的「硬约束」一节被明确记录：
 
 > `meta` 必须纯字面量(运行时执行前静态读取)。
 >
@@ -48,13 +48,13 @@ flowchart LR
 
 ---
 
-## 5.2 纯字面量的边界:什么能写,什么会被拒
+## 5.2 纯字面量的边界：什么能写，什么会被拒
 
-「纯字面量」四个字听着抽象,我们用一组对照把它讲到实处。
+「纯字面量」四个字听着抽象，用一组对照把它讲到实处。
 
-### 5.2.1 合法的 meta:全是「死值」
+### 5.2.1 合法的 meta：全是「死值」
 
-下面这些写法都是**纯字面量**——每个值都是写死在源码里的常量,运行时不用跑任何代码就能读出来:
+下面这些写法都是**纯字面量**：每个值都是写死在源码里的常量，运行时不用跑任何代码就能读出来。
 
 ```javascript
 export const meta = {
@@ -69,11 +69,11 @@ export const meta = {
 }
 ```
 
-数组、嵌套对象、布尔、数字、`null`——只要它们本身是字面量,就都合法。关键不在「简单还是复杂」,而在「读它要不要跑代码」。
+数组、嵌套对象、布尔、数字、`null`，只要它们本身是字面量，就都合法。关键不在简单还是复杂，而在读它要不要跑代码。
 
-### 5.2.2 非法的 meta:任何「活值」都会被拒
+### 5.2.2 非法的 meta：任何「活值」都会被拒
 
-下面每一种写法,都会让运行时在静态读取阶段失败,从而**拒绝执行整个工作流**:
+下面每一种写法，都会让运行时在静态读取阶段失败，从而**拒绝执行整个工作流**。
 
 ```javascript
 // 反例 1:含变量引用——静态读取时 NAME 还不存在
@@ -121,22 +121,22 @@ export const meta = {
 
 <div class="callout warn">
 
-**记住一条判据:把 `meta` 单独剪到一个空文件里,它还能不能像 `JSON.parse` 那样「纯读」出来?** 只要它依赖文件里任何**别的东西**(变量、函数、import),它就不是纯字面量,会被拒。`meta` 必须是一座**自给自足的孤岛**。
+**记住一条判据：把 `meta` 单独剪到一个空文件里，它还能不能像 `JSON.parse` 那样「纯读」出来？** 只要它依赖文件里任何**别的东西**（变量、函数、import），它就不是纯字面量，会被拒。`meta` 必须是一座**自给自足的孤岛**。
 
 </div>
 
-那么——**要是我确实想要个动态的名字呢?** 答案是:动态信息不该塞进 `meta`,该塞进 `args` 或 `log()`。
+**要是确实想要个动态的名字呢？** 动态信息不该塞进 `meta`，该塞进 `args` 或 `log()`。
 
-- 想让工作流名字带上项目名?用 `log()` 在运行时打印 `log(\`审查项目 ${args.project}\`)`,让 `meta.name` 保持一个固定、可读的标识符。
-- 想让某次运行带时间戳?第 01 章已经讲过:脚本里禁用 `Date.now()`,要时间戳就**用 `args` 从外面传进来**,或者等工作流跑完后由主循环盖戳。
+- 想让工作流名字带上项目名？用 `log()` 在运行时打印 `log(\`审查项目 ${args.project}\`)`，让 `meta.name` 保持一个固定、可读的标识符。
+- 想让某次运行带时间戳？脚本里禁用 `Date.now()` 等非确定性调用（这条禁令第 01、02 章已讲透，见 [第 02 章 · 为什么需要确定性编排](#/zh/p1-02)）。要时间戳就**用 `args` 从外面传进来**，或者等工作流跑完后由主循环盖戳。
 
-`meta` 描述的是「这个工作流是什么」(一个**不变的身份**),不是「这一次运行的具体参数」(一个**可变的实例**)。把这两者分清楚,是理解整套设计的钥匙。
+`meta` 描述的是「这个工作流是什么」，一个**不变的身份**；而不是「这一次运行的具体参数」，一个**可变的实例**。把这两者分清楚，是理解整套设计的钥匙。
 
 ---
 
 ## 5.3 meta 全字段详解
 
-据 `_grounding.md` B 节,对照官方 `sdk-tools.d.ts` 和工具定义,`meta` 的字段如下:
+据 `_grounding.md` B 节，对照官方 `sdk-tools.d.ts` 和工具定义，`meta` 的字段如下：
 
 | 字段 | 必填 | 类型 | 作用 | 显示在哪里 |
 |---|---|---|---|---|
@@ -148,27 +148,27 @@ export const meta = {
 
 下面逐一拆解。
 
-### 5.3.1 `name` 与 `description`:两个必填项
+### 5.3.1 `name` 与 `description`：两个必填项
 
-这是仅有的两个**必填**字段。它们唯一的活儿,就是在权限弹窗里向用户**自报家门**:
+这是仅有的两个**必填**字段。它们唯一的活儿，就是在权限弹窗里向用户**自报家门**。
 
-- `name`——给人和机器看的标识符。它会出现在权限弹窗、进度显示、以及(等你把脚本沉淀成具名工作流之后)`{ name: '...' }` 的调用里。建议用 kebab-case,语义清晰、稳定不变。
-- `description`——**一行话**说清「这个工作流是干嘛的」。它直接显示在用户批准运行前看到的对话框里,是用户决定「要不要放行」的主要依据。
+- `name` 是给人和机器看的标识符。它会出现在权限弹窗、进度显示，以及（等你把脚本沉淀成具名工作流之后）`{ name: '...' }` 的调用里。建议用 kebab-case，语义清晰、稳定不变。
+- `description` 用**一行话**说清这个工作流是干嘛的。它直接显示在用户批准运行前看到的对话框里，是用户决定要不要放行的主要依据。
 
 <div class="callout tip">
 
-**把 `description` 当成「电梯陈述」来写。** 用户看到它的那一刻,正要决定要不要授权一个可能扇出几十个 subagent、烧掉大量 token 的操作。一句含混的 `description: '处理数据'`,让人没法判断;一句具体的 `description: '把 PR 改动按文件分片,每片派一个 reviewer 并行审查,汇总发现'`,才能让人安心点「批准」。
+**把 `description` 当成「电梯陈述」来写。** 用户看到它的那一刻，正要决定要不要授权一个可能扇出几十个 subagent、烧掉大量 token 的操作。一句含混的 `description: '处理数据'` 让人没法判断；一句具体的 `description: '把 PR 改动按文件分片,每片派一个 reviewer 并行审查,汇总发现'`，才能让人安心点「批准」。
 
 </div>
 
-### 5.3.2 `whenToUse`:写给「未来的你」和「工作流列表」
+### 5.3.2 `whenToUse`：写给「未来的你」和「工作流列表」
 
-`whenToUse` 是可选的「适用场景」说明。它和 `description` 的微妙差别在于:
+`whenToUse` 是可选的「适用场景」说明。它和 `description` 的微妙差别在于：
 
-- `description` 回答「这个工作流**做什么**」(What);
-- `whenToUse` 回答「**什么时候**该选它」(When)。
+- `description` 回答「这个工作流**做什么**」（What）；
+- `whenToUse` 回答「**什么时候**该选它」（When）。
 
-它的价值,要等工作流被**沉淀、复用**之后才真正显出来。回忆第 01 章 1.7 节:验证过的脚本可以收进 `.claude/workflows/`,日后用 `{ name: 'my-workflow' }` 像具名命令一样调用。等你的库里攒了十几个工作流,`whenToUse` 就是那份「该用哪一个」的索引——它会显示在工作流列表里,帮你(或你的队友)在一堆工具里迅速挑对。
+它的价值，要等工作流被**沉淀、复用**之后才真正显出来。回忆第 01 章 1.7 节：验证过的脚本可以收进 `.claude/workflows/`，日后用 `{ name: 'my-workflow' }` 像具名命令一样调用。等你的库里攒了十几个工作流，`whenToUse` 就是那份「该用哪一个」的索引。它会显示在工作流列表里，帮你（或你的队友）在一堆工具里迅速挑对。
 
 ```javascript
 export const meta = {
@@ -179,34 +179,34 @@ export const meta = {
 }
 ```
 
-### 5.3.3 模型:唯一可靠的旋钮是 `agent()` 的 `model`
+### 5.3.3 模型：唯一可靠的旋钮是 `agent()` 的 `model`
 
-模型这件事,恰好是 `meta`(经线)和 `agent()`(纬线)交汇的地方。但这里有一个**极常见的误区**必须先讲清楚:很多人以为「在 `meta.phases[].model` 上标个 `'haiku'`,这一阶段的 agent 就会跑 Haiku」——**这件事的运行时效果其实是未定的**。
+模型这件事，恰好是 `meta`（经线）和 `agent()`（纬线）交汇的地方。但这里有一个**极常见的误区**必须先讲清楚：很多人以为在 `meta.phases[].model` 上标个 `'haiku'`，这一阶段的 agent 就会跑 Haiku。**这件事的运行时效果其实是未定的。**
 
-据 `_grounding.md` 的接地事实:
+据 `_grounding.md` 的接地事实：
 
-- **`meta.phases[].model`** —— 写在 `phases` 数组里(如 `{ title: 'Verify', model: 'haiku' }`)。官方工具描述对它的措辞**含糊**(「某阶段用特定模型 override 时加上」);本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖一切 per-call model(见 `_grounding.md` A2,Run ID `wf_9c94951d-58c`)**未能独立隔离**它到底有没有运行时效果。
-- **agent `opts.model`** —— 按**单次调用**覆盖;官方明确「**省略则继承主循环模型**」。这是**唯一**有官方明确语义的模型旋钮。
+- **`meta.phases[].model`** 写在 `phases` 数组里（如 `{ title: 'Verify', model: 'haiku' }`）。官方工具描述对它的措辞**含糊**（「某阶段用特定模型 override 时加上」）；而本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖了一切 per-call model（见 `_grounding.md` A2，Run ID `wf_9c94951d-58c`），**未能独立隔离**它到底有没有运行时效果。
+- **agent `opts.model`** 按**单次调用**覆盖；官方明确「**省略则继承主循环模型**」。这是**唯一**有官方明确语义的模型旋钮。
 
-两者都不写时,agent 继承主循环模型——**本章这些示例所在的早期会话**主循环是 Opus 4.7(由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 指定,见 `_grounding.md` A 节;这是那次会话的事实,不是 Workflow 通用保证)。R11 复核会话已换成 Opus 4.8(`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-8[1m]`,printenv 实测)——但无论主循环是哪个型号,「`agent` 不写 `model` 则继承主循环模型」这一结论都不变。
+两者都不写时，agent 继承主循环模型。**本章这些示例所在的早期会话**主循环是 Opus 4.7（由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 指定，见 `_grounding.md` A 节；这是那次会话的事实，不是 Workflow 通用保证）。R11 复核会话已换成 Opus 4.8（`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-8[1m]`，printenv 实测）。但无论主循环是哪个型号，「`agent` 不写 `model` 则继承主循环模型」这一结论都不变。
 
 <div class="callout warn">
 
-**常见误区:别指望 `meta.phases[].model` 单独把某阶段切到某模型。** 它的**运行时效果未定**——官方措辞含糊,本会话又因为环境变量 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖,**无法独立验证**它单独是否生效(那次 5 个 agent 的探针里,有一个就处在 `meta.phases[]` 标了 `model:'haiku'` 的阶段,结果照样跑 Opus,Run ID `wf_9c94951d-58c`)。**安全做法:真要让某阶段用 Haiku,就在那个阶段的每个 `agent()` 上写 `model:'haiku'`**——把 `phases[].model` 当成「给人和权限对话框看的标签」,别当成一个会单独生效的开关。(注:有第三方资料称它「纯展示用、运行时不读」——本书**未独立实测**,所以不把这一说法当作已证实的事实;我们只确认「`agent()` 的 `model` 才是可靠旋钮」这条安全做法。)
+**常见误区：别指望 `meta.phases[].model` 单独把某阶段切到某模型。** 它的**运行时效果未定**：官方措辞含糊，本会话又因为环境变量 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖，**无法独立验证**它单独是否生效（那次 5 个 agent 的探针里，有一个就处在 `meta.phases[]` 标了 `model:'haiku'` 的阶段，结果照样跑 Opus，Run ID `wf_9c94951d-58c`）。**安全做法：真要让某阶段用 Haiku，就在那个阶段的每个 `agent()` 上写 `model:'haiku'`。** 把 `phases[].model` 当成给人和权限对话框看的标签，别当成一个会单独生效的开关。（注：有第三方资料称它「纯展示用、运行时不读」，本书**未独立实测**，所以不把这一说法当作已证实的事实；我们只确认「`agent()` 的 `model` 才是可靠旋钮」这条安全做法。）
 
 </div>
 
 <div class="callout warn">
 
-**关于顶层 `meta.model`:** Workflow 工具定义里,`meta` 的字段是必填 `name`/`description` + 可选 `whenToUse`/`phases`(`phases` 内可带 `model`)——**并未把顶层 `meta.model` 列为 meta 字段**。所以本书**不**把它当作一个生效的「模型层」来讲;它的自动解析语义**未经核实(待核实)**。
+**关于顶层 `meta.model`。** Workflow 工具定义里，`meta` 的字段是必填 `name`/`description` 加可选 `whenToUse`/`phases`（`phases` 内可带 `model`），**并未把顶层 `meta.model` 列为 meta 字段**。所以本书**不**把它当作一个生效的「模型层」来讲；它的自动解析语义**未经核实（待核实）**。
 
 </div>
 
-按阶段选模型的成本怎么权衡(以及为什么仍建议在 `phases` 上标注意图),见 5.6 节。
+按阶段选模型的成本怎么权衡（以及为什么仍建议在 `phases` 上标注意图），见 5.6 节。
 
-### 5.3.4 `phases`:经线上的「刻度」
+### 5.3.4 `phases`：经线上的「刻度」
 
-`phases` 是 `meta` 里**结构感最强**的字段,也是这一章后半场的主角。它是一个数组,每一项声明一个阶段:
+`phases` 是 `meta` 里**结构感最强**的字段，也是这一章后半场的主角。它是一个数组，每一项声明一个阶段：
 
 ```javascript
 phases: [
@@ -216,39 +216,39 @@ phases: [
 ]
 ```
 
-每一项的字段:
+每一项的字段：
 
 | 字段 | 必填 | 作用 |
 |---|---|---|
-| `title` | 是 | 阶段标题。**这是一个会被精确匹配的字符串**(见 5.5 节) |
-| `detail` | 否 | 阶段的一句话说明,显示在进度树里帮人理解这一阶段在做什么 |
-| `model` | 否 | **标注**「这一阶段意图用什么模型」;运行时是否单独生效**未定**,真正设模型请在 `agent()` 上写 `model`(见 5.3.3、5.6) |
+| `title` | 是 | 阶段标题。**这是一个会被精确匹配的字符串**（见 5.5 节） |
+| `detail` | 否 | 阶段的一句话说明，显示在进度树里帮人理解这一阶段在做什么 |
+| `model` | 否 | **标注**这一阶段意图用什么模型；运行时是否单独生效**未定**，真正设模型请在 `agent()` 上写 `model`（见 5.3.3、5.6） |
 
-`phases` 是**纯声明**——它只是在 `meta` 里「画出刻度」,告诉运行时「这个工作流打算分这么几个阶段、每个阶段叫什么」。真正在执行时**切换**到某个阶段,是 `phase()` 函数的事(5.4 节)。声明和切换怎么配合(`meta.phases[].title` ↔ `phase('...')` 的字符串匹配),是整章的关键机制(5.5 节)。
+`phases` 是**纯声明**：它只是在 `meta` 里画出刻度，告诉运行时这个工作流打算分几个阶段、每个阶段叫什么。真正在执行时**切换**到某个阶段，是 `phase()` 函数的事（5.4 节）。声明和切换怎么配合（`meta.phases[].title` ↔ `phase('...')` 的字符串匹配），是整章的关键机制（5.5 节）。
 
 <div class="callout info">
 
-**`phases` 可以省略吗?** 可以。`hello-workflow` 不写 `phases` 照样能跑——只是进度显示少了「分组刻度」,所有 agent 平铺在一个默认分组里。`phases` 不是功能的开关,而是**可读性的增强**:它让 `/workflows` 进度树从「一堆 agent」变成「按阶段组织的一棵树」。多阶段、长流程的工作流,强烈建议声明它。
+**`phases` 可以省略吗？** 可以。`hello-workflow` 不写 `phases` 照样能跑，只是进度显示少了分组刻度，所有 agent 平铺在一个默认分组里。`phases` 不是功能的开关，而是**可读性的增强**：它让 `/workflows` 进度树从一堆 agent 变成按阶段组织的一棵树。多阶段、长流程的工作流强烈建议声明它。
 
 </div>
 
 ---
 
-## 5.4 `phase(title)`:在执行中切换当前阶段
+## 5.4 `phase(title)`：在执行中切换当前阶段
 
-如果说 `meta.phases` 是「画在图纸上的刻度」,那 `phase(title)` 就是执行时「把游标挪到某一刻度上」的动作。
+如果说 `meta.phases` 是画在图纸上的刻度，那 `phase(title)` 就是执行时把游标挪到某一刻度上的动作。
 
-它的签名极简,据 `_grounding.md` B 节:
+它的签名极简，据 `_grounding.md` B 节：
 
 ```javascript
 phase(title: string): void
 ```
 
-没有返回值,不接受 `await`。它干的事只有一件:**开启一个新阶段;在它之后派发的所有 `agent()` 调用,都归入这个阶段的进度分组,直到下一次 `phase()` 调用。**
+没有返回值，不接受 `await`。它干的事只有一件：**开启一个新阶段，在它之后派发的所有 `agent()` 调用，都归入这个阶段的进度分组，直到下一次 `phase()` 调用。**
 
 ### 5.4.1 一个最小可运行示例
 
-拿第 01 章那个真实跑过的 `hello-workflow` 来看(Run ID `wf_dacbd480-d5d`,见 `assets/transcripts/primitives.md`):
+拿第 01 章那个真实跑过的 `hello-workflow` 来看（Run ID `wf_dacbd480-d5d`，见 `assets/transcripts/primitives.md`）：
 
 ```javascript
 export const meta = {
@@ -279,19 +279,19 @@ log(`smoke result: ${JSON.stringify(r)}`)
 return r
 ```
 
-这里 `meta.phases` 声明了唯一的阶段 `Greet`,脚本体里 `phase('Greet')` 把游标切到它,随后的 `agent({ label: 'smoke' })` 就显示在 `Greet` 这一组下面。这就是「声明 + 切换」配对的最小完整形态。
+这里 `meta.phases` 声明了唯一的阶段 `Greet`，脚本体里 `phase('Greet')` 把游标切到它，随后的 `agent({ label: 'smoke' })` 就显示在 `Greet` 这一组下面。这就是「声明 + 切换」配对的最小完整形态。
 
-这个工作流的**真实用量**(来自 `assets/transcripts/primitives.md`):
+这个工作流的**真实用量**（来自 `assets/transcripts/primitives.md`）：
 
 ```text
 agent_count = 1   tool_uses = 1   total_tokens = 26338   duration_ms = 5506
 ```
 
-注意:`phase()` 和 `meta` 本身**不消耗 agent、不计 token**——`agent_count=1` 完整对应那唯一一个 `smoke` agent。经线是「免费」的结构,它不掺和执行成本的账,只塑造执行的**形状**和**呈现**。
+注意：`phase()` 和 `meta` 本身**不消耗 agent、不计 token**，`agent_count=1` 完整对应那唯一一个 `smoke` agent。经线是「免费」的结构，它不掺和执行成本的账，只塑造执行的**形状**和**呈现**。
 
-### 5.4.2 多阶段串联:游标随脚本推进
+### 5.4.2 多阶段串联：游标随脚本推进
 
-当工作流有多个阶段,`phase()` 就像一个随脚本执行**一路往前走**的游标。下面是一个三阶段的示例(示意,未实跑):
+当工作流有多个阶段，`phase()` 就像一个随脚本执行**一路往前走**的游标。下面是一个三阶段的示例（示意，未实跑）：
 
 ```javascript
 export const meta = {
@@ -341,12 +341,12 @@ log('审查完成')
 return report
 ```
 
-看看这段脚本的「经纬交织」:
+看看这段脚本里经线和纬线怎么交织：
 
-- **经线**:`meta.phases` 声明了三个刻度 `Plan / Review / Report`;脚本体里三句 `phase(...)` 是游标,依次往前走。
-- **纬线**:每个 `phase()` 之后的 `agent()` / `parallel()` 自动归入当前阶段。`planner` 在 Plan 组,所有 `review:*` 在 Review 组,`reporter` 在 Report 组。
+- **经线**：`meta.phases` 声明了三个刻度 `Plan / Review / Report`；脚本体里三句 `phase(...)` 是游标，依次往前走。
+- **纬线**：每个 `phase()` 之后的 `agent()` / `parallel()` 自动归入当前阶段。`planner` 在 Plan 组，所有 `review:*` 在 Review 组，`reporter` 在 Report 组。
 
-游标推进的时序可以这么理解:
+游标推进的时序可以这么理解：
 
 ```mermaid
 sequenceDiagram
@@ -366,25 +366,25 @@ sequenceDiagram
 
 <div class="callout tip">
 
-**`phase()` 是「全局游标」,不是「作用域」。** 它没有 `{ }` 范围,也不会在某段代码结束后「自动弹回」。你一旦调用 `phase('Review')`,游标就**一直**停在 Review,直到你显式调用下一个 `phase('Report')`。这个「全局可变状态」的脾性,在普通的顺序脚本里很自然,但在 `parallel()` / `pipeline()` 这种**并发**场景里会埋下一个坑——下一节专门讲。
+**`phase()` 是一个全局游标，不是作用域。** 它没有 `{ }` 范围，也不会在某段代码结束后自动弹回。你一旦调用 `phase('Review')`，游标就**一直**停在 Review，直到你显式调用下一个 `phase('Report')`。这个全局可变状态的脾性，在普通的顺序脚本里很自然，但在 `parallel()` / `pipeline()` 这种**并发**场景里会埋下一个坑。下一节专门讲。
 
 </div>
 
 ---
 
-## 5.5 字符串精确匹配:`meta.phases[].title` ↔ `phase('...')`
+## 5.5 字符串精确匹配：`meta.phases[].title` ↔ `phase('...')`
 
 这是本章**最容易出错、也最值得记牢**的机制。
 
-运行时把进度组织成一棵树:`meta.phases` 声明的每个 `title` 是树上的一个**预定义节点**;而 `phase('...')` 调用,是按 `title` 字符串**精确匹配**去「点亮」对应的节点,再把后续 agent 挂上去。
+运行时把进度组织成一棵树：`meta.phases` 声明的每个 `title` 是树上的一个**预定义节点**；而 `phase('...')` 调用，是按 `title` 字符串**精确匹配**去点亮对应的节点，再把后续 agent 挂上去。
 
-据 `_grounding.md` 描述:
+据 `_grounding.md` 描述：
 
 > `phase(title)`——开启新阶段;其后 `agent()` 归入该组。
 
-而 `meta.phases` 的 `title` 和 `phase()` 的参数之间,是**按字符串精确匹配**关联的。这意味着三件事:
+而 `meta.phases` 的 `title` 和 `phase()` 的参数之间，是**按字符串精确匹配**关联的。这意味着三件事。
 
-**其一:大小写、空格、标点都必须一字不差。** 下面就是一个**典型 bug**:
+**其一，大小写、空格、标点都必须一字不差。** 下面就是一个**典型 bug**：
 
 ```javascript
 export const meta = {
@@ -396,25 +396,25 @@ phase('review')   // ⚠️ 小写 'review' —— 与 'Review' 不匹配!
 await agent('...')
 ```
 
-`meta.phases` 里写的是 `'Review'`(首字母大写),`phase('review')` 传的却是小写。两者**不是同一个字符串**,匹配失败。结果:进度树里那个预声明的 `Review` 节点一直空着,你的 agent 却跑去了一个对不上号的地方。**功能上工作流照常运行,但进度显示乱套了**——这种 bug 不报错,只会让 `/workflows` 看起来莫名其妙。
+`meta.phases` 里写的是 `'Review'`（首字母大写），`phase('review')` 传的却是小写。两者**不是同一个字符串**，匹配失败。结果是：进度树里那个预声明的 `Review` 节点一直空着，你的 agent 却跑去了一个对不上号的地方。**功能上工作流照常运行，但进度显示乱套了。** 这种 bug 不报错，只会让 `/workflows` 看起来莫名其妙。
 
-**其二:`phase()` 传入一个没在 `meta.phases` 声明过的 title 会怎样?** 据现有事实源,`meta.phases` 是「预声明的刻度」,`phase()` 按 title 匹配点亮它们。传入一个未声明的 title——官方工具描述给了答案:**未匹配任何 `meta.phases` 条目的 `phase()` 调用,会自动获得自己的进度组**(既不被忽略,也不报错);临时多出来的 title 会**就地新开一组**。即便如此,稳妥的做法仍是:**`meta.phases` 里声明的 title,和脚本里 `phase()` 用到的,保持一一对应、字字相同。** 把两处的字符串当成「同一个常量的两次书写」来对待。
+**其二，`phase()` 传入一个没在 `meta.phases` 声明过的 title 会怎样？** 据现有事实源，`meta.phases` 是预声明的刻度，`phase()` 按 title 匹配点亮它们。传入一个未声明的 title 时，官方工具描述给了答案：**未匹配任何 `meta.phases` 条目的 `phase()` 调用，会自动获得自己的进度组**（既不被忽略，也不报错），临时多出来的 title 会**就地新开一组**。即便如此，稳妥的做法仍是让 `meta.phases` 里声明的 title 和脚本里 `phase()` 用到的**一一对应、字字相同**，把两处的字符串当成同一个常量的两次书写来对待。
 
-**其三:这是「声明」和「使用」的解耦,好处是进度树可以「预先成形」。** 因为 `meta.phases` 在静态读取阶段就被运行时拿到了,所以**还没开始执行**,`/workflows` 就能画出完整的阶段骨架(哪怕后面的阶段还没轮到)。`phase()` 执行到哪,就点亮到哪。这正是「经线先张紧」的又一次体现:结构先行,执行填充。
+**其三，这是声明和使用的解耦，好处是进度树可以「预先成形」。** 因为 `meta.phases` 在静态读取阶段就被运行时拿到了，所以**还没开始执行**，`/workflows` 就能画出完整的阶段骨架（哪怕后面的阶段还没轮到）。`phase()` 执行到哪，就点亮到哪。这正是「经线先张紧」的又一次体现：结构先行，执行填充。
 
 <div class="callout warn">
 
-**实践建议:把 phase 名抽成「单一事实源」。** 由于 `meta` 必须是纯字面量、不能引用变量,你**无法**拿一个 `const PHASE_REVIEW = 'Review'` 同时喂给 `meta` 和 `phase()`(那会让 `meta` 不再是纯字面量,被拒)。退而求其次的纪律是:**先写好 `meta.phases`,再把每个 `title` 字符串原样复制到对应的 `phase()` 调用里**,绝不手敲第二遍。复制粘贴在这里不是坏习惯,而是防止「大小写漂移」最有效的手段。
+**实践建议：把 phase 名抽成「单一事实源」。** 由于 `meta` 必须是纯字面量、不能引用变量，你**无法**拿一个 `const PHASE_REVIEW = 'Review'` 同时喂给 `meta` 和 `phase()`（那会让 `meta` 不再是纯字面量，被拒）。退而求其次的纪律是：**先写好 `meta.phases`，再把每个 `title` 字符串原样复制到对应的 `phase()` 调用里**，绝不手敲第二遍。复制粘贴在这里不是坏习惯，而是防止大小写漂移最有效的手段。
 
 </div>
 
-### 5.5.1 并发场景的陷阱:全局 phase() 的竞争
+### 5.5.1 并发场景的陷阱：全局 phase() 的竞争
 
-5.4 节末尾埋的坑,现在揭开。
+5.4 节末尾埋的坑，现在揭开。
 
-`phase()` 切换的是一个**全局当前阶段游标**。在顺序脚本里这毫无问题。但在 `parallel()` 或 `pipeline()` 里,多个 agent **同时在飞**,它们要是都靠「全局游标当前指向哪」来决定自己归入哪个阶段,就会**抢起来**:
+`phase()` 切换的是一个**全局当前阶段游标**。在顺序脚本里这毫无问题。但在 `parallel()` 或 `pipeline()` 里，多个 agent **同时在飞**，它们要是都靠全局游标当前指向哪来决定自己归入哪个阶段，就会**抢起来**。
 
-设想一个 pipeline,你想让第一阶段的 agent 进 `Find` 组、第二阶段进 `Verify` 组。要是你天真地在 stage 回调里写 `phase('Find')` / `phase('Verify')`:
+设想一个 pipeline，你想让第一阶段的 agent 进 `Find` 组、第二阶段进 `Verify` 组。要是你天真地在 stage 回调里写 `phase('Find')` / `phase('Verify')`：
 
 ```javascript
 // ⚠️ 反模式:在并发的 stage 回调里调用全局 phase()
@@ -425,9 +425,9 @@ await pipeline(
 )
 ```
 
-由于 pipeline「每个 item 独立流动、阶段间无屏障」(见第 01 章与第 08 章),某个 item 可能正处在 Verify、另一个还在 Find——两个回调**并发**地改同一个全局游标,谁最后写谁说了算。结果就是 agent 被随机分到 `Find` 或 `Verify`,进度树彻底错乱。
+由于 pipeline「每个 item 独立流动、阶段间无屏障」（见第 01 章与第 08 章），某个 item 可能正处在 Verify、另一个还在 Find，两个回调**并发**地改同一个全局游标，谁最后写谁说了算。结果就是 agent 被随机分到 `Find` 或 `Verify`，进度树彻底错乱。
 
-**正确做法:别在并发回调里用全局 `phase()`,而是在每个 `agent()` 上用 `opts.phase` 显式归组。** 这正是 `assets/transcripts/primitives.md` 里那个真实跑过的 `pipeline-demo`(Run ID `wf_bf086b98-6ec`)采用的写法:
+**正确做法是别在并发回调里用全局 `phase()`，而是在每个 `agent()` 上用 `opts.phase` 显式归组。** 这正是 `assets/transcripts/primitives.md` 里那个真实跑过的 `pipeline-demo`（Run ID `wf_bf086b98-6ec`）采用的写法：
 
 ```javascript
 export const meta = {
@@ -459,25 +459,25 @@ log(`pipeline produced ${out.filter(Boolean).length} verified items`)
 return out.filter(Boolean)
 ```
 
-这个工作流的**真实用量**(来自 `assets/transcripts/primitives.md`):
+这个工作流的**真实用量**（来自 `assets/transcripts/primitives.md`）：
 
 ```text
 agent_count = 6   tool_uses = 8   total_tokens = 158982   duration_ms = 26743
 ```
 
-3 项 × 2 阶段 = 6 个 agent,`agent_count=6` 印证了「每个 stage 回调各派一个 agent」。而每个 agent 通过 `opts.phase: 'Find' | 'Verify'` 把自己**钉死**在正确的分组上,不管它实际在哪个时刻被执行,进度树都准确。
+3 项 × 2 阶段 = 6 个 agent，`agent_count=6` 印证了每个 stage 回调各派一个 agent。而每个 agent 通过 `opts.phase: 'Find' | 'Verify'` 把自己**钉死**在正确的分组上，不管它实际在哪个时刻被执行，进度树都准确。
 
 <div class="callout tip">
 
-**一条铁律:顺序脚本用全局 `phase()`,并发(`parallel`/`pipeline`)里用 `opts.phase`。** 前者靠「执行顺序 = 阶段顺序」,在串行代码里成立;后者把归组信息**贴在每个 agent 自己身上**,不受并发交错影响。`_grounding.md` 对 `opts.phase` 的描述正是:「显式归入某进度组(在 pipeline/parallel 内部尤其重要,避免竞争全局 phase())」。`opts.phase` 的完整用法,第 06 章 agent() 指南会再细讲。
+**一条铁律：顺序脚本用全局 `phase()`，并发（`parallel`/`pipeline`）里用 `opts.phase`。** 前者靠「执行顺序 = 阶段顺序」，在串行代码里成立；后者把归组信息**贴在每个 agent 自己身上**，不受并发交错影响。`_grounding.md` 对 `opts.phase` 的描述正是「显式归入某进度组（在 pipeline/parallel 内部尤其重要，避免竞争全局 phase()）」。`opts.phase` 的完整用法，第 06 章 agent() 指南会再细讲。
 
 </div>
 
 ---
 
-## 5.6 模型覆盖:可靠的只有 `agent()` 的 `model`
+## 5.6 模型覆盖：可靠的只有 `agent()` 的 `model`
 
-模型(model)是 `meta` 这根经线和 `agent()` 那根纬线**交汇**的地方,值得单独梳理。5.3.3 已经下了结论:**唯一有官方明确语义、值得依赖的模型旋钮,是 `agent()` 的 `opts.model`**;`meta.phases[].model` 是写在经线上的「意图标注」,运行时是否单独生效**未定**。一个 agent 最终用哪个模型,可以按**从宽到窄**来理解:
+模型（model）是 `meta` 这根经线和 `agent()` 那根纬线**交汇**的地方，值得单独梳理。5.3.3 已经下了结论：**唯一有官方明确语义、值得依赖的模型旋钮，是 `agent()` 的 `opts.model`**；`meta.phases[].model` 是写在经线上的「意图标注」，运行时是否单独生效**未定**。一个 agent 最终用哪个模型，可以按**从宽到窄**来理解。
 
 ```mermaid
 flowchart TD
@@ -488,10 +488,10 @@ flowchart TD
     style B fill:#fdd,stroke:#d66,stroke-dasharray: 4 4
 ```
 
-从宽到窄理解:
+从宽到窄理解：
 
-1. **不写 `agent({ model })`** → agent 继承**主循环模型**。据 `_grounding.md`:「(`agent` 的)`opts.model` 省略则继承主循环模型」。**本章示例所在的早期会话**主循环是 Opus 4.7(这是那次会话的事实,非 Workflow 通用保证;R11 复核会话为 Opus 4.8,结论与型号无关)。
-2. **在 `agent({ model })` 上指定** → 唯一可靠的覆盖。最细的粒度,精确控制**这一个** agent 用什么模型,盖掉「继承主循环」这个默认。比如一个先「廉价地海量扇出找线索」、再「昂贵地精审」的工作流,**正确做法是在每个 agent 上落实 `model`**——同时**也**在 `phases` 上标注同样的意图,让权限对话框和读脚本的人一眼看清成本结构:
+1. **不写 `agent({ model })`** 时，agent 继承**主循环模型**。据 `_grounding.md`，`agent` 的 `opts.model` 省略则继承主循环模型。**本章示例所在的早期会话**主循环是 Opus 4.7（这是那次会话的事实，非 Workflow 通用保证；R11 复核会话为 Opus 4.8，结论与型号无关）。
+2. **在 `agent({ model })` 上指定**，是唯一可靠的覆盖。它是最细的粒度，精确控制**这一个** agent 用什么模型，盖掉「继承主循环」这个默认。比如一个先廉价地海量扇出找线索、再昂贵地精审的工作流，**正确做法是在每个 agent 上落实 `model`**，同时**也**在 `phases` 上标注同样的意图，让权限对话框和读脚本的人一眼看清成本结构：
 
 ```javascript
 export const meta = {
@@ -518,21 +518,21 @@ const deep = await agent(`精审命中项:${JSON.stringify(leads.filter(Boolean)
 
 <div class="callout warn">
 
-**`meta.phases[].model` 和 `agent({ model })` 的分工——外加一个关键告诫。** `meta.phases[].model` 是**声明性**的——它写在经线上,表达「这个阶段的意图是用某模型」,也让读脚本的人一眼看清成本结构。而 `agent({ model })` 是**命令性**的——它在纬线上,**真正**决定某个具体 agent 的模型。关键告诫:**别只写 phases 上的 `model` 就以为它会生效**——如 5.3.3 所述,本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖(Run ID `wf_9c94951d-58c`)无法证实 `phases[].model` 单独是否起作用,且官方措辞含糊。所以:`phases[].model` 和每个 `agent({ model })` **成对出现**——一处「说计划」给人看,一处「下命令」让它真生效。`agent({ model })` 的细节(包括 `'haiku'` 适合什么任务)留到第 06 章。
+**`meta.phases[].model` 和 `agent({ model })` 的分工，外加一个关键告诫。** `meta.phases[].model` 是**声明性**的：它写在经线上，表达「这个阶段的意图是用某模型」，也让读脚本的人一眼看清成本结构。而 `agent({ model })` 是**命令性**的：它在纬线上，**真正**决定某个具体 agent 的模型。关键告诫是**别只写 phases 上的 `model` 就以为它会生效**。如 5.3.3 所述，本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖（Run ID `wf_9c94951d-58c`）无法证实 `phases[].model` 单独是否起作用，且官方措辞含糊。所以让 `phases[].model` 和每个 `agent({ model })` **成对出现**：一处「说计划」给人看，一处「下命令」让它真生效。`agent({ model })` 的细节、以及环境变量 `CLAUDE_CODE_SUBAGENT_MODEL` 怎么盖掉脚本里每个 `model`，留到 [第 06 章 · agent() 完全指南](#/zh/p2-06)。
 
 </div>
 
-那为什么仍要在 phase 上标注模型意图?因为它对应一个极常见的成本权衡:**广度阶段用便宜模型大量扇出,深度阶段用强模型精雕细琢。** 把意图写在 `phases` 上,读脚本的人和权限对话框就能一眼看清「这个工作流哪一段贵、哪一段省」。而**真正压低 token** 的动作,是在那个扇出最多的阶段的每个 `agent()` 上写 `model:'haiku'`——token 成本正如 `_grounding.md` C 节的经验法则,约等于「agent 数 × 每 agent 上下文」,把扇出最多的那个阶段换成 haiku,省下的就是「agent 数 × 单价差」。
+那为什么仍要在 phase 上标注模型意图？因为它对应一个极常见的成本权衡：**广度阶段用便宜模型大量扇出，深度阶段用强模型精雕细琢。** 把意图写在 `phases` 上，读脚本的人和权限对话框就能一眼看清这个工作流哪一段贵、哪一段省。而**真正压低 token** 的动作，是在那个扇出最多的阶段的每个 `agent()` 上写 `model:'haiku'`。token 成本约等于「agent 数 × 每 agent 上下文」（这条经验法则的实测推导见 [第 09 章 · 进度·日志·续传·预算](#/zh/p2-09)），所以把扇出最多的那个阶段换成 haiku，省下的就是「agent 数 × 单价差」。
 
 ---
 
-## 5.7 `/workflows`:实时进度树,与 `log()` 的叙述行
+## 5.7 `/workflows`：实时进度树，与 `log()` 的叙述行
 
-经线张好、纬线穿梭,这一切**呈现**给人看的窗口,就是斜杠命令 `/workflows`(`_grounding.md` A 节:「实时进度——斜杠命令 `/workflows`」)。
+经线张好、纬线穿梭，这一切**呈现**给人看的窗口，就是斜杠命令 `/workflows`（`_grounding.md` A 节：「实时进度——斜杠命令 `/workflows`」）。
 
 ### 5.7.1 进度树长什么样
 
-`/workflows` 把当前(和历史)工作流渲染成一棵**实时刷新**的树。它的层级正是我们这一章搭起来的结构:
+`/workflows` 把当前（和历史）工作流渲染成一棵**实时刷新**的树。它的层级正是我们这一章搭起来的结构：
 
 ```text
 review-pipeline                          ← meta.name(树根)
@@ -546,26 +546,26 @@ review-pipeline                          ← meta.name(树根)
    └─ reporter                 ⏳ pending  ← 还没轮到的阶段也预先成形
 ```
 
-这棵树的每一层都来自本章的某个概念:
+这棵树的每一层都来自本章的某个概念：
 
 - **树根** = `meta.name`。
-- **二级节点** = `meta.phases[].title`(因为静态读取,它们**预先成形**,哪怕还没执行到那儿)。
-- **叶子** = 各个 `agent()`,显示名来自 `opts.label`(不传就自动编号),挂在哪一组由 `phase()` / `opts.phase` 决定。
-- **状态标记**(running / done / queued / pending)= 运行时实时更新;`queued` 反映第 01 章讲的并发上限节流(`min(16, CPU核心数 − 2)`)。
+- **二级节点** = `meta.phases[].title`（因为静态读取，它们**预先成形**，哪怕还没执行到那儿）。
+- **叶子** = 各个 `agent()`，显示名来自 `opts.label`（不传就自动编号），挂在哪一组由 `phase()` / `opts.phase` 决定。
+- **状态标记**（running / done / queued / pending）= 运行时实时更新；`queued` 反映第 01 章讲的并发上限节流（`min(16, CPU核心数 − 2)`）。
 
 <div class="callout tip">
 
-**进度树是「为什么要费心搭经线」的最好答案。** 一个不写 `phases`、不传 `label` 的工作流照样能跑出正确结果,但它的 `/workflows` 是一堆扁平的、编号的匿名 agent;而一个经线张好的工作流,进度树读起来像一份**带章节的执行报告**。当你的工作流扇出几十个 agent、跑上好几分钟,这棵树就是你唯一的「它现在在干嘛」的窗口。结构不只为机器,更为人。
+**进度树是「为什么要费心搭经线」的最好答案。** 一个不写 `phases`、不传 `label` 的工作流照样能跑出正确结果，但它的 `/workflows` 是一堆扁平的、编号的匿名 agent；而一个经线张好的工作流，进度树读起来像一份**带章节的执行报告**。当你的工作流扇出几十个 agent、跑上好几分钟，这棵树就是你唯一的「它现在在干嘛」的窗口。结构不只为机器，更为人。
 
 </div>
 
-### 5.7.2 `log()`:进度树上方的叙述行
+### 5.7.2 `log()`：进度树上方的叙述行
 
-`phase()` 塑造**结构**,`log()` 负责**叙述**。据 `_grounding.md` B 节:
+`phase()` 塑造**结构**，`log()` 负责**叙述**。据 `_grounding.md` B 节：
 
 > `log(message: string): void`——向用户输出进度(进度树上方叙述行)。
 
-它把一行自由文本打在进度树**上方**,当作人类可读的旁白。它和 `phase()` 的分工很清晰:
+它把一行自由文本打在进度树**上方**，当作人类可读的旁白。它和 `phase()` 的分工很清晰：
 
 | | `phase(title)` | `log(message)` |
 |---|---|---|
@@ -574,23 +574,23 @@ review-pipeline                          ← meta.name(树根)
 | 典型用途 | 「现在进入 Review 阶段」 | 「12 个分片中已完成 8 个」「barrier released」 |
 | 有返回值 | 无 | 无 |
 
-在前面引用的两个真实运行里,`log()` 都露过面:
+在前面引用的两个真实运行里，`log()` 都露过面：
 
-- `hello-workflow`:`log(\`smoke result: ${JSON.stringify(r)}\`)` ——把 agent 的结果回显成一行旁白。
-- `pipeline-demo`:`log(\`pipeline produced ${out.filter(Boolean).length} verified items\`)` ——汇报「产出了几条已验证项」。
-- `parallel-demo`(Run ID `wf_52957913-6d2`):`log(\`barrier released with ${results.filter(Boolean).length}/${dims.length} results\`)` ——在屏障释放时,报一句「拿到了 N/M 个结果」。
+- `hello-workflow`：`log(\`smoke result: ${JSON.stringify(r)}\`)` 把 agent 的结果回显成一行旁白。
+- `pipeline-demo`：`log(\`pipeline produced ${out.filter(Boolean).length} verified items\`)` 汇报产出了几条已验证项。
+- `parallel-demo`（Run ID `wf_52957913-6d2`）：`log(\`barrier released with ${results.filter(Boolean).length}/${dims.length} results\`)` 在屏障释放时报一句拿到了 N/M 个结果。
 
 <div class="callout warn">
 
-**`log()` 里别用 `Date.now()` 拼时间戳。** 第 01 章的禁令对整个脚本体有效,`log()` 也不例外——它同样跑在脚本里。想在日志里体现进度数字(已完成几个、一共几个),用 `.filter(Boolean).length` 这类**对输入的纯计算**,别用时间或随机。这样工作流才保持可重放,断点续传才能命中缓存(细节见第 22 章)。
+**`log()` 里别用 `Date.now()` 拼时间戳。** 脚本体禁用时间和随机这条禁令对 `log()` 同样有效（它就跑在脚本里；这条禁令讲透在 [第 02 章 · 为什么需要确定性编排](#/zh/p1-02)）。想在日志里体现进度数字（已完成几个、一共几个），用 `.filter(Boolean).length` 这类**对输入的纯计算**，别用时间或随机。这样工作流才保持可重放，断点续传才能命中缓存（细节见第 22 章）。
 
 </div>
 
 ---
 
-## 5.8 一个把经线用满的范例(示意,未实跑)
+## 5.8 一个把经线用满的范例（示意，未实跑）
 
-把本章所有概念收拢到一个例子里。下面这个工作流刻意把 `meta` 已确认的每个字段、多阶段 `phase()`、按 phase 选模型、`opts.phase` 并发归组、还有 `log()` 叙述都用了个遍——它是一份「经线检查表」,不是生产配方,故标注**(示意,未实跑)**:
+把本章所有概念收拢到一个例子里。下面这个工作流刻意把 `meta` 已确认的每个字段、多阶段 `phase()`、按 phase 选模型、`opts.phase` 并发归组、还有 `log()` 叙述都用了个遍。它是一份「经线检查表」，不是生产配方，故标注**（示意，未实跑）**：
 
 ```javascript
 export const meta = {
@@ -650,14 +650,14 @@ log('修复建议已生成')
 return plan
 ```
 
-逐一对照本章知识点:
+逐一对照本章知识点：
 
-- **`meta` 纯字面量**:全字段都是死值,无变量、无函数、无插值——能过静态读取这一关(5.1–5.2)。
-- **四个 meta 字段全用上**:`name` / `description`(必填)、`whenToUse`(列表说明)、`phases`(三阶段,Triage 标 haiku)(5.3)。
-- **顺序段用全局 `phase()`**:Triage、Suggest 是串行代码,`phase('Triage')` / `phase('Suggest')` 安全(5.4)。
-- **并发段用 `opts.phase`**:Locate 阶段是 `parallel()`,每个 agent 用 `phase: 'Locate'` 显式归组,避免全局游标竞争(5.5.1)。
-- **模型:`agent()` 上的 `model` 才生效**:`triage` agent 显式 `model: 'haiku'`(这是真正起作用的一处,和 phases[0] 上的同名标注**成对出现**);`suggest` agent 不写 model,所以继承**主循环模型**(顶层 `meta.model` 非 meta 字段、`phases[].model` 单独是否生效未定,这两样都不参与此处,5.3.3、5.6)。
-- **`log()` 叙述**:每阶段一句进度旁白,而且只用 `.length` 这种纯计算,不碰时间/随机(5.7.2)。
+- **`meta` 纯字面量**：全字段都是死值，无变量、无函数、无插值，能过静态读取这一关（5.1–5.2）。
+- **四个 meta 字段全用上**：`name` / `description`（必填）、`whenToUse`（列表说明）、`phases`（三阶段，Triage 标 haiku）（5.3）。
+- **顺序段用全局 `phase()`**：Triage、Suggest 是串行代码，`phase('Triage')` / `phase('Suggest')` 安全（5.4）。
+- **并发段用 `opts.phase`**：Locate 阶段是 `parallel()`，每个 agent 用 `phase: 'Locate'` 显式归组，避免全局游标竞争（5.5.1）。
+- **模型上 `agent()` 的 `model` 才生效**：`triage` agent 显式 `model: 'haiku'`（这是真正起作用的一处，和 phases[0] 上的同名标注**成对出现**）；`suggest` agent 不写 model，所以继承**主循环模型**（顶层 `meta.model` 非 meta 字段、`phases[].model` 单独是否生效未定，这两样都不参与此处，5.3.3、5.6）。
+- **`log()` 叙述**：每阶段一句进度旁白，而且只用 `.length` 这种纯计算，不碰时间和随机（5.7.2）。
 
 它的 `/workflows` 进度树长这样(示意):
 
@@ -677,14 +677,14 @@ triage-and-fix
 
 ## 5.9 本章小结
 
-- **经线 = 张紧的结构骨架。** `meta` 与 `phase()` 不跑业务、不计 token,却在第一个 `agent()` 之前就定下工作流的「形」。
-- **`meta` 必须纯字面量**,因为运行时在**执行前静态读取**它,拿去在权限弹窗里显示 `name` / `description` / `phases`。含变量、函数调用、模板插值、展开运算的「活值」都会被**拒绝执行**(5.1–5.2)。
-- **`meta` 字段**:必填 `name` / `description`(自报家门);可选 `whenToUse`(工作流列表的「何时用」)、`phases`(阶段刻度,每项 `{title, detail?, model?}`)。注意:**顶层 `meta.model` 并非工具定义里已确认的 meta 字段,语义未核实**(5.3、5.6)。
-- **`phase(title)`** 切换全局当前阶段游标,其后 `agent()` 归入该组;`meta.phases[].title` 与 `phase('...')` 按**字符串精确匹配**关联——大小写、空格差一个字就会让进度树错乱(5.4–5.5)。
-- **并发场景的铁律**:顺序脚本用全局 `phase()`,`parallel`/`pipeline` 里改用每个 agent 的 `opts.phase` 显式归组,避免抢全局游标(5.5.1)。
-- **模型:唯一可靠的旋钮是 `agent()` 的 `model`**(省略则继承主循环;本章示例的早期会话主循环 Opus 4.7,R11 复核会话为 Opus 4.8——结论与型号无关)。`meta.phases[].model` 只是「意图标注」,**运行时是否单独生效未定**——官方措辞含糊,且本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖(`wf_9c94951d-58c`)无法独立隔离。**要某阶段真用某模型,就在该阶段每个 `agent()` 上写 `model`,别只标在 phases 上**(5.3.3、5.6)。
-- **`/workflows`** 把 `meta.name`(根)/ `phases[].title`(分组,预先成形)/ `agent` 的 `label`(叶子)渲染成实时进度树;**`log()`** 在树上方打一行人类可读的叙述——一个塑形,一个叙事(5.7)。
+- **经线 = 张紧的结构骨架。** `meta` 与 `phase()` 不跑业务、不计 token，却在第一个 `agent()` 之前就定下工作流的「形」。
+- **`meta` 必须纯字面量**，因为运行时在**执行前静态读取**它，拿去在权限弹窗里显示 `name` / `description` / `phases`。含变量、函数调用、模板插值、展开运算的「活值」都会被**拒绝执行**（5.1–5.2）。
+- **`meta` 字段**：必填 `name` / `description`（自报家门）；可选 `whenToUse`（工作流列表的「何时用」）、`phases`（阶段刻度，每项 `{title, detail?, model?}`）。注意：**顶层 `meta.model` 并非工具定义里已确认的 meta 字段，语义未核实**（5.3、5.6）。
+- **`phase(title)`** 切换全局当前阶段游标，其后 `agent()` 归入该组；`meta.phases[].title` 与 `phase('...')` 按**字符串精确匹配**关联，大小写、空格差一个字就会让进度树错乱（5.4–5.5）。
+- **并发场景的铁律**：顺序脚本用全局 `phase()`，`parallel`/`pipeline` 里改用每个 agent 的 `opts.phase` 显式归组，避免抢全局游标（5.5.1）。
+- **模型上唯一可靠的旋钮是 `agent()` 的 `model`**（省略则继承主循环；本章示例的早期会话主循环 Opus 4.7，R11 复核会话为 Opus 4.8，结论与型号无关）。`meta.phases[].model` 只是「意图标注」，**运行时是否单独生效未定**：官方措辞含糊，且本会话因 `CLAUDE_CODE_SUBAGENT_MODEL` 覆盖（`wf_9c94951d-58c`）无法独立隔离。**要某阶段真用某模型，就在该阶段每个 `agent()` 上写 `model`，别只标在 phases 上**（5.3.3、5.6）。
+- **`/workflows`** 把 `meta.name`（根）、`phases[].title`（分组，预先成形）、`agent` 的 `label`（叶子）渲染成实时进度树；**`log()`** 在树上方打一行人类可读的叙述。一个塑形，一个叙事（5.7）。
 
-经线已张紧。下一章,我们把目光全部投向那根穿梭其间、真正干活的**纬线**——把 `agent(prompt, opts)` 的每一个选项(`label`、`schema`、`phase`、`model`、`isolation`、`agentType`)拆到见底,看清一个 subagent 从派发到返回的完整一生。
+经线已张紧。下一章，我们把目光全部投向那根穿梭其间、真正干活的**纬线**：把 `agent(prompt, opts)` 的每一个选项（`label`、`schema`、`phase`、`model`、`isolation`、`agentType`）拆到见底，看清一个 subagent 从派发到返回的完整一生。
 
 > 继续阅读:[第 06 章 · agent() 完全指南](#/zh/p2-06)

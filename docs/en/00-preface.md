@@ -2,9 +2,9 @@
 
 > **"Warp it with the heavens, weft it with the earth."** — *Zuo Zhuan*, 28th Year of Duke Zhao
 >
-> Two thousand years ago, weavers made the warp the bone and the weft the flesh, throwing the shuttle pass after pass to weave brocade. The warp is structure — running end to end, drawn taut and unmoving; the weft is function — shuttling between, ever-changing. The warp fixes the form, the weft makes the splendor; only when warp and weft interlace does a bolt of cloth come into being.
+> Two thousand years ago, weavers made the warp the bone and the weft the flesh, throwing the shuttle pass after pass to weave brocade. The warp is structure, running end to end, drawn taut and unmoving; the weft is function, shuttling between, ever-changing. The warp fixes the form, the weft makes the splendor, and only when warp and weft interlace does a bolt of cloth come into being.
 >
-> Today, orchestrating AI agents is no different: `meta` and `phase` are the **warp** — a deterministic structural skeleton, pre-tensioned and immovable; `agent()`, `parallel()`, and `pipeline()` are the **weft** — the intelligent units that shuttle through that skeleton and execute. The warp decides the shape of the pipeline; the weft fills in the real work.
+> Today, orchestrating AI agents is the same craft. `meta` and `phase` are the **warp**: a deterministic structural skeleton, pre-tensioned and immovable. `agent()`, `parallel()`, and `pipeline()` are the **weft**: the intelligent units that shuttle through that skeleton and execute. The warp decides the shape of the pipeline; the weft fills in the real work.
 >
 > This is why the book is named **Loom**.
 
@@ -12,13 +12,13 @@
 
 ## When Everyone Is "Directing" Agents
 
-Over the past two years, we've learned to **use** AI agents: write good prompts, wire up the right tools, spin up a few subtasks to run in parallel. The community has put out a pile of excellent workflow systems — `oh-my-claudecode`, `superpowers`, `oh-my-openagent`, `ccg-workflow` — each with its own bag of tricks, drilling a single agent into a well-trained team.
+Over the past two years, we've learned to **use** AI agents: write good prompts, wire up the right tools, spin up a few subtasks to run in parallel. The community has put out a pile of excellent workflow systems, among them `oh-my-claudecode`, `superpowers`, `oh-my-openagent`, and `ccg-workflow`, each with its own bag of tricks, drilling a single agent into a well-trained team.
 
 But pop the hood on any of them and you hit a shared, slightly awkward truth: **these systems all orchestrate by "praying" through prompts.**
 
-They write the orchestration logic in Markdown and try to pin down a **probabilistic** language model by hammering home in the prompt "⛔ you MUST do A before B" and "never skip verification"; they use lifecycle hooks to drop "breadcrumbs" into every turn, nudging the agent "you're not done yet, go back and finish"; they persist progress to JSON state files, because the moment the context gets compacted, the agent forgets what it was doing.
+They write the orchestration logic in Markdown and try to pin down a **probabilistic** language model by hammering home in the prompt "⛔ you MUST do A before B" and "never skip verification." They use lifecycle hooks to drop "breadcrumbs" into every turn, nudging the agent "you're not done yet, go back and finish." They persist progress to JSON state files, because the moment the context gets compacted, the agent forgets what it was doing.
 
-These tricks are clever, and they work — but at bottom they lean on **natural language** and **runtime patches** to fake something that should be guaranteed by **code**: **deterministic control flow.**
+These tricks are clever, and they work. But at bottom they lean on **natural language** and **runtime patches** to fake something that should be guaranteed by **code**: **deterministic control flow.**
 
 > Why did they do this? Because for a long time, Claude Code gave you no native way to "orchestrate agents with code."
 >
@@ -30,12 +30,12 @@ These tricks are clever, and they work — but at bottom they lean on **natural 
 
 **Two layers of truth in this book (read this first)**
 
-This book covers two layers, and they come from different places — keep them straight:
+This book covers two layers, and they come from different places, so keep them straight:
 
-1. **How to use it (the user's view)** — anchored to the official docs at `code.claude.com/docs/en/workflows`: how to trigger a workflow, approve it, save and rerun it, turn it on and off, and what the limits are. The official docs spell all of this out.
-2. **What's actually in the script (the engine room)** — the orchestration API: `agent()`, `parallel()`, `pipeline()`, `phase()`, `meta`, `schema`. **The official public docs don't document this layer.** It's real and it runs (this book proves it with 40+ real run records, each tagged with a Run ID), but it comes from Claude Code's runtime contract and our own testing — not from the official docs.
+1. **How to use it (the user's view):** anchored to the official docs at `code.claude.com/docs/en/workflows`, covering how to trigger a workflow, approve it, save and rerun it, turn it on and off, and what the limits are. The official docs spell all of this out.
+2. **What's actually in the script (the engine room):** the orchestration API of `agent()`, `parallel()`, `pipeline()`, `phase()`, `meta`, and `schema`. **The official public docs don't document this layer.** It's real and it runs (this book proves it with 40+ real run records, each tagged with a Run ID), but it comes from Claude Code's runtime contract and our own testing, not from the official docs.
 
-Why cover the second layer at all? Because the official way to use workflows is "you describe the task, Claude writes the script" — you don't write it by hand. But to read what Claude wrote, tweak it, and build a reusable library of your own, you need this API. That's what this book is for.
+Why cover the second layer at all? Because the official way to use workflows is "you describe the task, Claude writes the script," so you don't write it by hand. But to read what Claude wrote, tweak it, and build a reusable library of your own, you need this API. That's what this book is for.
 
 One caveat: dynamic workflows are a research preview, so these script-layer details can change without notice. Everywhere this book covers the script layer, it's flagged as "verified by testing, not officially documented." Before you rely on it in production, run it yourself to confirm.
 
@@ -45,9 +45,9 @@ One caveat: dynamic workflows are a research preview, so these script-layer deta
 
 Claude Code just shipped a capability called **Dynamic workflows**, in **research preview**, with the docs now formally published at [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows). Here's what it does, in one sentence:
 
-> **Use a single pure-JavaScript script to deterministically orchestrate hundreds of subagents (within the official caps: up to 1,000 per run, up to 16 concurrent) — with support for pipelines, concurrency, phases, budgets, structured output, and JSON Schema constraints — reusable, testable, and shareable.**
+> **Use a single pure-JavaScript script to deterministically orchestrate hundreds of subagents (within the official caps: up to 1,000 per run, up to 16 concurrent), with support for pipelines, concurrency, phases, budgets, structured output, and JSON Schema constraints, and it's reusable, testable, and shareable.**
 
-In the official framing: a dynamic workflow is a JavaScript script that Claude writes for you, and a runtime executes it in the background while your session stays responsive. It's not MCP (a protocol for connecting external tools), not Skills (knowledge packs that inject prompts), not Subagents (one-off subtasks), and not Agent Teams (a stateful collaborating team). It's a **brand-new, orthogonal dimension of extension**: it pulls the **orchestration logic** — what to do first, what next, what runs in parallel, what runs serially, how to verify the results — out of slippery prompts and moves it into **deterministic code**.
+In the official framing, a dynamic workflow is a JavaScript script that Claude writes for you, and a runtime executes it in the background while your session stays responsive. It sits apart from Claude Code's other extension mechanisms: MCP is a protocol for connecting external tools, Skills are knowledge packs that inject prompts, Subagents are one-off subtasks, and Agent Teams are a stateful collaborating team. A workflow is a **brand-new, orthogonal dimension of extension**. It pulls the **orchestration logic** (what to do first, what next, what runs in parallel, what runs serially, how to verify the results) out of slippery prompts and moves it into **deterministic code**.
 
 Say you write this:
 
@@ -61,11 +61,11 @@ const results = await pipeline(
 )
 ```
 
-`pipeline`, `parallel`, and `agent` are all **real functions**, executed **deterministically** by the JavaScript runtime. Which phase runs first, how many agents run concurrently, what condition the loop exits on — code decides all of it, with no more leaning on the model's "good intentions." And `schema` forces each subagent's output to **strictly match** a JSON Schema; if the model hands back a non-conforming structure, the runtime makes it **retry** until it conforms.
+`pipeline`, `parallel`, and `agent` are all **real functions**, executed **deterministically** by the JavaScript runtime. Code decides which phase runs first, how many agents run concurrently, and what condition the loop exits on, with no more leaning on the model's "good intentions." And `schema` forces each subagent's output to **strictly match** a JSON Schema; if the model hands back a non-conforming structure, the runtime makes it **retry** until it conforms.
 
 What this means: **the orchestration discipline the community painstakingly maintains through prompts can now be welded shut, once and for all, in code.**
 
-It requires **Claude Code v2.1.154 or later**, and it's available on all paid plans (Anthropic API, Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry are all covered); Pro users turn it on from the "Dynamic workflows" row in `/config`. Once it's on, the official also gives you a session-level effort tier that turns on proactive orchestration, `/effort ultracode`: with it on, Claude orchestrates a workflow by default across the whole session, and `/effort high` reverts it (see [Chapter 01 §1.6](#/en/p1-01)). What this book sets out to do is help you **truly master** this freshly shipped capability — not just using the bundled one, but learning to **write your own** workflows.
+It requires **Claude Code v2.1.154 or later**, and it's available on all paid plans (Anthropic API, Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry are all covered); Pro users turn it on from the "Dynamic workflows" row in `/config`. Once it's on, the official also gives you a session-level effort tier that turns on proactive orchestration, `/effort ultracode`: with it on, Claude orchestrates a workflow by default across the whole session, and `/effort high` reverts it (see [Chapter 01 §1.6](#/en/p1-01)). This book sets out to help you **truly master** this freshly shipped capability: not just using the bundled one, but learning to [**write your own**](#/en/p6-27) workflows.
 
 ---
 
@@ -76,7 +76,7 @@ It requires **Claude Code v2.1.154 or later**, and it's available on all paid pl
 There's no shortage of "here are the Workflow tool's parameters" listings out there. This book tackles the harder, more useful questions:
 
 - **When** should you reach for Workflow, and when for Subagents / Skills / Agent Teams? (Part I · The Positioning Matrix)
-- `parallel` and `pipeline` both seem to run things concurrently — **what exactly is the difference**, and how much wall-clock time do you burn by picking wrong? (Part II · Foundations)
+- `parallel` and `pipeline` both seem to run things concurrently, so **what exactly is the difference**, and how much wall-clock time do you burn by picking wrong? (Part II · Foundations)
 - What does a genuinely usable "sharded code review," "multi-dimension PR review," or "bug hunter" pipeline **actually look like**? (Part III · Recipes)
 - How do you design "adversarial verification," "judge panels," and "loop-until-dry" so the results are **trustworthy** and not just "looks right"? (Part IV · Advanced Patterns)
 - Of those four excellent community systems, **which gems** can you rewrite as reusable assets with Workflow? (Part V · Ecosystem)
@@ -84,7 +84,7 @@ There's no shortage of "here are the Workflow tool's parameters" listings out th
 
 <div class="callout tip">
 
-**Depth made accessible** is this book's creed. Every concept starts from "why you need it," builds intuition with a minimal runnable example, then layers up to production-grade recipes. You don't have to grasp all the theory first — pick the recipe closest to your work, get it running, then come back for the principles. That works just as well.
+**Depth made accessible** is this book's creed. Every concept starts from "why you need it," builds intuition with a minimal runnable example, then layers up to production-grade recipes. You don't have to grasp all the theory first. Pick the recipe closest to your work, get it running, then come back for the principles. That works just as well.
 
 </div>
 
@@ -94,7 +94,7 @@ There's no shortage of "here are the Workflow tool's parameters" listings out th
 
 What sets this book apart from the many "tutorials written by AI" comes down to three iron laws:
 
-**One: Real runs, never fabricated.** Every output in this book marked "real run" comes from actually running a Workflow in a real Claude Code session — including the real `taskId`, `runId`, token usage, duration, and return value. These raw records live in the repository's [`assets/transcripts/`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/tree/main/assets/transcripts) directory, and you can check them line by line. Any script that wasn't actually run, and serves only as illustration, is **clearly marked**.
+**One: Real runs, never fabricated.** Every output in this book marked "real run" comes from actually running a Workflow in a real Claude Code session, including the real `taskId`, `runId`, token usage, duration, and return value. These raw records live in the repository's [`assets/transcripts/`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/tree/main/assets/transcripts) directory, and you can check them line by line. Any script that wasn't actually run, and serves only as illustration, is **clearly marked**.
 
 **Two: Cross-checked against sources, never guessed.** Every description of the Workflow API is checked word-for-word against three sources: the official docs at [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows), the type-definition file `sdk-tools.d.ts` (the `WorkflowInput` / `WorkflowOutput` interfaces) in Claude Code's official distribution, and the runtime tool definition. Any claim about environment variables, version numbers, or feature flags is confirmed by testing on the local machine. The findings in this book that go beyond the official docs (the registry tested down to just `deep-research`, the serialization trap, the `parallel` sync-throw that fails the whole run, worktree behavior, and so on) all carry their corresponding Run IDs so you can re-verify them.
 
@@ -126,7 +126,9 @@ What sets this book apart from the many "tutorials written by AI" comes down to 
 >
 > **Experienced?** Go straight to Part III "Recipes" and Part IV "Advanced Patterns"; circle back to Parts I and II whenever you hit a conceptual gap.
 >
-> **Want to master it systematically?** Front to back — run a recipe by hand in every chapter, and in Part V rewrite the most painful step in your own workflow with Workflow.
+> **Want to master it systematically?** Front to back: run a recipe by hand in every chapter, and in Part V rewrite the most painful step in your own workflow with Workflow.
+>
+> **Want to build your own reusable workflow?** Follow this order: get your first one running with [Chapter 04](#/en/p2-04), learn to press `s` to save and rerun in [The Control Panel §6](#/en/p2-ops), study the from-scratch authoring process in [Chapter 27 §27](#/en/p6-27), then settle it into your own library with [Chapter 25 §25](#/en/p5-25).
 >
 > **Here to copy homework?** Every recipe in Parts III and IV is a complete, copy-paste-runnable script; Appendix A is a full API quick reference cross-checked against the official type definitions.
 >
@@ -136,9 +138,9 @@ What sets this book apart from the many "tutorials written by AI" comes down to 
 
 ## Acknowledgments and Disclaimer
 
-This book was inspired by [Yu Yu · claude-code-book](https://github.com/lintsinghua/claude-code-book) — a book that systematically dissects the architecture of Claude Code and is a forerunner of the "pop the hood" spirit. Part V's analysis of the four community systems (`ccg-workflow`, `oh-my-claudecode`, `oh-my-openagent`, `superpowers`) rests on a genuine reading of their source code, aiming to "take the best" rather than to rank them.
+This book was inspired by [Yu Yu · claude-code-book](https://github.com/lintsinghua/claude-code-book), which systematically dissects the architecture of Claude Code and is a forerunner of the "pop the hood" spirit. Part V's analysis of the four community systems (`ccg-workflow`, `oh-my-claudecode`, `oh-my-openagent`, `superpowers`) rests on a genuine reading of their source code, aiming to "take the best" rather than to rank them.
 
-> **Disclaimer:** This book is written from an analysis of Claude Code's public distribution, type definitions, and product behavior, backed by real-run verification. Claude Code is a product of Anthropic PBC; this book is not affiliated with, authorized by, or representative of Anthropic. The views — and any errors — herein are the author's responsibility.
+> **Disclaimer:** This book is written from an analysis of Claude Code's public distribution, type definitions, and product behavior, backed by real-run verification. Claude Code is a product of Anthropic PBC; this book is not affiliated with, authorized by, or representative of Anthropic. The views herein, and any errors, are the author's responsibility.
 
 <div class="callout info">
 

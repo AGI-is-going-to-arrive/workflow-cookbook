@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>织经 · Workflow Cookbook — Claude Code 多 Agent 编排实战手册</title>
-<meta name="description" content="织经 · Workflow Cookbook — 深入浅出讲透 Claude Code 的 CLAUDE_CODE_WORKFLOWS 特性：用 JavaScript 脚本确定性编排多 Agent。A hands-on guide to multi-agent orchestration in Claude Code." />
+<meta name="description" content="织经 · Workflow Cookbook — 深入浅出讲透 Claude Code 的动态工作流（Dynamic workflows，技术开关 CLAUDE_CODE_WORKFLOWS）：用 JavaScript 脚本确定性编排多 Agent。A hands-on guide to Claude Code's Dynamic workflows: deterministic multi-agent orchestration in JavaScript." />
 <!-- Defense-in-depth behind DOMPurify+SRI: source allowlist for scripts/styles/fonts/fetch. 'unsafe-inline' is required for this single-file SPA's inline <script>/<style> (GitHub Pages can't set nonces), so this constrains resource ORIGINS rather than blocking inline injection (that is DOMPurify's job). -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'self'; object-src 'none'" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23FBFAF5'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23F05C00'/%3E%3C/svg%3E" />
@@ -29,9 +29,9 @@
   --accent-tint:#FCEFE6;
   --rule:#1C1C1E; --line:#E4DFD2; --line-2:#EEEAE0;
   --code-bg:#FBF9F3; --code-head:#F3EFE4; --code-border:#E4DECF; --code-ink:#26262B;
-  --f-display:'Playfair Display','Noto Serif SC',Georgia,serif;
-  --f-body:'Newsreader','Noto Serif SC',Georgia,serif;
-  --f-ui:'Inter','Noto Sans SC',system-ui,-apple-system,sans-serif;
+  --f-display:'Playfair Display','Noto Serif SC','Songti SC','SimSun',Georgia,serif;
+  --f-body:'Newsreader','Noto Serif SC','Songti SC','SimSun',Georgia,serif;
+  --f-ui:'Inter','Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,-apple-system,sans-serif;
   --f-mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;
   --side-w:298px; --toc-w:208px; --measure:720px;
   --ease:cubic-bezier(.22,.61,.36,1); --t:200ms;
@@ -102,12 +102,12 @@ img{max-width:100%}
 .main h4{font-size:1.08rem;font-weight:600;font-family:var(--f-ui);margin:1.4em 0 .4em;letter-spacing:.01em}
 .main h2 .anchor,.main h3 .anchor{opacity:0;margin-left:.4em;color:var(--accent-text);font-family:var(--f-ui);font-size:.7em;transition:opacity var(--t)}
 .main h2:hover .anchor,.main h3:hover .anchor,.main .anchor:focus{opacity:.7}
-.main p{margin:0 0 1.2em;font-size:1.06rem}
+.main p{margin:0 0 1.2em;font-size:1.06rem;overflow-wrap:break-word}
 .main p code,.main li code,.main td code{font-family:var(--f-mono);font-size:.85em;background:#F1ECDF;color:#9A3D12;padding:.12em .4em;border-radius:4px;border:1px solid var(--code-border);white-space:normal;overflow-wrap:anywhere}
 .main a.link{color:var(--accent-text);border-bottom:1px solid #f0bfa0;transition:border-color var(--t)}
 .main a.link:hover{border-color:var(--accent)}
 .main ul,.main ol{margin:0 0 1.3em;padding-left:1.5em}
-.main li{margin:.34em 0;font-size:1.05rem}
+.main li{margin:.34em 0;font-size:1.05rem;overflow-wrap:break-word}
 .main li::marker{color:var(--accent-text)}
 .main strong{font-weight:700;color:var(--ink)}
 .main hr{border:0;height:1px;background:var(--line);margin:2.4em 0}
@@ -413,6 +413,7 @@ function toggleNav(force){
   const open = force===undefined ? !document.body.classList.contains('nav-open') : force;
   document.body.classList.toggle('nav-open', open);
   $('#menuBtn').setAttribute('aria-expanded', open?'true':'false');
+  $('#menuBtn').setAttribute('aria-label', open ? (S.lang==='zh'?'关闭导航菜单':'Close navigation menu') : (S.lang==='zh'?'打开导航菜单':'Open navigation menu'));
   const shell=$('.shell'); if(shell){ if(open){ shell.setAttribute('inert',''); shell.setAttribute('aria-hidden','true'); } else { shell.removeAttribute('inert'); shell.removeAttribute('aria-hidden'); } }
   if(open){ const first=$('#sideNav .np-item'); if(first) first.focus(); }
 }
@@ -446,10 +447,10 @@ function renderHome(){
   $('#crumb').innerHTML = isZh?'<b>封面</b>':'<b>Cover</b>';
   $('#toc').innerHTML=''; tocLinks=[]; headEls=[];
   const stats = isZh
-    ? [['29','章 + 6 附录'],['40+','真实运行存证'],['v2.1.156','实测版本'],['ZH/EN','双语对照']]
-    : [['29','Chapters +6 App.'],['40+','Real Run Logs'],['v2.1.156','Tested On'],['ZH/EN','Bilingual']];
+    ? [['29','章 + 7 附录'],['40+','真实运行存证'],['v2.1.156','实测版本'],['ZH/EN','双语对照']]
+    : [['29','Chapters +7 App.'],['40+','Real Run Logs'],['v2.1.156','Tested On'],['ZH/EN','Bilingual']];
   let html = '<div class="front">';
-  html += '<div class="masthead"><div class="kicker">'+(isZh?'Claude Code · CLAUDE_CODE_WORKFLOWS 特性详解':'The CLAUDE_CODE_WORKFLOWS Feature, Decoded')+'</div>';
+  html += '<div class="masthead"><div class="kicker">'+(isZh?'Claude Code · 动态工作流（Dynamic workflows）详解':'Claude Code Dynamic Workflows, Decoded')+'</div>';
   html += '<h1>'+(isZh?'织<span class="dot">·</span>经':'Loom<span class="dot">.</span>')+'</h1>';
   html += '<div class="sub">'+esc(st.tagline[S.lang])+'</div></div>';
   html += '<div class="dateline"><span>'+(isZh?'确定性多 Agent 编排':'Deterministic Multi-Agent Orchestration')+'</span><span class="sep">◆</span><span>'+esc(st.env)+'</span></div>';

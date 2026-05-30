@@ -1,18 +1,18 @@
 # Chapter 11 · Multi-dimension PR Review
 
-> A proper Code Review is never about looking at just one dimension. A security engineer watches for injection and XSS, a performance engineer watches for blocking and reflow, an accessibility expert watches for focus and contrast — they **each look at their own thing without stepping on each other**, and at the end one person **aggregates, dedups, and ranks the fix order** of all the opinions. This chapter ports that human collaboration into Workflow: **parallel multi-dimension concurrent review → one synthesize agent consolidates into a prioritized list**. The running case is a real piece of dogfooding — we used this recipe to review this book's own frontend `index.html`, dug out XSS, no focus indicator, duplicate heading IDs and other issues, and on that basis **really fixed 16 items.**
+> A proper Code Review is never about looking at just one dimension. A security engineer watches for injection and XSS, a performance engineer watches for blocking and reflow, an accessibility expert watches for focus and contrast; they **each look at their own thing without stepping on each other**, and at the end one person **aggregates, dedups, and ranks the fix order** of all the opinions. This chapter ports that human collaboration into Workflow: **parallel multi-dimension concurrent review → one synthesize agent consolidates into a prioritized list**. The running case is a real piece of dogfooding: we used this recipe to review this book's own frontend `index.html`, dug out XSS, no focus indicator, duplicate heading IDs and other issues, and on that basis **really fixed 16 items.**
 
 ---
 
 ## 11.1 Recipe Motivation
 
-Chapter 10's "Sharded Code Review" solves the problem of **a single dimension at too large a scale**: a diff is thousands of lines, so you slice it into shards and let multiple agents each look at a part. This chapter solves a different, **orthogonal problem** — **the same code, multiple dimensions.**
+Chapter 10's "Sharded Code Review" solves the problem of **a single dimension at too large a scale**: a diff is thousands of lines, so you slice it into shards and let multiple agents each look at a part. This chapter solves a different, **orthogonal problem**: **the same code, multiple dimensions.**
 
 Why can't one agent "look at all dimensions together"? Three practical reasons:
 
-- **Attention gets diluted.** Make the same agent watch security, performance, and accessibility at once and it skims each dimension shallowly, handing you a list that "looks comprehensive but is deep on none." Split the dimensions **across independent agents** and each one digs deep with a single perspective, so the finding density is much higher.
-- **Naturally concurrent.** The a11y review doesn't depend on the conclusions of the perf review; the three dimensions are unrelated — this is exactly the **textbook scenario** for the `parallel()` barrier: run them concurrently, collect them together.
-- **Aggregation is a separate job.** The findings each dimension produces **overlap** (e.g., "CDN script blocks rendering" is both a perf issue and may get mentioned in passing by the a11y review), and they also need **cross-dimension prioritization** (a CRITICAL XSS must rank ahead of a LOW copy issue). This "dedup + rank" job needs **an agent that can see all the findings** — so it must come **after** the concurrency barrier.
+- **Attention gets diluted.** Make the same agent watch security, performance, and accessibility at once and it skims each dimension shallowly, handing you a list that looks comprehensive but is deep on none. Split the dimensions **across independent agents** and each one digs deep with a single perspective, so the finding density is much higher.
+- **Naturally concurrent.** The a11y review doesn't depend on the conclusions of the perf review; the three dimensions are unrelated, which is exactly the **textbook scenario** for the `parallel()` barrier: run them concurrently, collect them together.
+- **Aggregation is a separate job.** The findings each dimension produces **overlap** (e.g., "CDN script blocks rendering" is both a perf issue and may get mentioned in passing by the a11y review), and they also need **cross-dimension prioritization** (a CRITICAL XSS must rank ahead of a LOW copy issue). This "dedup and rank" job needs **an agent that can see all the findings**, so it must come **after** the concurrency barrier.
 
 So the recipe comes out as a clean two-stage structure:
 
@@ -31,7 +31,7 @@ flowchart TB
 
 <div class="callout info">
 
-**Why should a barrier (`parallel`) be used here rather than `pipeline`?** Recall Chapter 08's criterion: **multi-stage defaults to pipeline; only use a barrier when the next stage needs the results of "all" items from the previous stage.** Synthesize has to do **global dedup and cross-dimension ranking** — it must wait for **all** three dimensions to hand in before it can act. This is exactly the "real form of correct barrier use: dedup" listed in Chapter 08.
+**Why should a barrier (`parallel`) be used here rather than `pipeline`?** Recall Chapter 08's criterion: multi-stage defaults to pipeline, and you only use a barrier when the next stage needs the results of "all" items from the previous stage. Synthesize has to do **global dedup and cross-dimension ranking**, so it must wait for **all** three dimensions to hand in before it can act. This is exactly the "real form of correct barrier use: dedup" listed in Chapter 08.
 
 </div>
 
@@ -39,7 +39,7 @@ flowchart TB
 
 ## 11.2 The Full Script
 
-**(An illustrative script fleshed out from the transcript skeleton — not run verbatim; the actual run's Run ID and usage are in 11.3.)** Below is the script skeleton of this real run (its structure matches `assets/transcripts/frontend-review.md`). The three dimensions' `prompt`s and synthesize's schema are elided with `...`/`{...}` in the transcript; here they are **filled out into a directly runnable form** and annotated inline as "(illustrative completion)"; the parts that genuinely exist in the transcript (`meta`, `FINDINGS`, the `parallel` review and flatten, the synthesize call, the `return`) are left as-is.
+**(An illustrative script fleshed out from the transcript skeleton, not run verbatim; the actual run's Run ID and usage are in 11.3.)** Below is the script skeleton of this real run, and its structure matches `assets/transcripts/frontend-review.md`. The three dimensions' `prompt`s and synthesize's schema are elided with `...`/`{...}` in the transcript; here they are **filled out into a directly runnable form** and annotated inline as "(illustrative completion)"; the parts that genuinely exist in the transcript (`meta`, `FINDINGS`, the `parallel` review and flatten, the synthesize call, the `return`) are left as-is.
 
 ```javascript
 export const meta = {
@@ -143,9 +143,9 @@ return { rawCount: all.length, byDimension, ...summary }
 
 Three idioms worth remembering:
 
-- **Reusing `schema`.** The three dimensions share the same `FINDINGS` schema — that keeps the outputs of different perspectives **structurally uniform**, so the synthesize stage can treat them as one homogeneous data stream. See Chapter 07 for the details of schema's hard constraints.
+- **Reusing `schema`.** The three dimensions share the same `FINDINGS` schema, which keeps the outputs of different perspectives **structurally uniform**, so the synthesize stage can treat them as one homogeneous data stream. See Chapter 07 for the details of schema's hard constraints.
 - **Tagging with `.then()`.** Each review agent, right after it returns, does `.then((r) => ({ dim, findings }))` to **thread** "which dimension this finding came from" into the result. This is exactly the `.then()` context-merging idiom from Chapter 08.
-- **Grouping explicitly with `opts.phase`.** Inside `parallel`, every `agent()` explicitly carries `phase: 'Review'` — so concurrent agents don't race on the global `phase()` (the progress-grouping pitfall of Chapters 08/05).
+- **Grouping explicitly with `opts.phase`.** Inside `parallel`, every `agent()` explicitly carries `phase: 'Review'`, so concurrent agents don't race on the global `phase()` (the progress-grouping pitfall of Chapters 08/05).
 
 ---
 
@@ -169,7 +169,7 @@ After seeing all 26, the synthesize agent **dedups across dimensions and ranks b
 
 <div class="callout tip">
 
-**This step, 26 → 16, is the entire value of synthesize.** Among the 10 a11y findings, "no focus indicator" and "focus not visible" are really the same thing; perf's "CDN blocking" and correct's passing mention of "script loading approach" overlap too. Only an agent that can see **all** 26 can merge them and decide "XSS ranks 1st, the copy issue ranks 13th." That's something a single-dimension review agent **cannot** do — it only sees its own patch.
+**This step, 26 → 16, is the entire value of synthesize.** Among the 10 a11y findings, "no focus indicator" and "focus not visible" are really the same thing; perf's "CDN blocking" and correct's passing mention of "script loading approach" overlap too. Only an agent that can see **all** 26 can merge them and decide "XSS ranks 1st, the copy issue ranks 13th." That's something a single-dimension review agent **cannot** do, because it only sees its own patch.
 
 </div>
 
@@ -187,7 +187,7 @@ These are the 5 items the synthesize agent ranked as must-fix-first (all real ou
 
 <div class="callout warn">
 
-**Note the backstory of item 3.** This "duplicate heading IDs + empty-value fallback" issue shares **the same root** as the lesson Chapter 12's GCF recipe dug out on `slugify` — both are "generate ids from text without dedup, without handling empty/astral characters." Two independent Workflow runs (one a GCF deduction of slugify, one this chapter's multi-dimension review of the real file) point to the same bug class, and ended up landing together into `index.html`'s heading-ID generation logic. **This is the compounding interest of dogfooding**: the more a recipe runs, the more it can cross-confirm the same class of defect.
+**Note the backstory of item 3.** This "duplicate heading IDs plus empty-value fallback" issue shares **the same root** as the lesson Chapter 12's GCF recipe dug out on `slugify`: both are "generate ids from text without dedup, without handling empty/astral characters." Two independent Workflow runs (one a GCF deduction of slugify, one this chapter's multi-dimension review of the real file) point to the same bug class, and ended up landing together into `index.html`'s heading-ID generation logic. **This is the compounding interest of dogfooding**: the more a recipe runs, the more it can cross-confirm the same class of defect.
 
 </div>
 
@@ -201,7 +201,7 @@ These are the 5 items the synthesize agent ranked as must-fix-first (all real ou
 
 ### How the Review Output Directly Drives the Fix
 
-This run **is not a demo** — what it produces is an **actionable fix ticket**:
+This run **is not a demo**; what it produces is an **actionable fix ticket**:
 
 ```mermaid
 flowchart LR
@@ -214,13 +214,13 @@ flowchart LR
   B3 --> H
 ```
 
-The reason it can "directly drive" comes down to the schema: every issue carries `rank` (fix order), `severity` (urgency), and `action` (exactly how to change it). It isn't a piece of prose that "reads comprehensively," but a **structured list you can tick off item by item** — a human or a downstream agent can just follow it. These 16 items **have all been landed** into this book's frontend `index.html`.
+The reason it can "directly drive" comes down to the schema: every issue carries `rank` (fix order), `severity` (urgency), and `action` (exactly how to change it). It's a **structured list you can tick off item by item**, not a piece of prose that merely reads comprehensively, so a human or a downstream agent can just follow it. These 16 items **have all been landed** into this book's frontend `index.html`.
 
 ---
 
-## 11.4 Design Points
+## 11.4 Dimensions Are Swappable: Pick the Perspectives You Need
 
-**① A dimension is a perspective, and you can swap it freely.** This example used three dimensions — a11y / perf / correctness — but which dimensions you pick is **entirely yours to define.** Swap the `dims` array for any of the groups below and you don't change a single line of the script body:
+A dimension is a perspective, and you can swap it freely. This example used three dimensions (a11y, perf, correctness), but which dimensions you pick is **entirely yours to define.** Swap the `dims` array for any of the groups below and you don't change a single line of the script body:
 
 | Review scenario | Suggested dimensions |
 |---|---|
@@ -229,17 +229,11 @@ The reason it can "directly drive" comes down to the schema: every issue carries
 | Data pipeline | Correctness · Idempotency · Observability · Cost |
 | Documentation PR | Accuracy · Completeness · Consistency · Readability |
 
-The more **orthogonal** the dimensions are (the less they overlap), the higher the concurrency payoff and finding density.
-
-**② Constrain all dimensions with a unified schema.** Different perspectives all producing **isomorphic** `{severity, title, detail, fix}` is the prerequisite for synthesize to treat them as a single data stream. If each dimension returned its own format, the synthesis stage would first have to do a round of format normalization — needlessly piling on complexity and surface area for bugs.
-
-**③ Synthesize must come after the barrier, and see all findings.** Feed the whole `JSON.stringify(all)` to the synthesize agent and let it dedup and rank **globally**. This works much like Chapter 12's GCF "Fix reconciles item by item": **give the downstream agent complete context, and only then can it make globally optimal decisions.**
-
-**④ Give findings "source tags" so the synthesis can be explained.** Each finding carries a `dim` field and the final issue carries a `dims` array — so you can answer "who raised this" and "which ones were hit by multiple dimensions at once (those often deserve higher priority)." Observability matters not only for production code but also for the **review output itself.**
+The more **orthogonal** the dimensions are (the less they overlap), the higher the concurrency payoff and finding density. The other key points (a unified schema, the synthesize agent seeing all findings, source-tagging findings) are gathered into the chapter summary below.
 
 <div class="callout tip">
 
-**Cost intuition**: `agent_count=4`, `total_tokens≈221K`, in line with Chapter 08's rule of thumb (tokens ≈ agent count × per-agent context). Note this run's per-agent context runs high (≈55K/agent), because each review agent **really read the entire `index.html`** — those file-read tokens went into context. The more dimensions, and the larger the reviewed file, the higher the cost, but the **wall clock does not grow linearly with the number of dimensions** (under the barrier, 3 dimensions only cost "the slowest one's" time).
+**Cost intuition**: `agent_count=4`, `total_tokens≈221K`, in line with the rule of thumb that tokens ≈ agent count × per-agent context (derived in Chapter 09). Note this run's per-agent context runs high (≈55K/agent), because each review agent **really read the entire `index.html`**, so those file-read tokens went into context. The more dimensions, and the larger the reviewed file, the higher the cost, but the **wall clock does not grow linearly with the number of dimensions**: under the barrier, 3 dimensions only cost "the slowest one's" time.
 
 </div>
 
@@ -251,11 +245,11 @@ The more **orthogonal** the dimensions are (the less they overlap), the higher t
 
 **Variant A · Review → Verify → Synthesize (three stages)**: slot an "adversarial verify" stage between Review and Synthesize, letting an independent agent confirm item by item that each finding **really holds** (cull false positives), then synthesize. Here the first two stages can switch to `pipeline` (each finding flows independently through "propose → verify"), with a final barrier for synthesis. See Chapter 17 on adversarial verification.
 
-**Variant B · Multi-file PR**: a real PR often changes several files. Use `pipeline(files, reviewAllDims, synthesizePerFile)` to let each file flow independently through "multi-dimension review → single-file synthesis," then add a cross-file overall synthesis at the end. Note that each file's multi-dimension review is still `parallel` internally — this is the common combination of `pipeline` wrapping `parallel`.
+**Variant B · Multi-file PR**: a real PR often changes several files. Use `pipeline(files, reviewAllDims, synthesizePerFile)` to let each file flow independently through "multi-dimension review → single-file synthesis," then add a cross-file overall synthesis at the end. Note that each file's multi-dimension review is still `parallel` internally, which is the common combination of `pipeline` wrapping `parallel`.
 
-**Variant C · Weighted dimension scoring**: not just ranking — give each dimension a weight (e.g., security ×3, copy ×1) and let synthesize produce a quantified "PR health score" for CI gating, where falling below the threshold blocks the merge. This upgrades this chapter's "prioritized list" into an "automatable quality gate."
+**Variant C · Weighted dimension scoring**: beyond ranking, give each dimension a weight (e.g., security ×3, copy ×1) and let synthesize produce a quantified "PR health score" for CI gating, where falling below the threshold blocks the merge. This upgrades this chapter's "prioritized list" into an "automatable quality gate."
 
-**Variant D · Review + auto-fix**: chain this chapter (produce a ticket) with Chapter 12's GCF (fix per the ticket) into a nested Workflow (Chapter 20) — the upper layer's review produces issues, and the lower layer runs "fix → verify" for each issue. That's the fully automated version of "review output directly drives the fix."
+**Variant D · Review + auto-fix**: chain this chapter (produce a ticket) with Chapter 12's GCF (fix per the ticket) into a nested Workflow (Chapter 20): the upper layer's review produces issues, and the lower layer runs "fix → verify" for each issue. That's the fully automated version of "review output directly drives the fix."
 
 </div>
 
@@ -263,12 +257,12 @@ The more **orthogonal** the dimensions are (the less they overlap), the higher t
 
 ## 11.6 Chapter Summary
 
-- Multi-dimension PR Review = **parallel multi-dimension concurrent review** (one agent with a single perspective per dimension) + **one synthesize agent to consolidate, dedup, and prioritize.**
-- Use a barrier (`parallel`) rather than `pipeline`: because the synthesis stage needs the findings of **all** dimensions to do global dedup and ranking — this is the real form of Chapter 08's "correct barrier use."
+- Multi-dimension PR Review = **parallel multi-dimension concurrent review** (one agent with a single perspective per dimension) plus **one synthesize agent to consolidate, dedup, and prioritize.**
+- Use a barrier (`parallel`) rather than `pipeline`, because the synthesis stage needs the findings of **all** dimensions to do global dedup and ranking. This is the real form of Chapter 08's "correct barrier use."
 - Real run (dogfooding this book's frontend `index.html`): `agent_count=4`, `total_tokens=221648`, `duration_ms=272643`; **26 raw findings → 16 issues**, the top 5 including DOM XSS, no focus indicator, duplicate heading IDs, and so on, and **all 16 items have really been landed and fixed.**
-- Keys: keep dimensions **orthogonal and replaceable**, constrain them with a **unified schema**, let the synthesize agent see **all findings**, and give findings **source tags** to make the result explainable.
-- Because the review output is a **structured ticket** (with rank/severity/action), it can **directly drive the fix**, instead of being a piece of prose forgotten as soon as it's read.
+- Four key points: keep dimensions **orthogonal and replaceable** (§11.4 gives a swap-in reference table), constrain every dimension with a **unified schema**, let the synthesize agent see **all findings**, and give each finding a **source tag** to make the result explainable. A unified schema also spares the synthesis stage a round of format normalization.
+- The review output is a **structured ticket** (with rank/severity/action), so it can **directly drive the fix**, instead of being a piece of prose forgotten as soon as it's read.
 
-In the next chapter we switch to a different form of collaboration: no longer "multiple perspectives looking at the same code," but a **generate-critique-fix loop** of "one writes, one nitpicks, one rewrites based on the nitpicks."
+In the next chapter we switch to a different form of collaboration: from "multiple perspectives looking at the same code" to a **generate-critique-fix loop** of "one writes, one nitpicks, one rewrites based on the nitpicks."
 
 > Continue reading: [Chapter 12 · The Generate-Critique-Fix Loop](#/en/p3-12)
