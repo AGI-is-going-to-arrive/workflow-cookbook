@@ -39,9 +39,9 @@ Without a workflow, you spin up 6 subagents to review in parallel, wait for all 
 | What lands in your main conversation | **47,080** characters, 12 full review write-ups | **357** characters, one structured result |
 | Whether anything slips | You and the model keep track of which ones are left, and some can slip or get skipped | Code counts off all 12, `schema` forces clean structure, and verification caught 1 false positive |
 
-Look at the first row: for the same work, what reaches you differs by **a factor of 132**. Those tens of thousands of characters don't go away; every later question or edit makes the model read them again, slower and pricier each time. With a workflow, the raw reviews stay in the sandbox and only the conclusion reaches you.
+Look at the first row: for the same work, what reaches you differs by **a factor of 132**. The context window is your scarcest resource, and once those tens of thousands of characters of review text land in your main conversation they stay there, paid for again on every later turn, burning more tokens as you go. With a workflow, the raw work stays in the sandbox and only the conclusion reaches you.
 
-Speed is basically a wash, about 4 minutes either way, so don't reach for a workflow to go faster; the time savings come from longer, multi-stage pipelines (see [Chapter 8](#/en/p2-08)). The chapters ahead show you how to write these scripts so they hold up and stay reusable.
+Speed is basically a wash, about 4 minutes either way, so don't reach for a workflow to go faster; the time savings come from longer, multi-stage pipelines (see [Chapter 8](#/en/p2-08)).
 
 > **The two runs:** the workflow run `wf_6fc26e37-02d` (`pipeline`) and the manual run `wf_372d53bf-419` (two `parallel` barriers standing in for doing it by hand); 12 agents each, measured locally on v2.1.156. That manual run already assumes the fastest by-hand case, so real by-hand work would only run slower. Full data in [`assets/transcripts/examples-r14.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r14.md).
 
