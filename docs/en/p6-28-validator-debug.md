@@ -1,6 +1,6 @@
 # Chapter 28 · Validation & Debugging
 
-> In one line: **Workflow treats "determinism" as an iron law, so it puts gates at two moments. One is a static scan the instant you submit: compliant or not, the script just won't run. The other is runtime traps plus caps once it's running, where aliased violations, unavailable isolation, synchronous infinite loops, and unknown agentTypes all throw. This chapter pins down both gates: what submit-time rejects, what runtime throws, each with the verbatim error text and a Run ID. Then it walks through three debugging tools (the `/workflows` progress tree, the `agent-<id>.jsonl` journal, and `resumeFromRunId` incremental re-runs) so that after an error you can find it fast and, once it's fixed, skip burning tokens from scratch.**
+> **Workflow treats "determinism" as an iron law, so it puts gates at two moments.** One is a static scan the instant you submit: compliant or not, the script just won't run. The other is runtime traps plus caps once it's running, where aliased violations, unavailable isolation, synchronous infinite loops, and unknown agentTypes all throw. This chapter pins down both gates: what submit-time rejects, what runtime throws, each with the verbatim error text and a Run ID. Then it walks through three debugging tools (the `/workflows` progress tree, the `agent-<id>.jsonl` journal, and `resumeFromRunId` incremental re-runs) so that after an error you can find it fast and, once it's fixed, skip burning tokens from scratch.
 >
 > The previous 27 chapters taught you how to write a workflow correctly. This one assumes you already did, and it broke. Breaking is normal: an extra key snuck into `meta`, a stray `Date.now()`, a misspelled `isolation`, a loop that forgot its budget guard. The good news is that Workflow's error messages are unusually candid. They tell you **verbatim** what's wrong, why, and often how to fix it. This chapter teaches you to read those signals.
 
@@ -111,7 +111,7 @@ It lists all 4 problems in one shot: 2 ERRORs (`meta` not first, literal `Date.n
 
 <div class="callout tip">
 
-**Wire it into your workflow**: where this lint earns its keep is catching a script that would be statically rejected *before submit*, and showing it all at once. A simple use is to run it when you save `.claude/workflows/*.js`, or in CI against the workflow scripts changed in a PR. Note it's a **static pre-flight**, surfaced **more broadly** than the Workflow tool's own submit-time rejection (it also reports warnings), but it's the same source at heart. The `meta`-first rule, the determinism ban, host APIs, and the thunk shape all ultimately defer to the **official tool definition plus this book's real runs**.
+**Wire it into your workflow**: the value of this lint is catching scripts that would be statically rejected *before submit*, and showing all problems at once. A simple use is to run it when saving `.claude/workflows/*.js`, or in CI against workflow scripts changed in a PR. Note it is a **static pre-flight**, with **broader** coverage than the Workflow tool's own submit-time rejection (it also reports warnings), but the underlying source is the same. The `meta`-first rule, the determinism ban, host APIs, and the thunk shape all ultimately defer to the **official tool definition plus this book's real runs**.
 
 </div>
 
@@ -175,7 +175,7 @@ If you alias your way past the static scan (`const D = Date; D.now()`), submissi
   }
 ```
 
-Note the runtime error for `Math.random()` even **hands you the workaround**: "for N independent samples, include the index in the agent label or prompt." Meanwhile `new Date(specificValue)` still works fine (`new Date(0)` → `1970-01-01T00:00:00.000Z`). This is the **two-layer defense**: literals get caught at submit time, aliases at runtime (the origin of this two-layer model is in [Chapter 01 §1.2](#/en/p1-01)). (Source: `sandbox-r4.md` §B.)
+Note the runtime error for `Math.random()` even **provides the workaround directly**: "for N independent samples, include the index in the agent label or prompt." Meanwhile `new Date(specificValue)` still works fine (`new Date(0)` → `1970-01-01T00:00:00.000Z`). This is the **two-layer defense**: literals are caught at submit time, aliases at runtime (the origin of this two-layer model is in [Chapter 01 §1.2](#/en/p1-01)). (Source: `sandbox-r4.md` §B.)
 
 **(2) `isolation:'remote'` throws; unknown isolation silently ignored**
 
@@ -227,7 +227,7 @@ In contrast with the unvalidated `model`, `agentType` **is validated**. An unkno
   team-architect, team-qa, team-reviewer, ui-ux-designer
 ```
 
-This is a **helpful** error. It doesn't just tell you "this agentType doesn't exist"; it lists all 14 agents available in the current session so you can fix it straight from the list. (Source: `assets/transcripts/` + grounding A2.)
+This is a **helpful** error: it not only reports that the agentType does not exist, but also lists all 14 agents available in the current session, allowing direct correction from the list. (Source: `assets/transcripts/` + grounding A2.)
 
 Now let's boil the two kinds of rejection ("check → moment → does it carry a Run ID") down into one diagram:
 
@@ -292,7 +292,7 @@ flowchart TD
 
 The most expensive part of debugging a workflow is **burning tokens from scratch every time you change one line**. `resumeFromRunId` fixes this: pass the previous `runId` into `WorkflowInput.resumeFromRunId`, and the **longest unchanged prefix of `agent()` calls** returns cached results in seconds; only the **first edited/added call and everything after it** gets re-run live (the full resume-and-caching mechanism is in [Chapter 22](#/en/p4-22)).
 
-The real-run contrast says it best (`wf_9c94951d-58c`):
+The real-run comparison illustrates this clearly (`wf_9c94951d-58c`):
 
 | Run | agents | total tokens | duration |
 |---|---|---|---|
@@ -343,7 +343,7 @@ flowchart TD
 
 ## Summary
 
-The core of validation and debugging is figuring out *which moment the error happened at*, then using the matching tool to track it down:
+Validation and debugging boil down to one thing: figure out *which moment the error happened at*, then use the matching tool to track it down.
 
 - **Two gates**: the **submit-time** static scan (no Run ID) rejects `meta` that isn't a pure literal / isn't the first statement, and literal `Date.now()`/`Math.random()`/argless `new Date()`; **runtime** (with a `runId`) throws on aliased non-deterministic calls, `isolation:'remote'` (`not available in this build`), a synchronous infinite loop (`timed out after 30000ms`), an unknown `agentType` (0-token throw listing the available agents), and more. The dividing line is just **whether or not you got a `runId`**.
 - **The third-party lint `validate-workflow.mjs` (behaviour verified)**: locally lists every problem in one shot before submit (ERROR blocks, warning passes), burning no tokens.

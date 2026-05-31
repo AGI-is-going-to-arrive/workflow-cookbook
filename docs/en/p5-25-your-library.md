@@ -8,20 +8,20 @@
 
 ---
 
-## 25.1 Two Roads to a Library: Official Surface First, On-disk Scripts Second
+## 25.1 Two Roads to a Library: The Official Entry First, On-disk Scripts Second
 
-"Build your own workflow library" sounds like a big project, but the entry the official docs left for ordinary users is as light as it gets: **finish a run you're happy with, press one key, and it's in the library.** Lay out the two roads first, and you'll know which one you're on.
+"Build your own workflow library" sounds like a big project, but the entry the official docs provide for ordinary users is extremely lightweight: **finish a run you are happy with, press one key, and it is in the library.** The two roads are laid out below so you can determine which one applies.
 
-**Road one · the official surface (where most people start).** You had Claude run a workflow, you liked the result, and you want one-key reuse. In the `/workflows` view, press **`s`**, and the script behind this run is **saved as a `/` command**: it shows up in the **autocomplete** list when you type `/`, **alongside** the bundled `/deep-research`, and next time you just type `/<the name you gave it>` to run it again (official wording: your saved workflows become `/` commands and appear in autocomplete). This road **doesn't make you touch any file or configure any directory**; the terminal-side mechanics of pressing `s` have a hands-on walkthrough in [The Official Control Panel §6](#/en/p2-ops). For most people, a "library" is just a stack of these, accreted one `s` at a time.
+**Road one: the official entry (where most people start).** You had Claude run a workflow, you liked the result, and you want to reuse it. In the `/workflows` view, press **`s`**, and the script behind this run gets **saved as a `/` command**: it shows up in the **autocomplete** list when you type `/`, **alongside** the bundled `/deep-research`, and next time you type `/<the name you gave it>` to run it again (official wording: your saved workflows become `/` commands and appear in autocomplete). This road **requires no files or directories**; the mechanics of pressing `s` have a hands-on walkthrough in [The Official Control Panel §6](#/en/p2-ops). For most people, a "library" is just a stack of these, accreted one `s` at a time.
 
 > **Keystroke recap**: in `/workflows`, select this run, press `s`, use `Tab` to switch project-level / personal, press `Enter`.
-> For the full terminal-side mechanics (every key, every destination in detail), still see [The Official Control Panel §6](#/en/p2-ops).
+> For the full mechanics (every key, every destination in detail), still see [The Official Control Panel §6](#/en/p2-ops).
 
-**Road two · on-disk scripts (power-user / advanced).** Once you've accreted enough and want to manage them properly (version, parameterize, write regression tests, share with the team), you file validated scripts as **files** into `.claude/workflows/` and reuse them like named commands with `{ name: 'my-workflow' }` (this is exactly that sentence from Chapter 01 §1.7). This road cashes the plain fact "a script is a file" into a full set of engineering practices, and everything from 25.2 onward is about it.
+**Road two: on-disk scripts (power-user / advanced).** Once you've accreted enough and want to manage them properly (version, parameterize, write regression tests, share with the team), you file validated scripts as **files** into `.claude/workflows/` and reuse them like named commands with `{ name: 'my-workflow' }` (this is exactly that sentence from Chapter 01 §1.7). This road cashes the plain fact "a script is a file" into engineering practices, and everything from 25.2 onward covers it.
 
-**How do the two roads relate?** They're the "light" and "heavy" ends of the same thing. The official surface (press `s`) lets you **turn a single run into a reusable command with zero friction**, good for ad-hoc settling; on-disk scripts (`.claude/workflows/` plus `{ name }`) let you **manage those commands as code**, good for running a library systematically. Beginners start on road one and transition naturally to road two when they need versioning, parameters, tests, or sharing.
+**How do the two roads relate?** They're the "light" and "heavy" ends of the same thing. The official entry (press `s`) lets you **turn a single run into a reusable command with zero friction**, good for ad-hoc settling; on-disk scripts (`.claude/workflows/` plus `{ name }`) let you **manage those commands as code**, good for running a library systematically. Beginners start on road one and transition naturally to road two when they need versioning, parameters, tests, or sharing.
 
-> The rest of this chapter is mostly about **road two**, because the substantive questions ("how to organize, name, parameterize, test, share") all live on the on-disk side. The surface-side `s`-to-save is already simple enough; The Official Control Panel covers it and that's that.
+> The rest of this chapter is mostly about **road two**, because the substantive questions ("how to organize, name, parameterize, test, share") all live on the on-disk side. The official-entry `s`-to-save is already simple enough; The Official Control Panel covers it and that's that.
 
 ---
 
@@ -83,7 +83,7 @@ Named workflows live under the project's (or the user's home) `.claude/workflows
 A few organizing principles:
 
 1. **Group by "recipe type," not by project module.** What makes a workflow worth reusing is its **pattern** (review, research, loop, fan-out), not whichever module it happens to handle today. The `two-stage-review.js` under `review/` can review something else tomorrow.
-2. **`_`-prefixed directories are the "informal zone."** `_lib/` holds drafts still being debugged with `scriptPath`, not yet stable; `_fixtures/` holds test inputs. The underscore prefix tells you this isn't a finished product to call directly with `{ name }`.
+2. **`_`-prefixed directories are the "informal zone."** `_lib/` holds drafts still being debugged with `scriptPath`, not yet stable; `_fixtures/` holds test inputs. The underscore prefix tells you this isn't a finished product to call with `{ name }`.
 3. **One file, one workflow, filename = `meta.name`.** That way `{ name: 'two-stage-review' }` and the file `two-stage-review.js` map one-to-one: find the file and you've found the workflow.
 4. **`README.md` is the library's table of contents.** What it is to the library, this book's `manifest.json` is to the whole book: an index.
 
@@ -121,7 +121,7 @@ The convention: **`<action>-<object>[-<qualifier>]`, all lowercase kebab-case, n
 // → at a glance: 2 candidates + 3 judges + tally. Scale is predictable.
 
 { name: 'gcf-slugify',
-  description: 'Generate-Critique-Fix loop producing a robust slugify (CJK + ASCII)' }
+  description: 'Generate-Critique-Fix loop producing a well-tested slugify (CJK + ASCII)' }
 // → at a glance: three stages (generate-critique-fix), produces a slugify (covering CJK + ASCII)
 ```
 
@@ -148,7 +148,7 @@ export const meta = {
 
 ## 25.4 Parameterization: Use `args` to Turn a Script into a "Reusable Tool"
 
-A script with a hard-coded target isn't a library member; it's a one-off script. **The watershed between "one-off" and "reusable" is parameterization.** The tool for the job is `args` (section B: "the global `args` exposed to the script"; Chapter 01: "the arguments object passed in by the caller").
+A script with a hard-coded target is not a library member; it is a one-off script. **The dividing line between "one-off" and "reusable" is parameterization.** The mechanism for this is `args` (section B: "the global `args` exposed to the script"; Chapter 01: "the arguments object passed in by the caller").
 
 ### From hard-coded to parameterized
 
@@ -220,11 +220,11 @@ if (!args || typeof args.target !== 'string') {
 
 ## 25.5 Version Management: A Script Is a File, So Use Git
 
-The biggest payoff of "a script is a file" is that your Workflow library **gets the entire Git toolchain for free**: diff, blame, PR, tag, rollback, all of it. This is where native Workflow is a generation ahead of prompts scattered through a conversation.
+The biggest payoff of "a script is a file" is that the Workflow library **gets the Git toolchain for free**: diff, blame, PR, tag, rollback, all of it. Native Workflow is a generation ahead of prompts scattered through a conversation.
 
 ### Put `.claude/workflows/` under version control
 
-Project-level libraries go straight into the project repo; for user-level ones, it's worth spinning up a separate `dotfiles`-style repo to manage `~/.claude/workflows/`. Either way, the core practice is the same:
+Project-level libraries go straight into the project repo; for user-level ones, it's worth spinning up a separate `dotfiles`-style repo to manage `~/.claude/workflows/`. Either way, the practice is the same:
 
 ```bash
 # Routine version management of the library (standard Git, nothing special)
@@ -240,7 +240,7 @@ git blame .claude/workflows/research/deep-research.js
 
 <div class="callout tip">
 
-**Workflow scripts are "deterministic + replayable," and that's what makes their diffs unusually meaningful.** Change a word in an ordinary prompt and the effect is anyone's guess; change one `agent()` in a Workflow script and you can know precisely, via resume (25.6), that "only this agent and its downstream re-ran." **Once orchestration is written as code, "a change to the orchestration logic" becomes a reviewable diff for the first time.** Treat workflow changes as code reviews, which is exactly how they deserve to be treated.
+**Workflow scripts are "deterministic + replayable," and that makes their diffs unusually meaningful.** Change a word in an ordinary prompt and the effect is unpredictable; change one `agent()` in a Workflow script and you can know precisely, via resume (25.6), that "only this agent and its downstream re-ran." **Once orchestration is written as code, "a change to the orchestration logic" becomes a reviewable diff for the first time.** Workflow changes should be treated as code reviews.
 
 </div>
 
@@ -274,9 +274,9 @@ This is the same story as a software library's semantic-versioning governance. F
 
 ## 25.6 Testing: Use `resumeFromRunId` for Regression
 
-For a library to be dependable, it has to be **testable.** Workflow's testability rests on that measured result from Chapter 22: **an unchanged `agent()` comes back on resume in zero tokens, zero tools, a few milliseconds** (the single-agent `hello-workflow`, Run ID `wf_dacbd480-d5d`, first run 26,338 tokens, resume 0 tokens / 8 ms, identical return value; for the full data and a larger 5-agent confirmation, see [Chapter 22 · Resume & Caching](#/en/p4-22)).
+For a library to be dependable, it must be **testable.** Workflow's testability rests on the measured result from Chapter 22: **an unchanged `agent()` comes back on resume in zero tokens, zero tools, a few milliseconds** (the single-agent `hello-workflow`, Run ID `wf_dacbd480-d5d`, first run 26,338 tokens, resume 0 tokens / 8 ms, identical return value; for the full data and a larger 5-agent confirmation, see [Chapter 22 · Resume & Caching](#/en/p4-22)).
 
-That property, "the same script + the same args → 100% cache hit, sub-second, zero cost," is exactly the engine behind regression testing.
+That property, "the same script + the same args = 100% cache hit, sub-second, zero cost," is exactly the engine behind regression testing.
 
 ### Three forms of regression testing
 
@@ -301,7 +301,7 @@ Workflow({
 **Form two: fixed input + structural assertions (fixture-driven).** Stash representative inputs in `_fixtures/`, run the workflow against them, then assert the **structure** of the return value. Because the output of `agent({ schema })` has already passed schema validation at the tool layer, your assertions only need to check business-level invariants:
 
 ```javascript
-// (illustrative, not executed) —— fixture-driven structural assertions (run as a "test workflow")
+// (illustrative, not executed) — fixture-driven structural assertions (run as a "test workflow")
 export const meta = {
   name: 'test-two-stage-review',
   description: 'Regression: run two-stage-review on a fixed fixture and assert invariants',
@@ -349,7 +349,7 @@ Treat "test workflows" as library members too (with a `test-`-prefixed `name`). 
 
 ## 25.7 Sharing: A Script Is a File, So Sharing = Shipping a File
 
-The ultimate payoff of "a script is a file": **sharing a Workflow is sharing a `.js` file.** No packaging, no runtime installer, a sharp contrast to the systems in Chapter 23: ccg needs to install hooks into `settings.json` plus a Go binary, OMC needs to lay out a `.omc/` directory structure, OmO is an npm package. Native Workflow's unit of sharing is as plain as a single text file.
+The final payoff of "a script is a file": **sharing a Workflow is sharing a `.js` file.** No packaging, no runtime installer. Compare that to the systems in Chapter 23: ccg needs hooks installed into `settings.json` plus a Go binary, OMC needs a `.omc/` directory structure, OmO is an npm package. Native Workflow's unit of sharing is a single text file.
 
 ### Three levels of sharing
 
@@ -364,7 +364,7 @@ The ultimate payoff of "a script is a file": **sharing a Workflow is sharing a `
 
 <div class="callout note">
 
-**The official surface (press `s`) saves into these same two levels.** Levels one and two are exactly the two destinations the official save dialog offers you. The flow: `/workflows` → select that run → press **`s`** to open the save dialog → use **`Tab`** to toggle between the two locations (project-level `.claude/workflows/` (team-shared) ⇄ personal `~/.claude/workflows/`), and press **`Enter`** to save. So "press `s` to save a command" and "file the `.js` into a directory" are saving the same files: one via the dialog, the other by copying the file directly.
+**The official entry (press `s`) saves into these same two levels.** Levels one and two are exactly the two destinations the official save dialog offers you. The flow: `/workflows` → select that run → press **`s`** to open the save dialog → use **`Tab`** to toggle between the two locations (project-level `.claude/workflows/` (team-shared) ⇄ personal `~/.claude/workflows/`), and press **`Enter`** to save. So "press `s` to save a command" and "file the `.js` into a directory" are saving the same files: one via the dialog, the other by copying the file directly.
 
 **Who wins on a name clash: the project one.** If a project-level workflow and a personal one share the **same name**, the one that runs is the **project-level** one. That cuts the way you'd want: keep general methodologies personal as your baseline, and **override** one in a given project with a same-named project-level workflow when you need to.
 
@@ -372,7 +372,7 @@ The ultimate payoff of "a script is a file": **sharing a Workflow is sharing a `
 
 <div class="callout tip">
 
-**Self-containment is what makes sharing nearly frictionless.** Because a Workflow script has **no** `import`, **doesn't touch** the filesystem, and **doesn't depend on** the Node API (section B hard constraint: "no filesystem/Node API," "standard JS built-ins available"), a single `.js` file is complete, portable, and auditable on its own. Get someone else's workflow script and you can read at a glance how many agents it dispatches, what schemas it uses, whether it has an unbounded loop; **all of its behavior sits in that one file.** That makes it ideal material for Chapter 24's "deconstruction" before you file it into your own library.
+**Self-containment makes sharing nearly frictionless.** Because a Workflow script has **no** `import`, **doesn't touch** the filesystem, and **doesn't depend on** the Node API (section B hard constraint: "no filesystem/Node API," "standard JS built-ins available"), a single `.js` file is complete, portable, and auditable on its own. Get someone else's workflow script and you can read at a glance how many agents it dispatches, what schemas it uses, whether it has an unbounded loop. **All of its behavior sits in that one file.** That makes it ideal material for Chapter 24's "deconstruction" before you file it into your own library.
 
 </div>
 
@@ -451,12 +451,12 @@ Start from this scaffold and your library has, from day one, clear grouping, a s
 
 ## 25.9 Chapter Summary
 
-- **Two roads to a library**. Road one · the official surface: press `s` on a run you like to save it as a `/` command, into autocomplete, alongside `/deep-research` (zero files, zero config; where most people start). Road two · on-disk scripts: file validated scripts into `.claude/workflows/` and reuse with `{ name }` (power-user; versioning, parameters, tests, sharing all live here). Beginners transition from road one to road two.
+- **Two roads to a library**. Road one · the official entry: press `s` on a run you like to save it as a `/` command, into autocomplete, alongside `/deep-research` (zero files, zero config; where most people start). Road two · on-disk scripts: file validated scripts into `.claude/workflows/` and reuse with `{ name }` (power-user; versioning, parameters, tests, sharing all live here). Beginners transition from road one to road two.
 - **The library's foundation is "a script is a file"**: explore with `{ script }`, land and iterate with `{ scriptPath }` (highest priority), reuse with `{ name }` after settling. `name` is for the people who use it, `scriptPath` is for the people who write it.
 - **Directory structure**: under `.claude/workflows/` group by "recipe type" (review/loop/research), put drafts and fixtures under `_`-prefixed directories, one file per workflow with `filename = meta.name`, and `README.md` as the index. Project-level travels with the repo, user-level across projects.
 - **Naming conventions**: `name` uses `action-object` kebab-case with no stale words; `description` states "what it does, how big" in one line (shown in the permission dialog); `whenToUse` helps you pick. `meta` must be a pure literal, and the description can't interpolate.
 - **Parameterization**: use `args` to turn a hard-coded script into a tool, giving defaults, writing the doc contract, and putting argument validation up front. To get around "the ban on `Date.now()`," `args` is the only legitimate way.
-- **Version management**: a script is a file, so use Git directly (diff/blame/tag/PR). Once orchestration is code, "an orchestration change" becomes a reviewable diff for the first time. For breaking changes prefer "evolve in place plus tag"; only reach for a version suffix once multiple parties depend on it.
+- **Version management**: a script is a file, so use Git (diff/blame/tag/PR). Once orchestration is code, "an orchestration change" becomes a reviewable diff for the first time. For breaking changes prefer "evolve in place plus tag"; only reach for a version suffix once multiple parties depend on it.
 - **Testing**: use `resumeFromRunId` resume (real evidence: an unchanged agent hits 0 token / 8ms) for precise regression, on the precondition that `args` are byte-for-byte identical; a fixture plus invariant assertions (the schema already guarantees structure, the assertions only check business invariants); the test workflow uses `workflow()` to nested-call the workflow under test (only one layer).
 - **Sharing = shipping a self-contained `.js` file** (no import, no filesystem, no Node API): in-repo sharing (team, zero install), dotfiles (personal across projects), a public repo plus transcript (community).
 

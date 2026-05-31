@@ -2,17 +2,17 @@
 
 > **纬者,织之横丝也;穿经而行,成文成章。**
 >
-> 经线张好了，可真正让一匹布「长出花纹」的，是那根来回穿梭的纬线。在 Workflow 里，这根纬线就是 `agent()`：它派一个 subagent 去干一件具体的活，等它回来，把产物交到你手上。
+> 经线张好了，真正让布「长出花纹」的，是来回穿梭的纬线。Workflow 里的纬线就是 `agent()`：派一个 subagent 执行一项具体任务，等它完成，把产物交回编排脚本。
 >
-> 上一章我们把 `meta` 和 `phase()` 这套结构骨架拆到了见底。这一章把目光全押在 `agent(prompt, opts)` 上：它到底返回什么（文本？对象？还是 `null`？）、它的每个选项（`label`、`schema`、`phase`、`model`、`isolation`、`agentType`）各自解决什么问题、为什么它派出去的 subagent 能**保护你主循环的上下文**。
+> 上一章拆解了 `meta` 和 `phase()` 的结构骨架。这一章聚焦 `agent(prompt, opts)`：它的返回值（文本、对象还是 `null`），每个选项（`label`、`schema`、`phase`、`model`、`isolation`、`agentType`）各自解决什么问题，以及它派出的 subagent 为什么能**保护主循环的上下文**。
 >
-> 这是全书你用得最多的一个函数。把它吃透，后面所有实战配方都只是它的不同编排。
+> 这是全书使用频率最高的函数。理解它之后，后续所有实战配方都只是它的不同编排。
 
 ---
 
 ## 6.1 签名与全貌：一句话，两个参数
 
-据 `_grounding.md` B 节对照官方类型定义，`agent()` 的签名是：
+据 `_grounding.md` B 节，对照官方类型定义，`agent()` 的签名：
 
 ```javascript
 agent(prompt: string, opts?: object): Promise<any>
@@ -33,19 +33,19 @@ agent(prompt: string, opts?: object): Promise<any>
 | `isolation` | `'worktree'` | 在独立 git worktree 中运行(**昂贵**) | 6.7 |
 | `agentType` | string | 用自定义 subagent 类型(如 `'Explore'`) | 6.8 |
 
-一个最小的、什么选项都不带的调用,长这样:
+一个最小的、不带任何选项的调用如下:
 
 ```javascript
 const text = await agent('用一句话总结什么是确定性编排')
 ```
 
-它派一个 subagent，跑完，返回**一段文本**。这是 `agent()` 最朴素的样子。接下来先把「它返回什么」这件最要紧的事讲透，因为返回什么，决定了你后面怎么写代码。
+它派出一个 subagent，执行完成后返回**一段文本**。这是 `agent()` 最基本的形态。下面先明确返回类型，因为返回类型决定了后续代码的写法。
 
 ---
 
 ## 6.2 返回语义：文本、对象，还是 null？
 
-`agent()` 的返回值有**三种**可能，取决于你怎么调它、用户怎么响应。这三种一搞混，后面的 `.filter()`、解构、`JSON.parse` 全会出错。据 `_grounding.md` B 节，规则如下：
+`agent()` 的返回值有**三种**可能，取决于调用方式和用户响应。混淆这三种返回值会导致后续的 `.filter()`、解构、`JSON.parse` 出错。据 `_grounding.md` B 节，规则如下：
 
 ```mermaid
 flowchart TD
@@ -69,7 +69,7 @@ const summary = await agent('用一句话概括这个函数的作用:\n' + codeS
 log(summary)
 ```
 
-这适合「我只要一段自然语言结果」的场景：总结、解释、起草一段文字。你拿到的，就是 subagent 写的最后一段话。
+这适合只需要自然语言结果的场景：总结、解释、起草文字。返回值就是 subagent 输出的最终文本。
 
 ### 6.2.2 有 schema → 返回已验证对象
 
@@ -104,11 +104,11 @@ const r = await agent(
 }
 ```
 
-注意 `sum` 是数字 `4`，**不是字符串 `"4"`**：因为 schema 声明了 `type: 'number'`，校验层把类型给焊死了。你可以直接 `r.sum + 1` 做算术，不必解析、不必容错。这套机制（以及它在工具调用层怎么强制重试）是第 07 章的主题，这里你只需记住：**有 schema 时，你拿到的是一个能直接解构、直接计算的干净对象。**
+`sum` 是数字 `4`，**不是字符串 `"4"`**，因为 schema 声明了 `type: 'number'`，校验层强制了类型正确。可以直接 `r.sum + 1` 做算术，无需解析或容错。这套机制（以及它在工具调用层如何强制重试）是第 07 章的主题。这里只需记住：**有 schema 时，返回的是一个可以直接解构、直接计算的干净对象。**
 
 ### 6.2.3 用户跳过 → 返回 null
 
-第三种情况最容易被漏掉：**用户在执行中途跳过了这个 agent**（比如在交互里选择略过某一步），这时 `agent()` 返回 `null`。
+最容易被漏掉的情况：**用户在执行中途跳过了这个 agent**（比如在交互里选择略过某一步），`agent()` 返回 `null`。
 
 据 `_grounding.md`：「用户中途跳过该 agent → 返回 `null`（用 `.filter(Boolean)` 过滤）」。
 
@@ -119,11 +119,11 @@ const results = await parallel(/* ... */)
 return results.filter(Boolean)   // 滤掉被跳过的 null
 ```
 
-`.filter(Boolean)` 是一个惯用法：拿 `Boolean` 当过滤函数，会把数组里所有假值（`null`、`undefined`、`0`、`''`、`false`）都剔掉。在这里它干的事就是**把被跳过的 `null` 项清掉**，只留下真正有结果的项。
+`.filter(Boolean)` 是惯用法：`Boolean` 当过滤函数，剔掉数组里所有假值（`null`、`undefined`、`0`、`''`、`false`）。这里它**把被跳过的 `null` 项清掉**，只留下有结果的项。
 
 <div class="callout warn">
 
-**不 `.filter(Boolean)` 就直接用，会被 `null` 咬到。** 你要是写 `results.map(r => r.findings)`，而其中某个 `r` 是 `null`，就会抛 `Cannot read properties of null`。养成习惯：**凡是 `parallel` / `pipeline` 的结果，用之前先 `.filter(Boolean)`。** 单个 `await agent(...)` 也一样：它要是可能被跳过，用前先判一下 `if (r) { ... }`。
+**不 `.filter(Boolean)` 就直接用，会被 `null` 引发错误。** 如果写 `results.map(r => r.findings)`，而其中某个 `r` 是 `null`，就会抛 `Cannot read properties of null`。建议养成习惯：**凡是 `parallel` / `pipeline` 的结果，用之前先 `.filter(Boolean)`。** 单个 `await agent(...)` 也一样：如果可能被跳过，用前先判断 `if (r) { ... }`。
 
 </div>
 
@@ -139,15 +139,15 @@ return results.filter(Boolean)   // 滤掉被跳过的 null
 
 ## 6.3 `label`：进度树里的名字
 
-`label` 是最简单的选项：它改的是这个 agent 在 `/workflows` 进度树里的**显示名**。不传，运行时就给它自动编号（如 `agent #3`）；传了，树上就显示你给的标签。
+`label` 是最简单的选项：改这个 agent 在 `/workflows` 进度树里的**显示名**。不传，运行时自动编号（如 `agent #3`）；传了，树上显示你给的标签。
 
 ```javascript
 await agent('审查 auth.ts 的权限校验逻辑', { label: 'review:auth' })
 ```
 
-它纯粹是**给人看的**，不影响任何执行行为。但在一个扇出几十个 agent 的工作流里，一个好 `label` 就是「看懂进度树」和「对着一堆 `agent #1…#40` 干瞪眼」之间的区别。
+纯粹**供人阅读**，不影响执行行为。但在并行派发几十个 agent 的工作流里，好的 `label` 决定了能否快速读懂进度树，而不是面对一堆 `agent #1...#40` 无从分辨。
 
-看真实运行 `parallel-demo`（Run ID `wf_52957913-6d2`，见 `assets/transcripts/primitives.md`）里 label 怎么用，它把维度名嵌进 label，让三个并发 agent 在树上一目了然：
+真实运行 `parallel-demo`（Run ID `wf_52957913-6d2`，见 `assets/transcripts/primitives.md`）将维度名嵌入 label，使三个并发 agent 在树上清晰可辨：
 
 ```javascript
 const dims = ['naming', 'error-handling', 'comments']
@@ -163,7 +163,7 @@ const results = await parallel(
 
 <div class="callout tip">
 
-**label 的实用模式：`类型:实例`。** 像 `review:auth.ts`、`smell:naming`、`verify:race-condition` 这样用「前缀 + 冒号 + 具体对象」来命名，进度树会自然按前缀聚成一组组，你扫一眼就知道哪些是 review、哪些是 verify、各自跑到哪了。`assets/transcripts/primitives.md` 的三个真实运行（`smoke` / `smell:*` / `find:* / verify:*`）都用了这个模式。
+**label 的实用模式：`类型:实例`。** 像 `review:auth.ts`、`smell:naming`、`verify:race-condition` 这样用「前缀 + 冒号 + 具体对象」来命名，进度树会自然按前缀聚成分组，一眼即可区分哪些是 review、哪些是 verify、各自的进度如何。`assets/transcripts/primitives.md` 的三个真实运行（`smoke` / `smell:*` / `find:* / verify:*`）都采用了这个模式。
 
 </div>
 
@@ -173,7 +173,7 @@ const results = await parallel(
 
 ## 6.4 `schema`：把 agent 变成「结构化数据源」
 
-`schema` 是 `agent()` 最有分量的选项，也是 Workflow 区别于「手动开子任务」的核心能力之一。它的返回效果我们在 6.2.2 已经见过，这里讲清它的**作用机制**和**什么时候该用**。
+`schema` 是 `agent()` 最重要的选项，也是 Workflow 区别于「手动开子任务」的关键：它让 subagent 的产物变成**程序可消费的结构化数据**，而不是一段自由文本。返回效果 6.2.2 已经展示过，这里说明它的**作用机制**和**适用场景**。
 
 ### 6.4.1 它做了什么：在工具调用层强制校验
 
@@ -181,13 +181,13 @@ const results = await parallel(
 
 > 有 `schema`(JSON Schema)→ 强制 subagent 调 `StructuredOutput` 工具,**在工具调用层校验**,返回**已验证对象**;不匹配则模型重试。
 
-把这句话拆开看：
+拆开看：
 
 1. 你传一个 JSON Schema 给 `agent()`。
-2. 运行时**强制**这个 subagent 通过一个内部的 `StructuredOutput` 工具来交付结果，而不是写一段自由文本。
-3. subagent 提交的结构，在**工具调用层**被校验是否匹配 schema。
-4. **不匹配就被要求重试**，直到合规为止。
-5. 你 `await` 拿到的，就是一个**保证匹配 schema** 的对象。
+2. 运行时**强制** subagent 通过内部的 `StructuredOutput` 工具交付结果，而不是写自由文本。
+3. subagent 提交的结构在**工具调用层**被校验是否匹配 schema。
+4. **不匹配就被要求重试**，直到合规。
+5. 你 `await` 拿到的，是一个**保证匹配 schema** 的对象。
 
 ```mermaid
 sequenceDiagram
@@ -204,7 +204,7 @@ sequenceDiagram
     V-->>S: 已验证对象
 ```
 
-这意味着：**你不写任何解析代码、不写任何容错分支，就能从一个语言模型那里拿到类型安全的结构化数据。** 在没有 schema 的世界里，你得让模型输出 JSON，然后自己 `JSON.parse`、自己 `try/catch`、自己收拾「模型多说了一句废话、把 JSON 解析弄崩了」的烂摊子。schema 把这一切都收进了运行时。
+**无需编写任何解析代码或容错分支，就能从语言模型获得类型安全的结构化数据。** 没有 schema 的情况下，需要让模型输出 JSON，然后自行 `JSON.parse`、自行 `try/catch`、自行处理「模型多输出一句话导致 JSON 解析失败」的问题。schema 把这些工作全部交给了运行时。
 
 ### 6.4.2 最小示例
 
@@ -263,7 +263,7 @@ log(`发现 ${criticals.length} 个 critical 问题`)
 
 <div class="callout tip">
 
-**什么时候该传 schema？判据就一句：你打算用代码「消费」这个产物吗？** 如果产物要被后续代码读字段、做条件分支、喂给下一个 agent 的 prompt，那就传 schema 拿干净对象。如果你只要一段给人看的自然语言（最终报告的散文、一段解释），那就不传，拿文本就行。一个实战工作流里，中间环节几乎全程带 schema（因为要程序化串联），只有最后「写给人看」的那一步可能返回纯文本。
+**什么时候传 schema？判据很简单：产物是否会被代码消费。** 如果后续代码需要读取字段、做条件分支、或将其作为下一个 agent 的 prompt 输入，就传 schema 获取干净对象。如果只需要一段给人看的自然语言（最终报告、一段解释），则不传，直接拿文本。实战工作流中，中间环节几乎全程带 schema（因为需要程序化串联），只有最后「给人阅读」的那一步可能返回纯文本。
 
 </div>
 
@@ -273,7 +273,7 @@ log(`发现 ${criticals.length} 个 critical 问题`)
 
 ## 6.5 `phase`：并发场景下的显式归组
 
-`phase` 选项在 [第 05 章 · meta 与 phase](#/zh/p2-05) 的 5.5.1 节已经深入讲过，这里从 `agent()` 的视角再钉一遍，因为它是**写并发工作流时最容易漏、一漏进度树就乱**的选项。
+`phase` 选项在 [第 05 章 · meta 与 phase](#/zh/p2-05) 的 5.5.1 节已经深入讲过。这里从 `agent()` 的视角再做一次强调，因为它是**编写并发工作流时最容易遗漏的选项，一旦遗漏就会导致进度树混乱**。
 
 据 `_grounding.md`，`opts.phase`「显式归入某进度组（在 pipeline/parallel 内部尤其重要，避免竞争全局 `phase()`）」。
 
@@ -306,7 +306,7 @@ const out = await pipeline(
 
 <div class="callout warn">
 
-**并发里优先用 `opts.phase`。** 你完全可以在 `pipeline` 之前写一句 `phase('Find')` 兜底，但真正决定每个并发 agent 归组的，是它自己的 `opts.phase`。两者都在场时，**附着在 agent 上的 `opts.phase` 才是靠得住的那一个**，因为它不受并发交错的影响。
+**并发场景下优先使用 `opts.phase`。** 可以在 `pipeline` 之前写一句 `phase('Find')` 作为兜底，但真正决定每个并发 agent 归组的，是它自己的 `opts.phase`。两者同时存在时，**附着在 agent 上的 `opts.phase` 更可靠**，因为它不受并发交错的影响。
 
 </div>
 
@@ -314,13 +314,13 @@ const out = await pipeline(
 
 ## 6.6 `model`：模型继承与单点覆盖
 
-`model` 选项控制**这一个 agent** 用哪个模型。它是第 05 章 5.6 节那套模型选择里**唯一有官方明确语义、值得依赖**的旋钮：省略时继承主循环模型，显式给值则覆盖这个默认。第 05 章已强调，`meta.phases[].model` 的运行时效果未定，真要设模型，就靠这里的 `opts.model`。（顶层 `meta.model` 与各层的自动解析关系事实源未核实，见 5.6；本节只讲已确认的 `opts.model`。）
+`model` 选项控制**这一个 agent** 用哪个模型。它是第 05 章 5.6 节模型选择里**唯一有官方明确语义、值得依赖**的旋钮：省略时继承主循环模型，给值则覆盖默认。第 05 章已强调 `meta.phases[].model` 的运行时效果未定，真要设模型就靠 `opts.model`。（顶层 `meta.model` 与各层的自动解析关系事实源未核实，见 5.6；本节只讲已确认的 `opts.model`。）
 
 ### 6.6.1 默认：继承主循环模型
 
 据 `_grounding.md`，`opts.model`「省略则继承主循环模型；简单任务可用 `'haiku'`」。这是工具定义里关于 `model` 唯一明确的语义：**省略时继承主循环**。
 
-不写 `model`，这个 agent 就用**主循环当前的模型**。前面这些真实运行所在的早期会话主循环是 Opus 4.7，subagent 模型由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 指定（见 `_grounding.md` A 节）。前面所有真实运行（`hello` / `parallel` / `pipeline`）都**没有**显式传 `model`，所以它们的 subagent 都跑在继承来的 Opus 模型上。（R11 复核会话已换成 Opus 4.8，`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-8[1m]`、printenv 实测；「不写 `model` 则继承主循环」这一结论与型号无关。）
+不写 `model`，agent 用**主循环当前的模型**。前面这些真实运行所在的早期会话主循环是 Opus 4.7，subagent 模型由 `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]` 指定（见 `_grounding.md` A 节）。所有真实运行（`hello` / `parallel` / `pipeline`）都**没有**显式传 `model`，subagent 跑在继承来的 Opus 模型上。（R11 复核会话已换成 Opus 4.8，`CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-8[1m]`，printenv 实测；「不写 `model` 则继承主循环」这一结论与型号无关。）
 
 <div class="callout warn">
 
@@ -330,7 +330,7 @@ const out = await pipeline(
 
 ### 6.6.2 用 `'haiku'` 给简单任务降本
 
-当一个 agent 的活儿很简单（分类、抽取、格式转换、判个布尔），用强模型就是浪费。把它降到 `'haiku'`：
+当一个 agent 的任务很简单（分类、抽取、格式转换、判断布尔值），使用强模型属于浪费。可以降级到 `'haiku'`：
 
 ```javascript
 // 一个只需「判断输入是不是一个有效的 URL」的轻量任务
@@ -349,15 +349,15 @@ const check = await agent(`这是不是一个合法的 HTTP(S) URL?只回答 tru
 
 `_grounding.md` C 节给了一条关键经验法则：
 
-> token ≈ agent 数 × 每 agent 上下文(约 2.5–3 万/agent);墙钟取决于关键路径,并发把 N 个压到「最慢的一个」。
+> token ≈ agent 数 × 每 agent 上下文(约 2.5–3 万/agent);wall-clock取决于关键路径,并发把 N 个压到「最慢的一个」。
 
-本书三次真实运行（hello / parallel / pipeline）印证了它：`78844 ≈ 3 × 26338`、`158982 ≈ 6 × 26500`，**总 token 几乎线性正比于 agent 数**，每个 agent 稳定在约 2.5–3 万 token（完整用量表见 [第 09 章 · 进度·日志·续传·预算](#/zh/p2-09) §9.3）。背后的原因（每个 agent 是独立上下文）马上在 6.9 节讲。
+本书三次真实运行（hello / parallel / pipeline）印证了它：`78844 ≈ 3 x 26338`、`158982 ≈ 6 x 26500`，**总 token 几乎线性正比于 agent 数**，每个 agent 稳定在约 2.5--3 万 token（完整用量表见 [第 09 章 · 进度·日志·续传·预算](#/zh/p2-09) §9.3）。背后的原因（每个 agent 是独立上下文）6.9 节讲。
 
-这条法则有个直接推论：**降本最有效的杠杆，是把「agent 数最多」的那个阶段换成便宜模型。** 一个工作流要是在某个广度阶段扇出 50 个 agent，把它们从 opus 换成 haiku，省下的就是「50 × 单价差」，比你优化任何别处都立竿见影。这正是第 05 章 5.6 节「广度阶段 haiku、深度阶段 opus」模式的经济学依据。
+直接推论：**降本最有效的手段，是把 agent 数量最多的阶段换成便宜模型。** 一个工作流在某个广度阶段并行派发 50 个 agent，从 opus 换成 haiku，节省的成本就是「50 x 单价差」，比优化其他环节更直接有效。这是第 05 章 5.6 节「广度阶段 haiku、深度阶段 opus」模式的经济学依据。
 
 <div class="callout info">
 
-**`model` 写在 `agent()` 上和写在 `meta.phases[]` 上的区别。** 两者语义不同，**可靠性也不同**：`meta.phases[].model` 是**声明性**的（写在经线上，表达「这一阶段计划用某模型」，方便读脚本的人看清成本结构），但它**运行时是否单独生效未定**（见 5.3.3）；`agent({ model })` 是**命令性**的（写在纬线上，**真正**决定这一个 agent）。实战里正确的组合是：在 `meta.phases` 上标好阶段意图，**同时**在该阶段的每个 `agent()` 上落实 `model`，一处「说计划」给人看，一处「下命令」让它真生效。**别只标 phases、不写 agent 上的 `model`。**
+**`model` 写在 `agent()` 上和写在 `meta.phases[]` 上的区别。** 两者语义不同，**可靠性也不同**：`meta.phases[].model` 是**声明性**的（写在经线上，表达「这一阶段计划用某模型」，方便读者了解成本结构），但它**运行时是否单独生效未定**（见 5.3.3）；`agent({ model })` 是**命令性**的（写在纬线上，**实际**决定这一个 agent 的模型）。实践中正确的组合是：在 `meta.phases` 上标注阶段意图，**同时**在该阶段的每个 `agent()` 上设置 `model`，前者用于文档可读性，后者确保实际生效。**不要只标 phases 而不在 agent 上设置 `model`。**
 
 </div>
 
@@ -365,13 +365,13 @@ const check = await agent(`这是不是一个合法的 HTTP(S) URL?只回答 tru
 
 ## 6.7 `isolation: 'worktree'`：昂贵但有时必需的隔离
 
-`isolation: 'worktree'` 让这个 agent 在一个**独立的 git worktree** 里跑。它是 `agent()` 选项里**最重、最该谨慎使用**的一个。
+`isolation: 'worktree'` 让 agent 在一个**独立的 git worktree** 中运行。这是 `agent()` 选项中**开销最大、需要最谨慎使用**的一个。
 
 ### 6.7.1 它解决什么问题
 
-设想一个工作流：你想让 5 个 agent **并行**地各改各的代码（比如分头修 5 个不同的 bug，每个都要改文件）。这些 agent 要是都在**同一个工作目录**里写文件，就会互相踩踏：A 改了 `utils.js`，B 也在改 `utils.js`，git 状态、文件内容彼此污染，结果没法预测。
+设想一个工作流：5 个 agent **并行**地各自修改代码（分头修 5 个不同的 bug，每个都要改文件）。如果它们都在**同一个工作目录**中写文件，就会互相冲突：A 改了 `utils.js`，B 也在改 `utils.js`，git 状态和文件内容彼此污染，结果不可预测。
 
-`isolation: 'worktree'` 给每个这样的 agent 一个**自己的 git worktree**（同一仓库、独立的工作目录），它在里头改文件，跟别的 agent 互不干扰。据 `_grounding.md`：
+`isolation: 'worktree'` 给每个 agent 一个**自己的 git worktree**（同一仓库，独立工作目录），在里头改文件，跟别的 agent 互不干扰。据 `_grounding.md`：
 
 > `opts.isolation: 'worktree'` 在独立 git worktree 运行(**昂贵**,仅当并行改文件会冲突时用,无改动自动清理)。
 
@@ -387,11 +387,11 @@ const fixes = await parallel(
 )
 ```
 
-**它实测落在哪？**（本机实测，Run ID `wf_d9a10c19-b65-2`）一个带 `isolation: 'worktree'` 的 agent，工作目录是 `<repo>/.claude/worktrees/wf_<runId>-<n>/`，这是一个**货真价实的 git worktree**：在它里头 `git rev-parse --show-toplevel` 指向的就是这个隔离目录，`git rev-parse --git-dir` 则落在 `<repo>/.git/worktrees/wf_<runId>-<n>`。换句话说，每个 worktree agent 都在一棵**独立的工作树**里改文件，彼此互不冲突，目录名按 `wf_<runId>-<n>` 编号。（注：**确切的清理时机、分支名、以及合并回主树的机制**，官方与本机实测都未取得确证，见 6.7.3。）
+**实际路径**（本机实测，Run ID `wf_d9a10c19-b65-2`）：带 `isolation: 'worktree'` 的 agent 的工作目录为 `<repo>/.claude/worktrees/wf_<runId>-<n>/`，这是一个真正的 git worktree：在该目录内 `git rev-parse --show-toplevel` 指向此隔离目录，`git rev-parse --git-dir` 指向 `<repo>/.git/worktrees/wf_<runId>-<n>`。每个 worktree agent 都在**独立的工作树**中修改文件，彼此互不冲突，目录名按 `wf_<runId>-<n>` 编号。（注：**确切的清理时机、分支名、以及合并回主树的机制**，官方与本机实测都未取得确证，见 6.7.3。）
 
 ### 6.7.2 为什么说它「昂贵」
 
-「昂贵」不是修辞。创建一个 git worktree，要做真实的磁盘操作，还有 git 开销。结合本书写作上下文给出的量级，**每个 worktree 约 200–500ms 起步，外加每个 agent 的磁盘占用**。你要是给 50 个 agent 都加上 `isolation: 'worktree'`，这笔开销会攒成一笔可观的延迟和磁盘消耗。
+「昂贵」不是修辞。创建一个 git worktree 要做真实的磁盘操作，还有 git 开销。结合本书写作上下文给出的量级，**每个 worktree 约 200--500ms 起步，外加每个 agent 的磁盘占用**。给 50 个 agent 都加上 `isolation: 'worktree'`，这笔开销会攒成可观的延迟和磁盘消耗。
 
 所以用不用的判据非常明确：**只有「并行 + 改文件 + 会冲突」三个条件同时成立时才用**。
 
@@ -411,13 +411,13 @@ flowchart TD
 
 ### 6.7.3 自动清理
 
-一个贴心的细节：工具契约写明「**无改动自动清理**」（`auto-removed if unchanged`）。也就是说，某个加了 `isolation: 'worktree'` 的 agent 跑完后**没有产生任何文件改动**，运行时会自动把那个临时 worktree 清掉，不留垃圾。这把「加了 worktree 却发现没必要」的善后成本降下来了，但它**不能**成为「随手加 worktree」的理由，因为创建本身的开销你已经付出去了。
+一个值得注意的细节：工具契约写明「**无改动自动清理**」（`auto-removed if unchanged`）。加了 `isolation: 'worktree'` 的 agent 运行完成后**没有产生任何文件改动**，运行时会自动清除该临时 worktree。这降低了「加了 worktree 却发现不必要」的善后成本，但**不构成**随意添加 worktree 的理由，因为创建开销已经产生。
 
-不过有一道边界要划清：**「无改动则清理」这条工具契约里有，但确切的清理时机、worktree 的分支名、以及改动如何合并回主树，官方与本机实测都未取得确证**，本书把这几点按「未核实」对待，别当成实测确认的事实（完整的模式与权衡见第 19 章）。
+需要明确的边界是：**「无改动则清理」这条工具契约已有记录，但确切的清理时机、worktree 的分支名、以及改动如何合并回主树，官方与本机实测都未取得确证**，本书将这几点按「未核实」对待，不作为实测确认的事实（完整的模式与权衡见第 19 章）。
 
 <div class="callout warn">
 
-**默认不要加 `isolation: 'worktree'`。** 绝大多数 agent 干的是**只读分析**（审查、研究、总结、判断），它们根本不写文件，自然没有冲突，加 worktree 纯属浪费。就算写文件，只要各 agent 写的是**互不相干的独立文件**，通常也不用隔离。这个选项是为「并行修改、且会撞车」这一**特定**场景准备的逃生舱，不是默认装备。Worktree 隔离的完整模式和权衡，是第 19 章的专题。
+**默认不要添加 `isolation: 'worktree'`。** 绝大多数 agent 执行的是**只读分析**（审查、研究、总结、判断），不写文件也就不存在冲突，添加 worktree 纯属浪费。即使需要写文件，只要各 agent 写的是**互不相关的独立文件**，通常也不需要隔离。这个选项是为「并行修改且会产生冲突」这一**特定**场景设计的，不是默认配置。Worktree 隔离的完整模式和权衡见第 19 章。
 
 </div>
 
@@ -467,7 +467,7 @@ const review = await agent('审查这个 diff,报告问题', {
 // review 既由 code-reviewer 角色产出,又保证匹配 schema
 ```
 
-这种组合很强：`agentType` 决定**谁**来做、以什么取向做，`schema` 决定产物**长什么样**。两者正交，可以随便搭。
+这种组合同时覆盖了「谁来做」和「产物长什么样」两个轴：`agentType` 决定角色取向，`schema` 决定输出结构。两者正交，随意搭配。
 
 ### 6.8.3 `agentType` 有校验（已实测）：传错会在生成模型之前抛错
 
@@ -480,7 +480,7 @@ general-purpose, get-current-datetime, init-architect, Plan, planner,
 statusline-setup, team-architect, team-qa, team-reviewer, ui-ux-designer
 ```
 
-两个可以直接利用的事实：其一，**拼错或写了不存在的类型不会被静默吞掉**，而是立刻、明确地报错，所以 `agentType` 出问题很好查；其二，错误信息**自带一份「可用类型清单」**，等于运行时帮你把当前环境注册的所有 agent 都列了出来。
+两个可直接利用的事实：其一，**拼写错误或不存在的类型不会被静默忽略**，而是立即报错，因此 `agentType` 的问题容易排查。其二，错误信息**自带一份「可用类型清单」**，运行时会列出当前环境中注册的所有 agent 类型。
 
 <div class="callout warn">
 
@@ -488,13 +488,13 @@ statusline-setup, team-architect, team-qa, team-reviewer, ui-ux-designer
 - **`agentType`** **本书实测确认有校验**（`wf_a222f20f-0f5`）：未知值在生成模型前 0 token 抛错并列出可用类型。
 - **`model`** 官方只明确了「省略则继承主循环」。至于「它**不**做校验、拼错（如 `'hauku'`）不在解析期报错、而是 passthrough 后才失败」，这是**第三方资料的说法，本书未独立实测**，所以不当作已证实的事实。
 
-落到实践上：写 `agentType` 时，拼错会被运行时当场拦下；但写 `model` 时，**别指望运行时帮你抓拼写错误**，把模型名写对，或者固定从一组常量里取值。
+在实践中：写 `agentType` 时，拼写错误会被运行时立即拦截；但写 `model` 时，**不要依赖运行时来捕获拼写错误**，应确保模型名正确，或从一组预定义常量中取值。
 
 </div>
 
 <div class="callout info">
 
-**`agentType` 能用哪些值，取决于你的环境。** 上面那份清单（`claude` / `Explore` / `planner` / `code` 相关类型……）是**本书实测会话**（`wf_a222f20f-0f5`）的注册表快照；你实际能用哪些类型，取决于 Claude Code 内置的、以及你在项目里（如 `.claude/agents/`）定义的自定义 subagent，**因环境而异**。不传 `agentType` 时，用的就是默认通用 subagent（它内部的类型名叫 `workflow-subagent`），本章其余真实运行示例都属于这种默认情况。想知道你自己环境里有哪些类型，最快的办法就是故意传一个不存在的值，读它报错列出来的清单。
+**`agentType` 可用的值取决于运行环境。** 上面的清单（`claude` / `Explore` / `planner` / `code` 相关类型等）是**本书实测会话**（`wf_a222f20f-0f5`）的注册表快照；实际可用的类型取决于 Claude Code 内置的以及在项目中（如 `.claude/agents/`）定义的自定义 subagent，**因环境而异**。不传 `agentType` 时，使用的是默认通用 subagent（其内部类型名为 `workflow-subagent`），本章其余真实运行示例都属于这种默认情况。查看当前环境可用类型的最快方法是故意传一个不存在的值，从报错信息中读取清单。
 
 </div>
 
@@ -502,7 +502,7 @@ statusline-setup, team-architect, team-qa, team-reviewer, ui-ux-designer
 
 ## 6.9 上下文隔离：agent() 为什么能「保护主循环」
 
-讲完所有选项，回到一个贯穿全书的核心问题：**为什么用 `agent()` 扇出工作，能保护你主循环的上下文？**
+介绍完所有选项后，回到一个贯穿全书的问题：**为什么用 `agent()` 并行分配工作，能保护主循环的上下文？**
 
 答案藏在 `_grounding.md` 的一句事实里：
 
@@ -512,10 +512,10 @@ statusline-setup, team-architect, team-qa, team-reviewer, ui-ux-designer
 
 ### 6.9.1 独立上下文意味着什么
 
-拿它和主循环对比着看：
+和主循环对比着看：
 
-- 你的**主循环**有一个会随对话不断变长的上下文窗口。每读一个大文件、每跑一条产出长输出的命令，这些字节都**永久驻留**在主循环上下文里，挤占后面的推理空间。
-- 而每个 `agent()` 派出去的 subagent，跑在**自己独立的上下文**里。它读了 10 万行代码、生成了一大段分析，这些字节全留在**它自己的**上下文里。它跑完后，**只有它的返回值**（那个文本或已验证对象）回到你的主循环。
+- **主循环**有一个随对话不断变长的上下文窗口。你每读一个大文件、每跑一条产出长输出的命令，这些字节都**永久驻留**在主循环上下文里，挤占后面的推理空间。
+- 每个 `agent()` 派出去的 subagent 跑在**自己独立的上下文**里。它读了 10 万行代码、生成了一大段分析，这些字节全留在**它自己的**上下文里。跑完后，**只有返回值**（文本或已验证对象）回到你的主循环。
 
 ```mermaid
 flowchart LR
@@ -533,11 +533,11 @@ flowchart LR
     style Main fill:#2d6
 ```
 
-这就是 `agent()` 「上下文保护」的本质：**把会污染主循环的「过程字节」（读到的原始资料、中间推理）隔离在 subagent 的一次性上下文里，只让「结果字节」（精炼的返回值）回流。** 一个要读 20 个文件才能回答的问题，你不必把这 20 个文件读进主循环：派一个 agent 去读、去想，它只把答案带回来。
+这就是 `agent()` 「上下文保护」的本质：**把会污染主循环的「过程字节」（读到的原始资料、中间推理）隔离在 subagent 的一次性上下文里，只让「结果字节」（精炼的返回值）回流。** 一个要读 20 个文件才能回答的问题，你不必把 20 个文件读进主循环。派一个 agent 去读、去想，它只把答案带回来。
 
 ### 6.9.2 「最终文本即返回值」的设计
 
-普通的子任务会返回一段**写给人看**的话（「好的，我已经帮你看完了，这个文件主要做……」）。但 Workflow 的 subagent 被明确告知：**你的最终输出就是程序的返回值，不是给人看的寒暄。** 据 `_grounding.md`：
+普通子任务返回的是**面向人类的文本**（「好的，我已经帮你看完了，这个文件主要做......」）。Workflow 的 subagent 则被明确告知：**最终输出就是程序的返回值，不是面向人类的寒暄。** 据 `_grounding.md`：
 
 > subagent 被告知「最终文本即返回值」(不是给人看的话),故返回原始数据。
 > 结构化输出在工具调用层校验,模型不合规会重试。
@@ -551,7 +551,7 @@ flowchart LR
 
 <div class="callout tip">
 
-**实践推论：把「重读、重想」的脏活交给 agent。** 凡是「得吞掉大量上下文才能得出一个小结论」的任务（通读一个大模块、扫一批日志、研究一份长文档），都适合丢给 `agent()`。它在独立上下文里消化原料，只把结论带回主循环。这正是 `parallel` / `pipeline` 大规模扇出时主循环上下文却几乎不涨的原因，也是 Workflow 相比「在主循环里硬读」的根本优势。
+**将「需要大量阅读才能得出小结论」的任务交给 agent。** 通读一个大模块、扫描一批日志、研究一份长文档这类任务，都适合交给 `agent()` 处理。它在独立上下文中消化原始材料，只将结论返回主循环。这正是 `parallel` / `pipeline` 大规模并行派发时主循环上下文几乎不增长的原因，也是 Workflow 相比在主循环中直接读取的根本优势。
 
 </div>
 
@@ -559,7 +559,7 @@ flowchart LR
 
 ## 6.10 选项组合：把它们用在一起
 
-现实中的 `agent()` 调用往往**同时**用上多个选项。下面这个示例（示意，未实跑）把本章选项尽量凑到一起，并标出每个的意图：
+实际使用中的 `agent()` 调用通常**同时**用到多个选项。下面的示例（示意，未实跑）组合了本章介绍的选项，标注了每个选项的意图：
 
 ```javascript
 const review = await agent(
@@ -605,7 +605,7 @@ const blockers = (review?.issues ?? []).filter(i => i.severity === 'critical')
 | `schema` | 嵌套对象+enum | 产物要被代码筛选 critical,需结构化(6.4) |
 | `isolation` | **不设** | 只读分析,不写文件,无冲突风险(6.7) |
 
-这张表本身就是一份「怎么选 agent 选项」的决策示范：**每个选项都该有一个明确的「为什么用、为什么不用」，而不是凭感觉堆上去。** 尤其 `isolation`，它的「不设」和别的选项「设了」一样，都是一个有意识的决定。
+这张表本身就是选择 agent 选项的决策示范：**每个选项都应有明确的使用理由，而不是随意堆叠。** `isolation` 的「不设」和其他选项的「已设」一样，都是有意识的决定。
 
 ---
 
@@ -616,11 +616,11 @@ const blockers = (review?.issues ?? []).filter(i => i.severity === 'critical')
 - **`label`** 是进度树显示名，用「类型:实例」模式（如 `review:auth`）最易读，不影响执行（6.3）。
 - **`schema`** 强制 subagent 走 `StructuredOutput` 工具、在工具调用层校验、不匹配则重试，让你**零解析、零容错**拿到结构化数据；判据是「产物要被代码消费吗」（6.4）。
 - **`phase`** 显式归入进度组；顺序代码用全局 `phase()`，**并发（`parallel`/`pipeline`）里必须用 `opts.phase`** 避免竞争全局游标；字符串须与 `meta.phases[].title` 精确匹配（6.5）。
-- **`model`** 省略则继承主循环（本章示例的早期会话为 Opus 4.7，R11 复核会话为 Opus 4.8，结论与型号无关）；简单任务用 `'haiku'` 降本。**它是脚本能控制的最细旋钮，但不是最终裁决**：`CLAUDE_CODE_SUBAGENT_MODEL` 一旦设置会覆盖每个 agent 的 `model`（`wf_9c94951d-58c`：5 个 agent 全 Opus）；`meta.phases[].model` 单独是否生效未定、顶层 `meta.model` 语义待核实（见 5.3.3、5.6）。由真实数据印证 **token ≈ agent 数 × 每 agent 上下文（~2.5–3 万）**，故把扇出最多的阶段换便宜模型是最有效的降本杠杆（6.6）。
+- **`model`** 省略则继承主循环（本章示例的早期会话为 Opus 4.7，R11 复核会话为 Opus 4.8，结论与型号无关）；简单任务用 `'haiku'` 降本。**它是脚本能控制的最细旋钮，但不是最终裁决**：`CLAUDE_CODE_SUBAGENT_MODEL` 一旦设置会覆盖每个 agent 的 `model`（`wf_9c94951d-58c`：5 个 agent 全 Opus）；`meta.phases[].model` 单独是否生效未定、顶层 `meta.model` 语义待核实（见 5.3.3、5.6）。由真实数据印证 **token ≈ agent 数 × 每 agent 上下文（~2.5–3 万）**，故把并行派发最多的阶段换便宜模型是最有效的降本杠杆（6.6）。
 - **`isolation: 'worktree'`** 给 agent 独立 git worktree，**昂贵**（每个约 200–500ms + 磁盘），**仅当「并行 + 改文件 + 会冲突」三条件同时成立**才用，无改动自动清理（6.7）。
 - **`agentType`** 借用自定义 subagent 类型（如 `'Explore'`、`'code-reviewer'`），决定 agent 的角色取向，**可与 `schema` 组合**；**已实测有校验**（`wf_a222f20f-0f5`）：未知值在生成模型前 0 token 抛错并列出可用类型，与 `model` 是否校验仅属第三方说法形成对比（6.8）。
-- **上下文隔离**是 `agent()` 的灵魂：每个 subagent 独立上下文，只把**返回值**回流主循环，把「过程字节」隔离在一次性上下文里。这正是它**保护主循环上下文**、能大规模扇出的根本原因（6.9）。
+- **上下文隔离**是 `agent()` 的核心：每个 subagent 独立上下文，只把**返回值**回流主循环，把「过程字节」隔离在一次性上下文里。这正是它**保护主循环上下文**、能大规模并行派发的根本原因（6.9）。
 
-纬线的这根单丝 `agent()`，我们已经看到了头。但一根丝织不成花纹。下一章，我们钻进它最有分量的那个选项 `schema`，看「结构化输出」怎么把一群各说各话的 subagent，拧成一条能被代码可靠消费的数据流水线。
+`agent()` 这根纬线的单丝至此介绍完毕。但单根线织不成花纹。下一章深入它最重要的选项 `schema`，说明「结构化输出」如何将一组独立的 subagent 组织成一条可被代码可靠消费的数据流水线。
 
 > 继续阅读:[第 07 章 · 结构化输出与 Schema](#/zh/p2-07)

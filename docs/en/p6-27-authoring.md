@@ -1,14 +1,14 @@
 # Chapter 27 · The Authoring Workflow
 
-> In one sentence: **writing a Workflow starts with a one-sentence need, not with opening an editor and typing `pipeline(`. Ask "what exactly am I fanning out, verifying, synthesizing?" Think that intent through, and the primitive (pipeline / parallel / single agent / loop) almost falls out on its own; skip it, and even the prettiest script just parallelizes the chaos.**
+> **Writing a Workflow starts with a one-sentence need, not with opening an editor and typing `pipeline(`. Ask "what exactly am I fanning out, verifying, synthesizing?" Think that intent through, and the primitive (pipeline / parallel / single agent / loop) almost falls out on its own; skip it, and even the prettiest script just parallelizes the mess.**
 >
-> This chapter gives you a re-runnable authoring pipeline: intent → work list → meta → pick a primitive → schema → validate → real run → iterate. Every step uses the book's three **actually-run** example scripts (review-spa, dead-code-scan, feedback-themes) as decision cases, citing their real Run IDs and usage. By the end you'll have a muscle memory for going "from a need to a re-runnable workflow," plus a scaffold you can edit directly.
+> This chapter gives you a re-runnable authoring pipeline: intent → work list → meta → pick a primitive → schema → validate → real run → iterate. Every step uses the book's three **actually-run** example scripts (review-spa, dead-code-scan, feedback-themes) as decision cases, citing their real Run IDs and usage. By the end you'll have a reliable instinct for going "from a need to a re-runnable workflow," plus a scaffold you can edit directly.
 
 ---
 
-Earlier chapters took Workflow apart one piece at a time: Chapter 5 on `meta`/`phase`, Chapter 6 on `agent()`, Chapter 7 on schema, Chapter 8 on `parallel` barrier vs `pipeline`, Chapter 17 on adversarial verification, Chapter 18 on loop-until-dry. But "knowing every part" and "knowing how to bolt the parts together into a machine" are two different things. This chapter adds no new parts. It's about the **assembly order**: the process a seasoned author actually runs in their head when hit with a one-sentence need like "review this PR for me" or "cluster this pile of feedback."
+Earlier chapters covered Workflow one piece at a time: Chapter 5 on `meta`/`phase`, Chapter 6 on `agent()`, Chapter 7 on schema, Chapter 8 on `parallel` barrier vs `pipeline`, Chapter 17 on adversarial verification, Chapter 18 on loop-until-dry. But knowing every part and knowing how to assemble them into a working system are two different things. This chapter adds no new parts. It covers the **assembly order**: the actual decision process when faced with a one-sentence need like "review this PR for me" or "cluster this pile of feedback."
 
-We draw it as a straight-line pipeline, but keep in mind: **real authoring loops back on itself**. Any step below can bounce you back to an earlier one (if you can't write the schema, that usually means the intent isn't clear yet).
+The diagram below shows a straight-line pipeline, but real authoring is iterative. Any step can lead back to an earlier one (if the schema is hard to write, that usually means the intent is not yet clear).
 
 ```mermaid
 flowchart TD
@@ -35,9 +35,9 @@ This chapter is the "authoring-side" overview; what comes after it is Chapter 28
 
 ## 27.1 Intent First: What Exactly Are You Fanning Out, Verifying, Synthesizing
 
-The most common beginner mistake is to open with "should I use pipeline or parallel." That reasons from the tool back to the problem; the order is backwards. **First answer a plainer question: what is this task's parallelism actually for?**
+The most common beginner mistake is to start with "should I use pipeline or parallel." This reasons from the tool back to the problem; the order is backwards. **First answer a more fundamental question: what is this task's parallelism actually for?**
 
-The entire value of Workflow boils down to three verbs:
+Workflow's value reduces to three verbs:
 
 | Verb | What you're doing | What it buys | Typical primitive |
 |---|---|---|---|
@@ -49,7 +49,7 @@ Before you write a script, state the intent in one sentence: **for comprehensive
 
 <div class="callout tip">
 
-- **review-spa**: "Review a piece of code across **multiple dimensions**, and **don't blindly trust** every finding a reviewer raises." → fan-out (by dimension) + verify (adversarial). For **scale** and for **trust**.
+- **review-spa**: "Review a piece of code across **multiple angles**, and **don't blindly trust** every finding a reviewer raises." → fan-out (by dimension) + verify (adversarial). For **scale** and for **trust**.
 - **feedback-themes**: "**Synthesize** a batch of feedback into ranked themes." → fan-out (per-item summary) + synthesize (cluster the whole set). For **comprehensiveness**.
 - **dead-code-scan**: "Scan **repeatedly** until confirmed nothing is missed." → progressive scanning, where one round may reveal the next round's targets. For **comprehensiveness** (exhaustiveness), but with a serial loop rather than fan-out.
 
@@ -59,7 +59,7 @@ Notice dead-code-scan's intent has no "do N parts at once." It is a **serial** l
 
 <div class="callout warn">
 
-**Watch out for "parallelism for its own sake."** Workflow concurrency isn't free: each `agent()` eats roughly 25k–30k tokens of context (the derivation of this rule of thumb is in [Chapter 09 §9.3](#/en/p2-09)). `feedback-themes` burned **607,307 tokens** in a single real run (Run `wf_b3febb70-ad9`), just because it fanned out 20 agents. If a single agent can do your task well, fanning out only makes you pay 20× to parallelize something that needed no parallelism. First ask "why do I need multiple agents"; if you can't answer, use a single agent.
+**Beware "parallelism for its own sake."** Workflow concurrency is not free: each `agent()` consumes roughly 25k-30k tokens of context (the derivation of this rule of thumb is in [Chapter 09 §9.3](#/en/p2-09)). `feedback-themes` consumed **607,307 tokens** in a single real run (Run `wf_b3febb70-ad9`), because it fanned out 20 agents. If a single agent can handle the task, fanning out only costs 20x to parallelize something that needs no parallelism. First ask "why do I need multiple agents"; if there is no clear answer, use a single agent.
 
 </div>
 
@@ -67,11 +67,11 @@ Notice dead-code-scan's intent has no "do N parts at once." It is a **serial** l
 
 ## 27.2 Discover the Work List: Scout the Items First, Then Orchestrate the Pipeline
 
-Once the intent is clear, the next question shows up: **what exactly are the "N parts" I'm fanning out?** Plenty of tasks don't know N up front. The file list to review, the sub-questions to research, the number of feedback items to summarize often have to be "scouted" first.
+Once the intent is clear, the next question follows: **what exactly are the "N parts" being fanned out?** Many tasks do not know N up front. The file list to review, the sub-questions to research, the number of feedback items to summarize often need to be discovered first.
 
 This leads to a key two-stage structure: **scout (discover) first, orchestrate (process) second**. Don't hardcode a guessed list when you write the script; let the first agent **enumerate** the list, then hand that list to the downstream `pipeline`/`parallel`.
 
-`feedback-themes` is a textbook "scout first." Its first `agent()` does no summarizing at all. Its one job is to **read the CSV into an item array**:
+`feedback-themes` is a canonical "scout first" example. Its first `agent()` does no summarizing at all. Its sole job is to **read the CSV into an item array**:
 
 ```javascript
   phase('Load')
@@ -87,7 +87,7 @@ This leads to a key two-stage structure: **scout (discover) first, orchestrate (
   ))
 ```
 
-In the real run this scout read out 18 rows, so `parallel` fanned out 18 summary agents (plus 1 load, 1 cluster, so `agent_count` measured at exactly **20**, Run `wf_b3febb70-ad9`). Nowhere does the script hardcode "18"; the list is discovered from the data at runtime. That's the power of scout-then-orchestrate: **the same script, fed 18 rows gives 20 agents; fed 50 rows automatically gives 52 agents**, without touching a single line.
+In the real run this scout read out 18 rows, so `parallel` fanned out 18 summary agents (plus 1 load, 1 cluster, so `agent_count` measured at exactly **20**, Run `wf_b3febb70-ad9`). The script does not hardcode "18"; the list is discovered from the data at runtime. This is the core advantage of scout-then-orchestrate: **the same script, fed 18 rows, produces 20 agents; fed 50 rows, it automatically produces 52 agents**, without changing any code.
 
 ```mermaid
 flowchart LR
@@ -110,7 +110,7 @@ Not every workflow needs an explicit scout. `review-spa`'s "list" is the fixed t
 
 ## 27.3 Write meta: The Pure-Literal "ID Card"
 
-With the list and the orchestration clear in your head, write `meta` first. This isn't just ceremony. `meta` is the workflow's ID card, and the **only part read statically before the run**.
+With the list and orchestration approach decided, write `meta` first. This is not just ceremony. `meta` is the workflow's ID card, and the **only part read statically before the run**.
 
 `meta` has two iron rules (both measured):
 
@@ -133,17 +133,17 @@ This is `review-spa`'s real `meta`. Note the `phases` array. It declares how man
 
 <div class="callout warn">
 
-**A non-literal `meta` is rejected at submit time, and the script never runs.** In testing, `export const meta = {…, constructor: 'x'}` (a reserved key) was rejected at submit, verbatim: `Script must begin with export const meta = { name, description, phases } (pure literal). meta must be a pure literal: reserved key name not allowed in meta: constructor`. Likewise, any `name: 'x-' + suffix` or `description: \`...${v}\`` is rejected. Push the dynamic concatenation down into the script body (into `agent()` prompts); keep `meta` hardcoded.
+**A non-literal `meta` is rejected at submit time, and the script will not run.** In testing, `export const meta = {…, constructor: 'x'}` (a reserved key) was rejected at submit, verbatim: `Script must begin with export const meta = { name, description, phases } (pure literal). meta must be a pure literal: reserved key name not allowed in meta: constructor`. Likewise, any `name: 'x-' + suffix` or `description: \`...${v}\`` is rejected. Dynamic concatenation should be placed in the script body (in `agent()` prompts); `meta` must remain hardcoded.
 
 </div>
 
-On `phases[].model`: the official tool description frames it as "add it when overriding a phase with a specific model," which is ambiguously worded; and because `CLAUDE_CODE_SUBAGENT_MODEL` overrode everything in this book's session, we **could not independently isolate** whether it is read at runtime. **The safe practice**: treat `phases[].model` as a "label" on the dialog, and to actually run a phase on Haiku, write `model:'haiku'` on each `agent()` in that phase. Don't count on `phases[].model` to take effect on its own (the two environment-variable layers behind model override are detailed in [Appendix A · A.4](#/en/app-a)).
+Regarding `phases[].model`: the official tool description describes it as "add it when overriding a phase with a specific model," which is ambiguously worded; and because `CLAUDE_CODE_SUBAGENT_MODEL` overrode everything in this book's session, we **could not independently isolate** whether it is read at runtime. The safe practice: treat `phases[].model` as a "label" on the dialog, and to actually run a phase on Haiku, write `model:'haiku'` on each `agent()` in that phase. Do not rely on `phases[].model` to take effect on its own (the two environment-variable layers behind model override are detailed in [Appendix A · A.4](#/en/app-a)).
 
 ---
 
 ## 27.4 Pick a Primitive: A Real Four-Way Decision
 
-By now you have intent, list, and meta. Only now do you pick a primitive. Because the first three steps were done solidly, this one is basically "matching by the numbers." Workflow gives you four orchestration shapes, and they differ on a single core question: **when can the next step begin?**
+By now you have intent, list, and meta. Only now do you pick a primitive. Because the first three steps were done solidly, this one is basically "matching by the numbers." Workflow gives you four orchestration shapes, and they differ on a single question: **when can the next step begin?**
 
 ```mermaid
 flowchart TD
@@ -157,7 +157,7 @@ flowchart TD
 
 | Primitive | Barrier semantics | When the next step begins | Wall-clock profile | Signal to pick it |
 |---|---|---|---|---|
-| **single agent** | — | sequential | single-task latency | one subagent can do it well |
+| **single agent** | — | sequential | single-task latency | one subagent suffices |
 | **`pipeline`** | **no barrier** | each chain goes on its own, first-done-first-onward | ≈ the slowest **single chain** | multiple independent chains, want "first done first onward" (**default for multi-stage**) |
 | **`parallel`** | **barrier** | **wait for all** to finish before returning | ≈ the slowest **single agent** | the next step needs the whole set |
 | **loop** | serial | stop only when the termination condition is met | sum of N serial rounds | one round reveals the next round's target |
@@ -324,7 +324,7 @@ Once the script is written and before the real run, run a static check with the 
   # valid script: ok ... passes
 ```
 
-This chapter covers this step in a single sentence: **the complete list of validation rules, the verbatim text of each error, and how to debug a real-run failure with `/workflows` and the transcript are all in [Chapter 28](#/en/p6-28)**. Here you only need to remember one thing. **A real run costs tokens (often hundreds of thousands), so run a zero-cost local lint first to knock out most low-level errors.** Don't use the real run as a lint.
+This chapter covers this step in a single sentence: **the full list of validation rules, the verbatim text of each error, and how to debug a real-run failure with `/workflows` and the transcript are all in [Chapter 28](#/en/p6-28)**. Here you only need to remember one thing. **A real run costs tokens (often hundreds of thousands), so run a zero-cost local lint first to knock out most low-level errors.** Don't use the real run as a lint.
 
 ---
 
@@ -332,7 +332,7 @@ This chapter covers this step in a single sentence: **the complete list of valid
 
 With validation passed, do the real run. Three things to keep in mind:
 
-1. **Gated**: first make sure the Workflow tool is available. The official surface entry is the "Dynamic workflows" row in `/config` (available on all paid plans; on Pro you must turn it on there; the docs don't state whether Max/Team/Enterprise default on or off, so go by the toggle state on that row in your own `/config`); `CLAUDE_CODE_WORKFLOWS=1` is a power-user low-level switch that **doesn't replace** `/config` (see [Chapter 01 §1.5](#/en/p1-01)).
+1. **Gated**: first make sure the Workflow tool is available. The official entry is the "Dynamic workflows" row in `/config` (available on all paid plans; on Pro you must turn it on there; the docs don't state whether Max/Team/Enterprise default on or off, so go by the toggle state on that row in your own `/config`); `CLAUDE_CODE_WORKFLOWS=1` is a power-user low-level switch that **doesn't replace** `/config` (see [Chapter 01 §1.5](#/en/p1-01)).
 2. **How to call**: once the script is on disk, trigger it with `Workflow({ scriptPath: '...' })` (`scriptPath` takes priority over inline `script` and named `name`). You can also trigger it by dropping the `workflow`/`workflows` keyword into a message (`ultrawork` is no longer a trigger, see [Chapter 01 §1.5](#/en/p1-01)).
 3. **The return is async**: the Workflow tool **returns immediately** with `taskId` and `runId` (shaped like `wf_...`), **non-blocking**. On actual completion, a `<task-notification>` returns `usage` and `result`.
 
@@ -355,7 +355,7 @@ That `runId` matters: **write it down, because the next step (iteration) uses it
 
 ## 27.8 Iterate: Use resume to Reuse the Unchanged Parts
 
-The first real run is rarely right the first time: a prompt is worded wrong, a schema is missing a field. The **most wasteful** move here is to re-run from scratch: re-running `review-spa` is another 990k tokens, 6.6 minutes. Workflow hands you a money-saving weapon: **resume**.
+The first real run is rarely right the first time: a prompt is worded wrong, a schema is missing a field. The **most wasteful** response is to re-run from scratch: re-running `review-spa` costs another 990k tokens and 6.6 minutes. Workflow provides a cost-saving mechanism: **resume**.
 
 The mechanism (official + measured): pass `resumeFromRunId: '<the last runId>'`, and the runtime **reuses the longest unchanged prefix of `agent()` calls**. These hand back cached results in milliseconds with **0 new tokens**; **the first `agent()` call you edited or added, and everything after it**, runs live (the full mechanism is in [Chapter 22](#/en/p4-22)).
 
@@ -388,12 +388,12 @@ flowchart LR
 
 ### The Closer: Once It Runs Clean, Press `s` to Save It as a Command
 
-Iterate until you're happy, and this pipeline still needs one **official closer**: **settle** the workflow you've gotten working, so next time you don't start over from `{ script }`. The official move is the lightest possible: press **`s`** in the `/workflows` view, and the script behind this run is **saved as a `/` command**, into autocomplete, alongside `/deep-research`, ready for `/<name>` reuse next time (terminal-side mechanics in [The Official Control Panel §6](#/en/p2-ops)).
+Iterate until you're happy, and this pipeline still needs one **official closer**: **settle** the workflow you've gotten working, so next time you don't start over from `{ script }`. The official move is the lightest possible: press **`s`** in the `/workflows` view, and the script behind this run is **saved as a `/` command**, into autocomplete, alongside `/deep-research`, ready for `/<name>` reuse next time (detailed mechanics in [The Official Control Panel §6](#/en/p2-ops)).
 
 > **Keystroke recap**: in `/workflows`, select this run, press `s`, use `Tab` to switch project-level / personal, press `Enter`.
-> For the full terminal-side mechanics (every key, every destination in detail), still see [The Official Control Panel §6](#/en/p2-ops).
+> For the full mechanics (every key, every destination in detail), still see [The Official Control Panel §6](#/en/p2-ops).
 
-As a script author, you've spent this stretch polishing on disk with `scriptPath` (§27.7–§27.8); once it runs clean there are two destinations, pick by need. **Light**: press `s` to save it as a command, ad-hoc settling, zero config. **Heavy**: file this `.js` into `.claude/workflows/` and call it with `{ name }`, from then on versioned, parameterized, regression-tested, shared with the team. The latter is the proper way to "build your own workflow library," covered in [Chapter 25](#/en/p5-25), which picks up exactly from this chapter's `scriptPath` iteration loop.
+As a script author, you've spent this stretch polishing on disk with `scriptPath` (§27.7-§27.8); once it runs clean there are two destinations, pick by need. **Light**: press `s` to save it as a command, ad-hoc settling, zero config. **Heavy**: file this `.js` into `.claude/workflows/` and call it with `{ name }`, from then on versioned, parameterized, regression-tested, shared with the team. The latter is the proper way to "build your own workflow library," covered in [Chapter 25](#/en/p5-25), which picks up exactly from this chapter's `scriptPath` iteration loop.
 
 That wraps a full authoring pipeline: intent → list → meta → primitive → schema → validate → real run → iterate → save as a command. But one frequent question is still hanging: **for all this, do I need MCP?**
 
@@ -401,13 +401,13 @@ That wraps a full authoring pipeline: intent → list → meta → primitive →
 
 ## 27.9 An Honest "Do I Need MCP?"
 
-This is the question most easily "spun" when you're authoring workflows. The community often pitches "Workflow + MCP" as a selling point, as if not wiring in MCP means you haven't unleashed Workflow's power. **That's an exaggeration.** Let's lay it out with measured data.
+This is the question most easily distorted when authoring workflows. The community often pitches "Workflow + MCP" as a selling point, as if not wiring in MCP means Workflow's power remains untapped. **The measured data does not support that claim.** The following lays it out.
 
-**Fact one: most workflows don't need MCP at all.** Of the third-party `claude-code-workflow-creator` repo's 6 examples, **4 use zero MCP**: all they want is file read/write, shell, code analysis, which subagents have natively (Read/Write/Bash/Grep). (The only bundled workflow Claude ships is `/deep-research`; those 6 examples aren't official, see [Appendix E](#/en/app-e).) The book's three actually-run examples (review-spa / dead-code-scan / feedback-themes) **also all use zero MCP**: reviewing a SPA, scanning dead code, clustering feedback all run on the subagent's built-in file tools. So the default assumption should be "**I don't need MCP**," not the other way around.
+**Fact one: most workflows need no MCP at all.** Of the third-party `claude-code-workflow-creator` repo's 6 examples, **4 use zero MCP**: they want file read/write, shell, code analysis, and subagents already have those natively (Read/Write/Bash/Grep). (The only bundled workflow Claude ships is `/deep-research`; those 6 examples are not official, see [Appendix E](#/en/app-e).) The book's three actually-run examples (review-spa / dead-code-scan / feedback-themes) **also all use zero MCP**: reviewing a SPA, scanning dead code, clustering feedback all run on the subagent's built-in file tools. So your default assumption should be "**I don't need MCP**," not the other way around.
 
 **Fact two: a default subagent holds 0 `mcp__` tools at startup.** A measured probe (Run `wf_1d4c6a71-56a`) shows the default `workflow-subagent` type starts with **not a single `mcp__` tool**: this machine is a "deferred tool environment." But it has `ToolSearch`, which can **load MCP tools on demand** and then call them.
 
-**Fact three: when you do need it, MCP genuinely works end-to-end.** In testing (Run `wf_d8aa0772-ced`), a subagent successfully **loaded and called** `mcp__context7__resolve-library-id` via `ToolSearch`, end-to-end. It incidentally turned up that the schema requires both `query` and `libraryName`. So MCP isn't vaporware; it really works.
+**Fact three: when you do need it, MCP genuinely works end-to-end.** In testing (Run `wf_d8aa0772-ced`), a subagent successfully **loaded and called** `mcp__context7__resolve-library-id` via `ToolSearch`, end-to-end. It incidentally turned up that the schema requires both `query` and `libraryName`. MCP works end-to-end in practice.
 
 ```mermaid
 flowchart TD
@@ -421,7 +421,7 @@ Put the three facts together and the conclusion is restrained:
 
 <div class="callout tip">
 
-**MCP is "available when needed," not "a selling point."** The call is simple. If your agent's job can be done with the subagent's built-in Read/Write/Bash/Grep (review code, read/write files, run commands, grep), then **don't** touch MCP; if it genuinely needs an external capability (look up a library's latest docs, hit a proprietary data source), then in that agent's prompt have it `ToolSearch`-load the corresponding `mcp__` tool first, then use it. This machine's measurements prove the path works (`wf_d8aa0772-ced`), but the vast majority of workflows never get to that step.
+**MCP is "available when needed," not a selling point.** The call is simple. If your agent's job can run on the subagent's built-in Read/Write/Bash/Grep (review code, read/write files, run commands, grep), then **do not** touch MCP. If it genuinely needs an external capability (look up a library's latest docs, hit a proprietary data source), then in that agent's prompt have it `ToolSearch`-load the corresponding `mcp__` tool first, then use it. This machine's measurements prove the path works (`wf_d8aa0772-ced`), but the vast majority of workflows never get to that step.
 
 </div>
 
@@ -439,7 +439,7 @@ Distill this chapter's process into a scaffold you can edit directly. It walks t
 
 <div class="callout warn">
 
-Below is an **illustrative scaffold (not actually run)**: a template abstracting the structure of §27.2–§27.5, for kicking off a new workflow. The scripts that were actually run and are traceable are the three under `assets/examples/` (see the Run IDs in §27.4). After starting from this scaffold, be sure to run §27.6's validation first, then §27.7's real run.
+Below is an **illustrative scaffold (not actually run)**: a template abstracting the structure of §27.2-§27.5, for kicking off a new workflow. The scripts that were actually run and are traceable are the three under `assets/examples/` (see the Run IDs in §27.4). After starting from this scaffold, be sure to run §27.6's validation first, then §27.7's real run.
 
 </div>
 

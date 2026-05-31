@@ -1,8 +1,6 @@
 # Chapter 10 · Sharded Code Review
 
-> A large codebase won't fit into a single agent's effective context, and cramming it in just makes the agent "forget the front while reading the back." The idea behind sharded review is plain: slice the big target into small shards, send one agent per shard to review independently, verify adversarially, then synthesize. What this chapter walks through is not "can you slice," but how to use `pipeline` so each shard flows through "review → verify" with no barrier between stages, and when you should break that rule and add a barrier. The flow runs in four stages: discover, review, verify, synthesize.
->
-> It and Chapter 11's "Multi-dimension PR Review" are a pair of twins. Chapter 11 slices by **dimension** (a11y, performance, correctness), this chapter slices by **shard** (file, module, function block). The two chapters lean on the same set of real runs as their empirical base, and they describe two sides of one coin: Chapter 11 is "one piece of code, many viewpoints, barrier to close"; this chapter is "many shards, each independent, pipelined forward."
+> A large codebase won't fit in one agent's context window. Sharded review slices the target into small shards, sends one agent per shard to review independently, verifies adversarially, then synthesizes. This chapter focuses not on "can you slice," but on how to use `pipeline` so each shard flows through "review then verify" with no barrier between stages, and when to break that rule. It pairs with Chapter 11's "Multi-dimension PR Review": Chapter 11 slices by **dimension** (a11y, performance, correctness), this chapter by **shard** (file, module, function block). Chapter 11 is "one piece of code, many viewpoints, barrier to close"; this chapter is "many shards, each independent, pipelined forward."
 
 ---
 
@@ -13,7 +11,7 @@ Why not just hand the whole codebase to one agent? Two reasons:
 1. **Limited context**: however large the window, it has a boundary; once it's full, quality drops off a cliff.
 2. **Diluted attention**: make one agent watch 50 files at once and its attention on each file gets spread thin.
 
-Sharded review leans on a core strength of Workflow: **each subagent has independent context** (see Chapter 06). Each shard only looks at its own little piece, so attention stays concentrated; the main-loop context doesn't get drowned by raw code, because only structured findings flow back.
+Sharded review leans on Workflow's independent-context-per-subagent design (see Chapter 06). Each shard only looks at its own little piece, so attention stays concentrated; the main-loop context doesn't get drowned by raw code, because only structured findings flow back.
 
 ```mermaid
 flowchart TB
@@ -25,7 +23,7 @@ flowchart TB
   V --> Y["④ Synthesize: dedup and rank into a report"]
 ```
 
-First, correct an illusion the diagram creates. It draws Review and Verify as two "full-width" horizontal bands, which easily tricks you into thinking there's a barrier between them, as if "all shards must finish review before any can move into verify." This chapter sets that intuition straight. The truly efficient form of sharded review is this: **each shard is verified the moment it's reviewed, without waiting for others**, and only the final Synthesize genuinely needs to see every result. The next section writes this form out with `pipeline`.
+The diagram draws Review and Verify as two "full-width" horizontal bands, which can create the misleading impression that there is a barrier between them -- as if "all shards must finish review before any can move into verify." In practice, the lowest-wall-clock form of sharded review is: **each shard is verified the moment it's reviewed, without waiting for others**, and only the final Synthesize genuinely needs to see every result. The next section writes this form out with `pipeline`.
 
 ---
 
@@ -84,20 +82,20 @@ return report
 
 > The `sharded-review` skeleton above is **illustrative (not executed exactly as-is)**; but every one of its stages is backed by a real run in this book: `pipeline`'s "each item flows through review→verify independently" see Chapter 08's pipeline-demo (real, Run `wf_bf086b98-6ec`); Review→Synthesize's barrier-to-close see Chapter 11's frontend-review (real, Run `wf_4c5caabb-b73`); Verify's adversarial verification see Chapter 15's bug-hunter (real).
 
-This skeleton packs in all of the chapter's key points. Let's unpack them one by one.
+This skeleton contains all of the chapter's key points, unpacked below.
 
 ### Key Structure: `pipeline` Strings Review→Verify into a Barrier-Free Flow
 
-Take a look at the shape `pipeline(shards, reviewStage, verifyStage)`. It's the **same pattern** as the `pipeline-demo` (Find→Verify) in Chapter 08, just with items swapped from "bug categories" to "code shards":
+The structure `pipeline(shards, reviewStage, verifyStage)` is the **same pattern** as the `pipeline-demo` (Find→Verify) in Chapter 08, with items swapped from "bug categories" to "code shards":
 
 - **First stage** (`reviewStage`) gets `(shard, shard, index)`. The first stage's `prevResult` is the item itself (see Chapter 08's `(prevResult, originalItem, index)` signature). It sends an agent to read this shard's code and produce structured findings.
-- **Second stage** (`verifyStage`) gets `(review, shard, index)`. Here `review` is the finding set returned by the previous stage, and `shard` is the **original shard path**; you don't have to thread it through, because pipeline feeds `originalItem` back automatically. It runs a verification agent concurrently for each finding in that shard.
+- **Second stage** (`verifyStage`) gets `(review, shard, index)`. Here `review` is the finding set returned by the previous stage, and `shard` is the **original shard path**; no manual threading is required, because pipeline feeds `originalItem` back automatically. It runs a verification agent concurrently for each finding in that shard.
 
 The semantics of `pipeline` guarantee one thing: the moment `src/auth.ts` finishes review, its verify starts immediately, and it does not have to wait for `src/checkout.ts` to finish reviewing. That is what "no barrier between stages" means: shard A may already be in Verify while shard B is still in Review.
 
 ### Nesting: Use `parallel` Inside a Stage to Verify "This Shard's Multiple Findings"
 
-A `parallel(...)` shows up inside the second stage. This is the classic `pipeline`-wrapping-`parallel` combination, but you must keep the boundaries of the **two layers of concurrency** straight:
+A `parallel(...)` appears inside the second stage. This is the classic `pipeline`-wrapping-`parallel` combination, but the boundaries of the **two layers of concurrency** need to be kept straight:
 
 - **Outer `pipeline`**: lets **different shards** flow independently, so auth and cart don't wait for each other.
 - **Inner `parallel`**: within a **single shard**, verifies "this shard's N findings" concurrently. This layer genuinely needs a barrier, because `.then(rs => rs.filter(...))` must wait for all of this shard's verdicts together before it can filter.
@@ -110,7 +108,7 @@ A `parallel(...)` shows up inside the second stage. This is the classic `pipelin
 
 ### `opts.phase` for Explicit Grouping, to Avoid Concurrent Contention over Global `phase()`
 
-Every `agent()` in the skeleton carries `phase: 'Review'` or `phase: 'Verify'`. Inside `pipeline`/`parallel`, multiple agents advance concurrently; if they all leaned on the global `phase('Review')` for grouping, the progress tree would **race and misalign** (shard A's verify might get counted into a Review group that shard B just opened). Explicit `opts.phase` pins each agent to the progress group it belongs to. This is the progress-grouping idiom emphasized again and again in Chapters 05/08.
+Every `agent()` in the skeleton carries `phase: 'Review'` or `phase: 'Verify'`. Inside `pipeline`/`parallel`, multiple agents advance concurrently; if they all relied on the global `phase('Review')` for grouping, the progress tree would **race and misalign** (shard A's verify might get counted into a Review group that shard B just opened). Explicit `opts.phase` fixes each agent to the progress group it belongs to. This is the progress-grouping idiom emphasized throughout Chapters 05/08.
 
 ---
 
@@ -159,7 +157,7 @@ flowchart LR
   end
 ```
 
-The difference: if the `cart` shard is especially large and slow to review, in Approach A `auth` and `checkout` are already reviewed and ready to verify right away, yet they still have to idle waiting for `cart`. The barrier drags the fast ones down to the slow one's pace. Approach B's `pipeline` lets `auth` and `checkout` verify the moment they finish reviewing, so wall-clock is about **the slowest single chain** (`cart`'s review plus verify), not the sum of each stage's slowest.
+The difference: if the `cart` shard is especially large and slow to review, in Approach A `auth` and `checkout` are already reviewed and could verify immediately, yet they must wait for `cart` to complete. The barrier slows the fast shards down to the slowest one's pace. Approach B's `pipeline` lets `auth` and `checkout` verify the moment they finish reviewing, so wall-clock is about **the slowest single chain** (`cart`'s review plus verify), not the sum of each stage's slowest.
 
 <div class="callout info">
 
@@ -169,7 +167,7 @@ The difference: if the `cart` shard is especially large and slow to review, in A
 
 ### Real Data Confirms the "No Barrier" Form
 
-We didn't run a dedicated N-shard pipeline for sharded review, but Chapter 08's **pipeline-demo** already nails this mechanism, and it's the minimal true form of Review→Verify:
+We didn't run a dedicated N-shard pipeline for sharded review, but Chapter 08's **pipeline-demo** already confirms this mechanism, and it's the minimal true form of Review→Verify:
 
 > **Real run**: Run ID `wf_bf086b98-6ec`, 3 items × 2 stages, `agent_count=6`, `total_tokens=158982`, `duration_ms=26743`. The stage callback signature is empirically `(prevResult, originalItem, index)` (in the second stage's `(found, kind)`, `found` is the previous stage's return value, `kind` is the original item). See `assets/transcripts/primitives.md`.
 
@@ -180,7 +178,7 @@ We didn't run a dedicated N-shard pipeline for sharded review, but Chapter 08's 
 The skeleton's last step `phase('Synthesize')` uses a **full-width barrier**, and this time it's **correct**, because dedup and ranking need a **cross-shard global view**:
 
 - The same utility function referenced once each by `auth.ts` and `cart.ts` may have the two shards each report the same-root bug, and only an agent that sees **all** findings can merge them.
-- Ranking is global: an auth CRITICAL must rank before a cart LOW, and a single-shard agent sees only its own pile and can't produce a global order.
+- Ranking is global: an auth CRITICAL must rank before a cart LOW, and a single-shard agent sees only the findings it is responsible for and can't produce a global order.
 
 So this chapter's tradeoff boils down to one sentence: **Review→Verify use pipeline (each shard flows independently); only use a barrier before Synthesize (needs a global view).** This is a textbook application of Chapter 08's "pipeline by default, barrier only when you genuinely need a global view" principle.
 
@@ -188,9 +186,9 @@ So this chapter's tradeoff boils down to one sentence: **Review→Verify use pip
 
 ## 10.4 Cost Model: Estimate First, Then Run
 
-You can estimate the cost of sharded review almost entirely **up front**, a big advantage of Workflow over a black-box agent. Two rules of thumb apply here; Chapter 09 has their full derivation and measurements, and this chapter just borrows the conclusions: **① token is roughly agent count times per-agent context (about 25k–30k per agent); ② wall-clock is governed by the critical path, the slowest single chain, and concurrency compresses N agents down to the time of "the slowest one."**
+The cost of sharded review can be estimated almost entirely **up front**, a significant advantage of Workflow over a black-box agent. Two rules of thumb apply here; Chapter 09 has their full derivation and measurements, and this chapter borrows the conclusions: **① token is roughly agent count times per-agent context (about 25k-30k per agent); ② wall-clock is governed by the critical path, the slowest single chain, and concurrency compresses N agents down to the time of "the slowest one."**
 
-Apply it to sharded review by counting the agents first:
+Applied to sharded review, first count the agents:
 
 ```
 total agents = (1 discovery agent for Scan, if discovering shards with an agent)
@@ -199,7 +197,7 @@ total agents = (1 discovery agent for Scan, if discovering shards with an agent)
              + 1 synthesize agent
 ```
 
-A concrete example: review 10 shards, each producing 4 findings on average:
+A concrete example: reviewing 10 shards, each producing 4 findings on average:
 
 | Stage | Agents | Notes |
 |---|---|---|
@@ -209,11 +207,11 @@ A concrete example: review 10 shards, each producing 4 findings on average:
 | Synthesize | 1 | global dedup and ranking |
 | **Total** | **~51** | |
 
-Plug into rule ①: `token ≈ 51 × 27k ≈ 1.38M tokens`. That number is sizable but predictable: you can tell before running whether it'll exceed this turn's `budget` (see Chapter 09), instead of getting cut off mid-run by the budget hard cap.
+Plug into rule ①: `token ≈ 51 × 27k ≈ 1.38M tokens`. That number is sizable but predictable: before running, it is possible to determine whether it will exceed this turn's `budget` (see Chapter 09), rather than getting cut off mid-run by the budget hard cap.
 
 <div class="callout warn">
 
-**The verify stage is the token hog; don't scale it mindlessly.** In the example above, 40 verify agents account for nearly 80% of the tokens. If you adversarially verify every finding, the more shards and findings you have, the more the verify agent count **grows rapidly as both shard count and findings scale up**. Two ways to rein it in: (a) verify only `high`/`critical` findings, with `filter(f => ['high','critical'].includes(f.severity))` before the verify stage; (b) have one verify agent verify **all of a shard's findings at once** rather than one agent per finding, replacing the inner `parallel` with a single agent using an array schema. The latter trades agent count for tokens, so pick based on which resource you're shorter on.
+**The verify stage is the token hog; do not scale it indiscriminately.** In the example above, 40 verify agents account for nearly 80% of the tokens. If every finding gets adversarial verification, the verify agent count **grows rapidly as both shard count and findings scale up**. Two ways to rein it in: (a) verify only `high`/`critical` findings, with `filter(f => ['high','critical'].includes(f.severity))` before the verify stage; (b) have one verify agent verify **all of a shard's findings at once** rather than one agent per finding, replacing the inner `parallel` with a single agent using an array schema. The latter trades agent count for tokens; choose based on which resource is more constrained.
 
 </div>
 
@@ -240,7 +238,7 @@ How big should a "shard" be? This is the core decision of the Scan stage, and it
 
 ### How Is the Scan Stage Implemented?
 
-The simplest Scan is just **passing a file list directly** (like the hard-coded array in the skeleton, or passed in via `args`), which costs zero tokens and zero latency. When you need dynamic discovery, use one agent with `agentType: 'Explore'` (one of the empirically-available built-in agents, see Chapter 06) to run Glob/Grep:
+The simplest Scan is **passing a file list directly** (like the hard-coded array in the skeleton, or passed in via `args`), which costs zero tokens and zero latency. When dynamic discovery is needed, use one agent with `agentType: 'Explore'` (one of the empirically-available built-in agents, see Chapter 06) to run Glob/Grep:
 
 ```javascript
 // (illustrative, not executed) use one Explore agent to discover shards; schema forces a file list back
@@ -260,19 +258,19 @@ Note: file and shell operations can only live inside `agent()` leaves. The scrip
 
 ## 10.6 Dedup and Merge: The Real Value of Synthesize
 
-The final "Synthesize" step of sharded review isn't just stitching findings together. Its core value is **dedup and ranking**, and that's exactly why it needs a barrier (to see all findings).
+The final "Synthesize" step of sharded review is not simply stitching findings together. Its core value is **dedup and ranking**, and that is precisely why it needs a barrier (to see all findings).
 
-**Why is duplication inevitable?** Shards are sliced along physical boundaries (file, directory), but bugs don't grow along that boundary:
+**Why is duplication inevitable?** Shards are sliced along physical boundaries (file, directory), but bugs do not distribute along those boundaries:
 
 - **Same-root bug recurs across shards**: a defective utility function referenced by multiple shards gets reported once at each call site.
-- **Same shard, multiple viewpoints**: if the shard agent's prompt carries multiple concerns (security plus readability), the same line of code can get recorded twice from two angles.
+- **Same shard, multiple viewpoints**: if the shard agent's prompt includes multiple concerns (security plus readability), the same line of code may be recorded from two angles.
 - **Class-level defects**: a problem like "generating ids from text without dedup" gets reported once at each id-generation site, yet they're actually **the same bug class**.
 
 <div class="callout tip">
 
 **Give every finding a `severity` + `shard`, so dedup has something to go on.**
 - `severity` lets synthesize **rank globally** (CRITICAL before LOW).
-- `shard` lets you **locate back to the source**, and lets synthesize spot "these two come from different shards but describe the same root cause → merge, and list all hit shards on the merged issue."
+- `shard` enables **locating back to the source**, and lets synthesize identify "these two come from different shards but describe the same root cause → merge, and list all hit shards on the merged issue."
 
 This is the same technique as Chapter 11's tagging each finding with `dim` (its source dimension): **tag findings with their source so the synthesized result is explainable and traceable.**
 
@@ -305,7 +303,7 @@ It confirms two key points of sharded review:
 
 <div class="callout info">
 
-**Variant A · Multi-file × multi-dimension (pipeline wrapping parallel)**: stack this chapter (shard by file) and Chapter 11 (shard by dimension) into `pipeline(files, reviewAllDims, synthesizePerFile)`, where each file flows independently through "multi-dimension concurrent review → per-file synthesis," followed by a cross-file final synthesis. The outer pipeline lets files flow independently, the inner parallel runs dimensions concurrently. This is the standard form for orthogonally stacking two kinds of sharding.
+**Variant A · Multi-file x multi-dimension (pipeline wrapping parallel)**: stack this chapter (shard by file) and Chapter 11 (shard by dimension) into `pipeline(files, reviewAllDims, synthesizePerFile)`, where each file flows independently through "a11y + performance + correctness concurrent review, then per-file synthesis," followed by a cross-file final synthesis. The outer pipeline lets files flow independently, the inner parallel runs dimensions concurrently. This is the standard form for orthogonally stacking two kinds of sharding.
 
 **Variant B · Verify only high-severity findings**: `filter(f => ['critical','high'].includes(f.severity))` before the verify stage, spending adversarial verification only on findings worth verifying. The verify agent count and tokens get cut substantially right away (see the cost warning in §10.4).
 

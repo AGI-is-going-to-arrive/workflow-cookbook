@@ -202,7 +202,7 @@ flowchart TD
 - **Usage/return values** → follow the Run ID to the transcript file pointed to by [E.3](#e3-real-run-records-first-batch-10-completed-runs-9-unique-run-ids-and-the-mechanisms-covered); all numbers are kept verbatim and recomputable.
 - **Ecosystem gems** → [E.4](#e4-the-four-community-systems-the-source-repositories-for-ecosystem-borrowing)'s source repositories + Part V.
 
-> Companion reading: field quick reference [Appendix A · Full API Reference](#/en/app-a); pitfalls and troubleshooting [Appendix B · Pitfalls & Troubleshooting](#/en/app-b); best practices [Appendix C · Best Practices](#/en/app-c); terms [Appendix D · Glossary](#/en/app-d).
+> Companion reading: field quick reference [Appendix A · Full API Reference](#/en/app-a); pitfalls and troubleshooting [Appendix B · Pitfalls & Troubleshooting](#/en/app-b); recommended practices [Appendix C · Recommended Practices](#/en/app-c); terms [Appendix D · Glossary](#/en/app-d).
 
 ---
 

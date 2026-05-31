@@ -8,7 +8,7 @@
 
 ## A.0 How to Read This Reference: Three Tiers
 
-The worst thing an API doc can do is state guesses as if they were certain. So this book grades every fact by confidence into three tiers, and marks them with one consistent notation throughout. Learn these three first:
+The worst thing an API doc can do is state guesses as if they were certain. This book grades every fact by confidence into three tiers, marked with one consistent notation throughout:
 
 | Mark | Meaning | How you may rely on it |
 |---|---|---|
@@ -18,7 +18,7 @@ The worst thing an API doc can do is state guesses as if they were certain. So t
 
 <div class="callout info">
 
-Why be this strict? Because a big chunk of the "Workflow API details" you can dig up online trace back to one third-party video-companion repo, not an official artifact, and some of its precise numbers (error class names, timeout milliseconds, retry counts) we previously **could not reproduce at runtime** on this machine. R10 has since confirmed a batch of them against the 2.1.154 official binary (see [A.14](#a14-third-party-unverified-list-caution) below); that's a "binary-confirmed" tier, stronger than a third-party claim but still not runtime-measured. Mix the still-unverified in with the official and verified stuff, and you're just manufacturing authoritative-looking noise. This appendix would rather say less than pass off the unverified as truth.
+Why this strict? A significant portion of the "Workflow API details" found online trace back to one third-party video-companion repo, not an official artifact, and some of its precise numbers (error class names, timeout milliseconds, retry counts) previously **could not be reproduced at runtime** on this machine. R10 has since confirmed a batch of them against the 2.1.154 official binary (see [A.14](#a14-third-party-unverified-list-caution) below); that constitutes a "binary-confirmed" tier, stronger than a third-party claim but still not runtime-measured. Mixing the still-unverified with the official and verified material amounts to manufacturing authoritative-looking noise. This appendix would rather say less than pass off the unverified as truth.
 
 </div>
 
@@ -26,7 +26,7 @@ Why be this strict? Because a big chunk of the "Workflow API details" you can di
 
 ## A.1 The Workflow Tool: Input `WorkflowInput` [Official]
 
-This is what you pass in when you call the Workflow tool. The script can come from three places (`script` / `name` / `scriptPath`), plus `args`. **`scriptPath` has the highest priority**, above `script` and `name`. The relative priority of `script` and `name` is not officially specified, so do not assume a three-level `scriptPath` > `script` > `name` ordering.
+This is what you pass in when you call the Workflow tool. The script can come from three places (`script` / `name` / `scriptPath`), plus `args`. **`scriptPath` has the highest priority**, above `script` and `name`. The relative priority of `script` and `name` is not officially specified; do not assume a three-level `scriptPath` > `script` > `name` ordering.
 
 | Field | Type | Description |
 |---|---|---|
@@ -38,7 +38,7 @@ This is what you pass in when you call the Workflow tool. The script can come fr
 
 ### The Persist-Edit Loop: the Real Power of `scriptPath`
 
-`script` and `scriptPath` look like nothing more than an "inline vs. path" distinction, but the latter actually unlocks a smooth iteration rhythm. [Official] On every call, whether you submit via `script` or `scriptPath`, the Workflow tool **lands the script on disk** and tells you where in the returned `WorkflowOutput.scriptPath`. So the loop holds:
+`script` and `scriptPath` appear to be a simple "inline vs. path" distinction, but the latter supports a complete iteration workflow. [Official] On every call, whether you submit via `script` or `scriptPath`, the Workflow tool **lands the script on disk** and reports the location in the returned `WorkflowOutput.scriptPath`. The iteration loop works as follows:
 
 ```text
 First: submit via script  ──►  returns scriptPath (script landed on disk)
@@ -70,7 +70,7 @@ The Workflow tool is **always async**: it hands you a receipt right away (not th
 
 <div class="callout tip">
 
-The workflow's **actual result** comes back via the `<task-notification>` when it finishes, carrying the return value and usage statistics (`agent_count` / `tool_uses` / `total_tokens` / `duration_ms`). Think of `taskId`/`runId` as a tracking number and the notification as the package. Don't try to open the tracking number expecting the package.
+The workflow's **actual result** comes back via the `<task-notification>` when it finishes, carrying the return value and usage statistics (`agent_count` / `tool_uses` / `total_tokens` / `duration_ms`). `taskId`/`runId` serve as tracking numbers; the notification is the package. Do not confuse the two.
 
 </div>
 
@@ -151,7 +151,7 @@ The root cause is that the session running this probe set the environment variab
 
 <div class="callout warn">
 
-**Safe practice**: trust only `agent()`'s `opts.model` to actually decide the model. Want a phase on Haiku? Write `model: 'haiku'` on every `agent()` in that phase, and treat `phases[].model` as a label in the permission dialog, not something to count on taking effect by itself. Also, if your environment (or CI) sets `CLAUDE_CODE_SUBAGENT_MODEL`, then **all `model` options in the script are silently ignored**; it's a user/CI knob the script cannot control. Testing reveals a **second layer** of override: `ANTHROPIC_DEFAULT_HAIKU_MODEL` / `SONNET` / `OPUS` remap the **model aliases** wholesale (both pointed to Opus this session, so a script's `model: 'haiku'` ran as Opus too, `wf_e8cb23ff-829`). When you're debugging "why didn't my chosen model run," check both kinds of variable.
+**Safe practice**: only `agent()`'s `opts.model` reliably determines the model. To run a phase on Haiku, write `model: 'haiku'` on every `agent()` in that phase, and treat `phases[].model` as a label in the permission dialog rather than a functional override. If the environment (or CI) sets `CLAUDE_CODE_SUBAGENT_MODEL`, **all `model` options in the script are silently ignored**; this is a user/CI-level control the script cannot override. Testing reveals a **second layer** of override: `ANTHROPIC_DEFAULT_HAIKU_MODEL` / `SONNET` / `OPUS` remap the **model aliases** wholesale (both pointed to Opus this session, so a script's `model: 'haiku'` ran as Opus too, `wf_e8cb23ff-829`). When debugging "why the specified model did not run," check both types of variable.
 
 </div>
 
@@ -159,7 +159,7 @@ The root cause is that the session running this probe set the environment variab
 
 ## A.5 `agent(prompt, opts?) → Promise<any>` [Official]
 
-Send out a subagent to do the work. This is the only primitive in a workflow that actually spends tokens: pure orchestration (no `agent()` calls) is 0 tokens (`wf_59bf3654-183` and `wf_2b04881f-6a9` were both 0 tokens / single-digit milliseconds).
+Dispatch a subagent to execute a task. This is the only primitive in a workflow that actually consumes tokens: pure orchestration (no `agent()` calls) is 0 tokens (`wf_59bf3654-183` and `wf_2b04881f-6a9` were both 0 tokens / single-digit milliseconds).
 
 ```javascript
 await agent(prompt, {
@@ -191,9 +191,9 @@ await agent(prompt, {
 
 ### `agentType` Is Validated, `model` Is Not: a Real Asymmetry [Verified]
 
-This is a key difference this book measured first-hand, worth committing to memory:
+This is a key difference this book measured first-hand:
 
-- **`agentType` is validated** [Verified, `wf_a222f20f-0f5`]: pass a type that doesn't exist and it throws **before any model is spawned** (0 tokens / 4ms), listing every available agent. Verbatim error below.
+- **`agentType` is validated** [Verified, `wf_a222f20f-0f5`]: passing a nonexistent type throws **before any model is spawned** (0 tokens / 4ms), listing every available agent. Verbatim error below.
 
 ```text
 agent({agentType}): agent type 'definitely-not-a-real-agent-xyz' not found.
@@ -204,8 +204,8 @@ statusline-setup, team-architect, team-qa, team-reviewer, ui-ux-designer
 
 > So misspell `agentType` and you get fail-fast, zero-cost behavior, very friendly for debugging. (Note: the default subagent's type name is `workflow-subagent`, recorded in each agent's `agent-<id>.meta.json` sidecar.)
 
-- **`opts.model` has no submit/parse-time validation** [Verified, `wf_dace2fc6-966`]: pass a bogus string `'totally-not-a-real-model-xyz'` and it's **not rejected at submit/parse time**; the agent just runs (this session ran Opus because `CLAUDE_CODE_SUBAGENT_MODEL` overrode it). That's the contrast with `agentType`: `agentType` is fail-fast and zero-cost, whereas `model` does not catch invalid values at parse time.
-- But two points this book **could not verify**: the **exact semantics** of the `'inherit'` literal, and the claim that a typo (like `'hauku'`) "passes through and only **fails at the API call**", **(claimed by community third-party material, not independently verified by this book)**. That last one couldn't be observed because this session's `CLAUDE_CODE_SUBAGENT_MODEL` overrode the per-call model, so the bogus string was never actually sent to an API. This book's safe recommendation: treat `model` as accepting only values you've confirmed (like `'haiku'`, or omit), and don't lean on a typo being "tolerated."
+- **`opts.model` has no submit/parse-time validation** [Verified, `wf_dace2fc6-966`]: passing an obviously nonexistent string `'totally-not-a-real-model-xyz'` is **not rejected at submit/parse time**; the agent runs normally (this session ran Opus because `CLAUDE_CODE_SUBAGENT_MODEL` overrode it). This contrasts with `agentType`: `agentType` is fail-fast and zero-cost, whereas `model` does not catch invalid values at parse time.
+- Two points this book **could not verify**: the **exact semantics** of the `'inherit'` literal, and the claim that a typo (like `'hauku'`) "passes through and only **fails at the API call**" **(claimed by community third-party material, not independently verified by this book)**. The latter could not be observed because this session's `CLAUDE_CODE_SUBAGENT_MODEL` overrode the per-call model, so the bogus string was never actually sent to an API. Safe recommendation: treat `model` as accepting only confirmed values (like `'haiku'`, or omit), and do not rely on the runtime tolerating typos.
 
 ---
 
@@ -228,7 +228,7 @@ This book's run (`wf_bf086b98-6ec`, 3 items × 2 stages) nailed down "each item 
 
 ## A.7 `parallel(thunks) → Promise<any[]>` [Official]
 
-Run a set of **thunks** (`() => Promise`) concurrently, with a **barrier**: wait for all to finish. Result order = input order. Reach for it only when you genuinely need all the results together.
+Run a set of **thunks** (`() => Promise`) concurrently, with a **barrier**: wait for all to finish. Result order = input order. Use it only when all results are genuinely needed together.
 
 - An async reject or inner `agent()` error leaves that position `null`, and the call itself doesn't reject (`.filter(Boolean)` before use). But a **synchronous `throw` in the thunk body** is different: it **rejects the whole `parallel()` call**, and `.filter(Boolean)` can't save you because you never get the array. A `try/catch` around the `await parallel(...)` still catches it cleanly and the **workflow survives**; only an **uncaught** synchronous throw aborts the run.
 
@@ -262,7 +262,7 @@ budget.remaining()  // number: max(0, total - spent()); Infinity when no target 
 
 - `total` comes from the user's `+500k`-style instruction; it's `null` when not set (verified `budget.total === null` in `wf_59bf3654-183`).
 - It is a **hard cap**: once `spent()` hits `total`, calling `agent()` throws. The pool is **shared** by the main loop + all workflows (including nested ones).
-- Always guard dynamic loops with `budget.total &&`, or you may keep dispatching agents straight into the cap.
+- Dynamic loops must include a `budget.total &&` guard; otherwise agents may be dispatched continuously until the cap is reached.
 
 ### `workflow(nameOrRef, args?)` [Official] [Verified]
 
@@ -386,8 +386,8 @@ The table below aligns with the official docs' **"Behavior and limits"** table (
 
 | Limit | Value | Tier |
 |---|---|---|
-| Mid-run user input | **Not allowed** — once a run starts you **cannot** inject user input mid-run; **only an agent's permission prompt can pause it.** For sign-off between stages, split each stage into its own **separate workflow** | [Official] |
-| Script access to filesystem / shell | **The script itself has none** — agents read/write files and run commands; the script only orchestrates (this is also what's behind A.3's verified "`require`/`process`/`fetch` are all `undefined` in the script body") | [Official] (+ [A.3](#a3-script-structure-and-execution-environment) verified corroboration) |
+| Mid-run user input | **Not allowed.** Once a run starts you **cannot** inject user input mid-run; **only an agent's permission prompt can pause it.** For sign-off between stages, split each stage into its own **separate workflow** | [Official] |
+| Script access to filesystem / shell | **The script itself has none.** Agents read/write files and run commands; the script only orchestrates (this is also what's behind A.3's verified "`require`/`process`/`fetch` are all `undefined` in the script body") | [Official] (+ [A.3](#a3-script-structure-and-execution-environment) verified corroboration) |
 | Agents running at once per workflow | **Up to 16 concurrent** (fewer on machines with limited CPU cores; with the binary lower bound folded in, `min(16, max(2, cores − 2))`), the rest **queue** (not an error) | [Official] "up to 16, fewer on fewer cores, excess queues"; the precise `min(16, cores−2)` is **tool-contract** (the `max(2, …)` floor binary-confirmed in [A.14](#a14-third-party-unverified-list-caution)) |
 | Total `agent()` cap per run | **1000** (runaway-loop backstop) | [Official] |
 | Script size cap | **524288 bytes (512KB)** (the `script.maxLength` of the input-schema) | [Official] |
@@ -410,7 +410,7 @@ The "named workflows" you can invoke via `workflow({ name })` (and `Workflow({ n
 - The four from early v2.1.150 (`bughunt` / `bughunt-lite` / `plan-hunter` / `review-branch`) are **no longer in the registry**, more like early experimental built-ins; **don't depend on them anymore.** Anywhere the book assumed "call the built-in `bughunt`" has been re-anchored to "build your own workflow" (see [Chapter 15 · Bug Hunter](#/en/p3-15)).
 - Workflows **you** save also become `/` commands and show up in autocomplete alongside the bundled ones; that point is stable, unaffected by the drift above. [Official]
 
-> In one line: **don't treat "bundled named workflows" as a stable API surface.** The only built-in you can reliably depend on at v2.1.156 is `deep-research`; for anything else, write your own or manage it under `.claude/workflows/`.
+> Conclusion: **do not treat "bundled named workflows" as a stable API surface.** The only built-in reliably available at v2.1.156 is `deep-research`; for anything else, write your own or manage it under `.claude/workflows/`.
 
 ---
 

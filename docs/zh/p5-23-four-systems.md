@@ -1,6 +1,6 @@
 # 第 23 章 · 四大系统横评
 
-> 原生 Workflow 出现之前，社区早就用各种巧办法「编排」多 Agent 了。这一章我们掀开四个有代表性的开源系统的引擎盖（`ccg-workflow`、`superpowers`、`oh-my-claudecode`、`oh-my-openagent`），看看它们**真实的编排机制**，再把能被原生 Workflow 复用的精华挑出来。
+> 原生 Workflow 出现之前，社区已经用各种方式「编排」多 Agent。这一章分析四个有代表性的开源系统（`ccg-workflow`、`superpowers`、`oh-my-claudecode`、`oh-my-openagent`）的**真实编排机制**，并提取其中能被原生 Workflow 复用的精华。
 >
 > 本章所有机制描述，都基于对各仓库源码的真实阅读（文件路径都标了出来），目的是「取其精华」，不是褒贬高下。
 
@@ -8,17 +8,17 @@
 
 ## 23.1 一个贯穿全章的洞察
 
-先把结论摆出来，再看证据：
+先给出结论，再逐一展示证据：
 
 > **这四个系统，全都诞生在原生 Workflow 之前；它们都在用「提示词 + 生命周期钩子 + 磁盘状态文件」来_模拟_一个确定性编排引擎。** 因为有很长一段时间，Claude Code（以及类似的 harness）压根没有「用代码编排 Agent」的原生能力。
 
-它们各自琢磨出来的补丁都挺聪明：拿磁盘状态扛上下文压缩，用 Hook 注入「面包屑」防跑偏，靠 `Stop` 钩子不让它过早收工，在工具层加 `throw` 护栏。可原生 Workflow 用 `pipeline`/`parallel`/`phase` 加 JSON Schema，一下子就把它们辛辛苦苦才维系住的**确定性骨架**给了你。
+它们各自设计的补丁都很有价值：用磁盘状态对抗上下文压缩，用 Hook 注入「面包屑」防止偏离，靠 `Stop` 钩子阻止过早结束，在工具层加 `throw` 护栏。而原生 Workflow 用 `pipeline`/`parallel`/`phase` 加 JSON Schema，直接提供了它们努力维系的**确定性骨架**。
 
-所以这一章（连同第 24 章）的主线是：**原生 Workflow 给了骨架，这四个系统的精华是长在骨架之上的「韧性层」。** 两样合起来，才算生产级的编排。
+所以这一章（连同第 24 章）的主线是：**原生 Workflow 给了骨架，这四个系统的精华是长在骨架之上的「韧性层」。** 两样合起来，才算可上线的编排。
 
 <div class="callout info">
 
-**贯穿洞察（记住这一句，全章都在论证它）**：这四个系统**全部诞生在原生 Workflow 之前**，所以它们只能用「提示词 + 生命周期 Hook + 磁盘状态文件」去**模拟**一个确定性编排引擎。ccg 靠每轮注入 `<ccg-state>` 面包屑，OMC 靠 `Stop` 钩子拦截停止，OmO 靠工具层 `throw` 拦截写文件，superpowers 靠 `SessionStart` 注入「行为宪法」。这些全是在**没有原生控制流**的约束下憋出来的精巧补丁。原生 Workflow 一次就把它们最缺的两样东西补齐了：`pipeline`/`parallel`/`phase` 给的**确定性骨架**，以及 JSON Schema 给的**工具层硬约束**。往下读每一节的时候，不妨随手把「它用什么 Hook 或状态文件来模拟」对到「原生 Workflow 用哪个原语直接给」。
+**贯穿全章的洞察（记住这一句，全章都在论证它）**：这四个系统**全部诞生在原生 Workflow 之前**，所以它们只能用「提示词 + 生命周期 Hook + 磁盘状态文件」去**模拟**一个确定性编排引擎。ccg 靠每轮注入 `<ccg-state>` 面包屑，OMC 靠 `Stop` 钩子拦截停止，OmO 靠工具层 `throw` 拦截写文件，superpowers 靠 `SessionStart` 注入「行为宪法」。这些都是在**没有原生控制流**的约束下设计出来的精巧补丁。原生 Workflow 一次性补齐了它们最缺的两项能力：`pipeline`/`parallel`/`phase` 提供的**确定性骨架**，以及 JSON Schema 提供的**工具层硬约束**。阅读后续各节时，可以对照「它用什么 Hook 或状态文件来模拟」与「原生 Workflow 用哪个原语直接提供」。
 
 </div>
 
@@ -38,7 +38,7 @@ flowchart LR
 
 ---
 
-## 23.2 ccg-workflow：多模型协作 + 磁盘状态续命
+## 23.2 ccg-workflow：ccg 多模型并行 + 磁盘状态续命
 
 **它是什么**：CCG（Claude + Codex + Gemini）是装在 Claude Code 之上的多模型协作工作流引擎。一条 `/ccg:go` 自然语言入口，自动判定任务类型/复杂度/风险，从 10 种策略里挑一种，执行过程中再拉外部模型来做交叉验证。它专治三个痛点：单 agent 跑长任务会跑偏、上下文压缩后会丢进度、单模型有盲区。
 
@@ -47,11 +47,11 @@ flowchart LR
 - **Slash command 当角色注入用**：`templates/commands/go.md` 把 Claude 变成「CCG Engine」，走 Phase 0–3 决策矩阵。
 - **策略文件＝提示词状态机**：比如 `templates/engine/strategies/full-collaborate.md`，用 `[phase-state:N]` 标阶段、`Gate`、`HARD STOP` 检查点，一个 phase 一个 phase 地更新 `task.json`。
 - **JS Hook 引擎（真实代码，零依赖）**：`templates/hooks/` 注入 `~/.claude/settings.json`。其中 `workflow-state.js` 每轮 `UserPromptSubmit` 都读 `task.json` 并注入 `<ccg-state>` 面包屑，**这是对抗上下文压缩的关键**；`task-utils.js` 里的 `detectLoop` 维护一个 10 轮的滚动缓冲，连续 3 轮卡在同一个 phase 就触发死循环告警。
-- **执行层双轨**：要么 Agent Teams 并行，要么外部模型走 `~/.claude/bin/codeagent-wrapper`（真实 Go 二进制，信号量并发 + DAG 依赖调度）。
+- **执行层双轨**：要么用 Agent Teams（官方）做并行，要么外部模型走 `~/.claude/bin/codeagent-wrapper`（真实 Go 二进制，信号量并发 + DAG 依赖调度）。
 
-**最值得偷师的一点**：**磁盘状态加每轮 Hook 面包屑注入**。把工作流进度落盘成 `task.json`，每个回合用一个极小的 `<ccg-state>` 重新喂给模型，用最低的成本解决了长任务、压缩之后「agent 忘了自己在干嘛」这个根本问题。
+**最值得借鉴的一点**：**磁盘状态加每轮 Hook 面包屑注入**。把工作流进度保存到磁盘的 `task.json`，每个回合用一个极小的 `<ccg-state>` 重新喂给模型，用最低的成本解决了长任务、压缩之后「agent 忘了自己在干嘛」这个根本问题。
 
-下面两处看得见摸得着的形态，让上面的抽象落了地。
+以下两个具体形态，使上述抽象描述更加清晰。
 
 其一，**「10 种策略」是一张能逐条数出来的表**。`templates/commands/go.md` 的附录正好列了 10 条，每一条对应 `templates/engine/strategies/` 下一个真实的策略文件，`/ccg:go` 在 Phase 0 按任务类型、复杂度、风险从里头挑一个：
 
@@ -71,19 +71,19 @@ const defaults = {
 }
 ```
 
-外部模型靠 `~/.claude/bin/codeagent-wrapper`（真实 Go 二进制）落地。它的 `executor.go` 用 `topologicalSort`（带 cycle 检测的分层拓扑排序）把任务 DAG 解出来，再用 `executeConcurrentWithContext` 里的 `sem := make(chan struct{}, workerLimit)` 信号量来卡并发。这正是「确定性调度」的一种朴素写法，也恰好是原生 Workflow 用 `pipeline`/`parallel` 一行代码就给你的东西。
+外部模型通过 `~/.claude/bin/codeagent-wrapper`（真实 Go 二进制）落地。其 `executor.go` 用 `topologicalSort`（带 cycle 检测的分层拓扑排序）解析任务 DAG，再用 `executeConcurrentWithContext` 中的 `sem := make(chan struct{}, workerLimit)` 信号量控制并发。这是「确定性调度」的一种朴素实现，也正是原生 Workflow 用 `pipeline`/`parallel` 一行代码就提供的能力。
 
-> 顺带说一句：本书的多模型审查（codex 审内容、antigravity 审前端），正是走 CCG 的 `codeagent-wrapper` 加 `/ccg:frontend`、`/ccg:review` 路由跑出来的。配置是 `review.models=['codex','antigravity']`，两个模型并行交叉验证。
+> 补充说明：本书的多模型审查（codex 审内容、antigravity 审前端），正是通过 CCG 的 `codeagent-wrapper` 加 `/ccg:frontend`、`/ccg:review` 路由执行的。配置为 `review.models=['codex','antigravity']`，两个模型并行交叉验证。
 
 ---
 
 ## 23.3 superpowers：方法论即插件 + 两段式评审
 
-**它是什么**（obra/superpowers）：一套给编码 agent 用的**完整软件开发方法论**，由一组能拼装的 skill 加一段开机引导组成，跨 7 个 harness、零依赖。它逼着 agent 先退一步把意图澄清掉，产出 spec，写计划，再 TDD 实现，治的是「拿到需求就闷头写代码」这个通病。
+**它是什么**（obra/superpowers）：一套面向编码 agent 的**完整软件开发方法论**，由一组可组合的 skill 加一段开机引导组成，跨 7 个 harness、零依赖。它要求 agent 先澄清意图、产出 spec、编写计划，再 TDD 实现，解决的是「拿到需求直接写代码」这一常见问题。
 
 **真实编排机制**（没有 JS 编排器，也没有 `commands/`/`agents/` 目录，纯靠四层软约定）：
 
-- **开机引导 hook**：`hooks/hooks.json` 注册 `SessionStart`，把 `using-superpowers/SKILL.md` 整段塞进 `<EXTREMELY_IMPORTANT>` 注入上下文。`CLAUDE.md` 把话说死了：「没有这个 bootstrap，skills 就是死代码」。
+- **开机引导 hook**：`hooks/hooks.json` 注册 `SessionStart`，将 `using-superpowers/SKILL.md` 整段包裹在 `<EXTREMELY_IMPORTANT>` 中注入上下文。`CLAUDE.md` 明确指出：「没有这个 bootstrap，skills 就是死代码」。
 - **强制 skill 自检**：规定**任何回复之前**（哪怕只是回个问题）都必须先查一遍 skill，「只要有 1% 可能相关就必须调用」。
 - **skill 串成一条流**：每个 skill 末尾都用 `REQUIRED SUB-SKILL` 明明白白点出下一个，`brainstorming → writing-plans → subagent-driven-development → finishing-a-branch` 串成一条确定性链路。
 - **状态文件就是交接**：spec 写到 `docs/superpowers/specs/`，plan 用 `- [ ]` checkbox 来跟踪。
@@ -112,15 +112,15 @@ for each task:
 
 ## 23.4 oh-my-claudecode：Stop 钩子持久循环
 
-**它是什么**：一个面向 Claude Code 的大型编排插件，把「多 agent 协作 + 持久化执行 + 质量门禁」打包成开箱即用的工作流，治的是「复杂任务被悄没声地半途宣布做完」。
+**它是什么**：一个面向 Claude Code 的大型编排插件，将「多 agent 协作 + 持久化执行 + 质量门禁」打包成开箱即用的工作流，解决的是「复杂任务被静默地半途宣布完成」的问题。
 
 **真实编排机制**（hooks + 状态文件 + skills + 20 角色 subagent）：
 
-- **钩子驱动**（`hooks/hooks.json`）：`UserPromptSubmit→keyword-detector` 一检测到魔法词就注入对应的 SKILL；`SubagentStop→verify-deliverables`；**`Stop→persistent-mode`** 是灵魂所在，它检查 `.omc/state/` 里有没有活跃的 mode，有就**阻断停止**，再回注一句「The boulder never stops」把循环顶起来。
+- **钩子驱动**（`hooks/hooks.json`）：`UserPromptSubmit→keyword-detector` 一检测到魔法词就注入对应的 SKILL；`SubagentStop→verify-deliverables`；**`Stop→persistent-mode`** 是核心所在，它检查 `.omc/state/` 里有没有活跃的 mode，有就**阻断停止**，再回注一句「The boulder never stops」把循环顶起来。
 - **状态文件就是控制平面**：`.omc/state/sessions/{id}/` 存 mode/phase/iteration，控制面跟数据面（`.omc/plans/`、`prd.json`）分开放，crash 之后还能 resume。
 - **PRD 驱动 + 独立 reviewer 签核**：`ralph` 要求 `prd.json` 每条 story 都 `passes:true`，而且得经过一个独立 critic 验证，才算完。
 
-**`Stop` 钩子的灵魂逻辑长什么样**：它把「让不让停下」做成一段在 `Stop` 生命周期点执行的判断。拿伪码勾出来（还原 `persistent-mode` 的控制结构，不是可运行脚本）：
+**`Stop` 钩子的核心逻辑长什么样**：它把「让不让停下」做成一段在 `Stop` 生命周期点执行的判断。拿伪码勾出来（还原 `persistent-mode` 的控制结构，不是可运行脚本）：
 
 ```javascript
 // OMC · Stop 钩子伪码 ——「the boulder never stops」
@@ -136,9 +136,9 @@ function onStop() {
 }
 ```
 
-这就是「跑完 ≠ 算完」的物理实现：靠**拦截停止**这个动作，把循环续上命。注意它把判据（`allStoriesPass`）和状态（mode/phase/iteration）都甩到 `.omc/state/` 磁盘上，因为提示词驱动的循环没有内存。
+这就是「执行完毕 ≠ 验收通过」的物理实现：通过**拦截停止动作**来维持循环。注意它将判据（`allStoriesPass`）和状态（mode/phase/iteration）都持久化到 `.omc/state/` 磁盘上，因为提示词驱动的循环没有内存。
 
-**最值得偷师的一点**：**用 `Stop` 钩子加状态文件搭出一个「完成判据闭环」**。原生 Workflow 是脚本一跑完就结束，OMC 偏让「让不让停下」变成一道可编程的门。把这个思路搬进 Workflow，再配上 JSON Schema 校验产物，就能把「流水线跑完了」升级成「满足验收标准才算完」（第 18 章「循环到干」就是它在 Workflow 里的化身）。把上面这段 `Stop` 钩子和第 24 章的 `while (!accepted)` 循环摆在一起看：钩子拦截加磁盘状态，最后坍缩成一个 `while` 加几个局部变量。
+**最值得借鉴的一点**：**用 `Stop` 钩子加状态文件构建「完成判据循环」**。原生 Workflow 是脚本执行完即结束，而 OMC 将「是否允许停止」变成一道可编程的门。将这个思路引入 Workflow，配合 JSON Schema 校验产物，就能把「流水线执行完毕」升级成「满足验收标准才算完成」（第 18 章「循环到干」正是其在 Workflow 中的对应形式）。将上面的 `Stop` 钩子与第 24 章的 `while (!accepted)` 循环对比：钩子拦截加磁盘状态，最终简化为一个 `while` 加几个局部变量。
 
 ---
 
@@ -153,7 +153,7 @@ function onStop() {
 - **system-reminder 注入驱动循环**：Atlas 的 hook 族每轮注入 `BOULDER_CONTINUATION_PROMPT` 和 `VERIFICATION_REMINDER`（「子 agent 说自己做完了，它在撒谎，去验证」），等 Atlas 越界去改代码时，再注入一个 `DELEGATION_REQUIRED` 把它拉回来。
 - **工具层护栏**：`prometheus-md-only/hook.ts` 在工具调用之前硬拦一道，规划者的 `Write/Edit` 只允许写 `.omo/*.md`，违规就直接 `throw`。**规划者物理上无法写代码。**
 
-几处看得见摸得着的形态。
+以下是几个具体的实现形态。
 
 入口是一个正则关键词。`keyword-detector/constants.ts` 用 `/\b(ultrawork|ulw)\b/i` 去匹配用户消息，匹配上就唤起整套编排。它跟原生 Workflow 的**早期社区昵称** `ultrawork` 同名，并不是巧合（该词在官方 v2.1.154 已不再是触发词，仅存内部事件名 `ultrawork_request`）。
 
@@ -179,27 +179,27 @@ function beforeToolCall(tool, args) {
 }
 ```
 
-这就把「规划者别去碰代码」从一句**提示词祈祷**变成了一道**运行时的物理墙**，这正是第 24 章要把它原生重写成「`schema` 约束的 planner 只能产出计划对象」的母题。
+这将「规划者不能修改代码」从**提示词层面的约定**变成了**运行时的物理限制**，这正是第 24 章要用原生方式重写为「`schema` 约束的 planner 只能产出计划对象」的出发点。
 
-**最值得偷师的一点**有两条。一是**用工具层护栏加 system-reminder 注入来硬卡纪律，而不是靠提示词祈祷**。二是**按 Category（语义意图）委派，而不是按模型名委派**：LLM 看到的是 `category="quick"/"ultrabrain"`，运行时再把它映射到一条模型 fallback 链，既消掉了「模型自我设限」那种分布偏置，模型还能热插拔。这一点对 Workflow 的 `agent({model})` 选型很有启发：按任务类别来定，别把模型名硬编码进去。
+**最值得借鉴的两点**：一是**用工具层护栏加 system-reminder 注入来强制执行纪律，而不是依赖提示词约定**。二是**按 Category（语义意图）委派，而非按模型名委派**：LLM 看到的是 `category="quick"/"ultrabrain"`，运行时再将其映射到模型 fallback 链，既消除了「模型自我设限」的分布偏置，又使模型可以热插拔。这对 Workflow 的 `agent({model})` 选型有启发意义：应按任务类别决定模型，避免硬编码模型名称。
 
 ---
 
 ## 23.6 横评一览
 
-| 系统 | 宿主 | 编排机制 | 确定性 | 最强项 | 一句话偷师 |
+| 系统 | 宿主 | 编排机制 | 确定性 | 最强项 | 核心借鉴 |
 |---|---|---|---|---|---|
-| **ccg-workflow** | Claude Code | 提示词状态机 + JS Hook + Go 桥接多模型 | 弱（提示词约束） | 多模型交叉验证 + 抗压缩 | 磁盘状态 + 每轮面包屑注入 |
-| **superpowers** | 跨 7 harness | skill 链 + SessionStart 注入「宪法」 | 弱（概率性） | 方法论纪律（TDD/brainstorm） | 两段式评审闭环 |
-| **oh-my-claudecode** | Claude Code | hooks + 状态文件 + 20 角色 | 中（Stop 钩子兜底） | 韧性（resume/防静默失败） | Stop 钩子＝完成判据闭环 |
+| **ccg-workflow** | Claude Code | 提示词状态机 + JS Hook + Go 桥接多模型 | 弱（提示词约束） | ccg 多模型并行交叉验证 + 抗压缩 | 磁盘状态 + 每轮面包屑注入 |
+| **superpowers** | 跨 7 harness | skill 链 + SessionStart 注入「宪法」 | 弱（概率性） | 方法论纪律（TDD/brainstorm） | 两段式评审循环 |
+| **oh-my-claudecode** | Claude Code | hooks + 状态文件 + 20 角色 | 中（Stop 钩子兜底） | 韧性（resume/防静默失败） | Stop 钩子＝完成判据循环 |
 | **oh-my-openagent** | opencode | hooks + 自定义 tools + 状态文件 | 中（工具层护栏） | 越界护栏 + 类别委派 | 工具层 throw + Category 委派 |
 | **原生 Workflow** | Claude Code | **JS 脚本 pipeline/parallel/phase + Schema** | **强（代码）** | 确定性 + 结构化 + 可复用 | —— |
 
-**这表怎么读**：左边四列是「模拟编排」，最后一行是「原生骨架」。它们不是竞争关系。**最佳实践是拿原生 Workflow 当骨架，再把这四家的精华当韧性层焊上去。**
+**阅读方式**：前四行是「模拟编排」，最后一行是「原生骨架」。它们不是竞争关系。**推荐做法是以原生 Workflow 为骨架，将这四个系统的精华作为韧性层整合上去。**
 
 <div class="callout warn">
 
-**别把表里「编排机制」这一整列照搬。** 这一列写的是**实现**（某个宿主上的钩子、状态文件、Go 桥接），不是**模式**。你真正想要的，是「最强项」和「偷师」这两列背后的**控制结构**：磁盘面包屑的本质是「把结构化状态显式传下去」，`Stop` 钩子的本质是「完成判据可编程」，工具层 `throw` 的本质是「角色边界由系统强制」。把实现照搬进原生 Workflow，你会得到一个长在别人宿主上的器官，当场排异。**怎么把模式从实现里剥出来，再用 `phase`/`schema` 重新长出一套实现，就是下一章的全部主题。**
+**不要照搬表中「编排机制」这一列。** 这一列描述的是**实现**（某个宿主上的钩子、状态文件、Go 桥接），而非**模式**。真正有价值的是「最强项」和「借鉴」这两列背后的**控制结构**：磁盘面包屑的本质是「将结构化状态显式传递」，`Stop` 钩子的本质是「完成判据可编程」，工具层 `throw` 的本质是「角色边界由系统强制」。将实现直接搬入原生 Workflow 会产生兼容性问题。**如何将模式从实现中提取出来，再用 `phase`/`schema` 重新实现，是下一章的全部主题。**
 
 </div>
 
@@ -211,6 +211,6 @@ function beforeToolCall(tool, args) {
 - 各自的精华：ccg 是磁盘状态面包屑，superpowers 是两段式评审，OMC 是 Stop 钩子完成判据，OmO 是工具层护栏加类别委派。
 - 原生 Workflow 把它们缺的那块**确定性骨架加 Schema 约束**补上了，两者互补。
 
-下一章把「怎么系统地把别人系统里的好想法提炼、抽象出来，再用 `phase`/`schema` 重写成自己能复用的 Workflow」讲成一套方法论。
+下一章将「如何系统地从其他系统中提炼好的想法，再用 `phase`/`schema` 重写成可复用的 Workflow」整理为一套方法论。
 
 > 继续阅读：[第 24 章 · 精华提取术](#/zh/p5-24)

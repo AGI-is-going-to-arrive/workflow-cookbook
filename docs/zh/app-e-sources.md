@@ -33,7 +33,7 @@
 
 <div class="callout info">
 
-**这页文档怎么改变了本书的信源分级**：在它发布之前，社区（含本书早期草稿与下方 §E.5 的第三方解读）一度把这个特性描述为「官方文档未收录的隐藏工具」。**那个前提现在已经不成立**：特性是官方正式特性，措辞与可用性、启用方式、运行约束一律**以这页官方文档为准**。本书相对官方文档的增量价值，落在官方没细讲的**实测层**，比如具名工作流注册表的版本漂移（[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) / [附录 A · A.13.1](#/zh/app-a)）、序列化陷阱、`parallel` 同步 throw 会崩整个 run、worktree 落盘行为等。这些是「官方文档 + 本机实测」叠加出来的，不与官方冲突，而是把官方没展开的角落补全。
+**这页文档怎么改变了本书的信源分级**：在它发布之前，社区（含本书早期草稿与下方 §E.5 的第三方解读）一度把这个特性描述为「官方文档未收录的隐藏工具」。**那个前提现在已经不成立**：特性是官方正式特性，措辞与可用性、启用方式、运行约束一律**以这页官方文档为准**。本书相对官方文档的增量价值，落在官方没细讲的**实测层**，比如具名工作流注册表的版本漂移（[E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) / [附录 A · A.13.1](#/zh/app-a)）、序列化陷阱、`parallel` 同步 throw 会崩整个 run、worktree 写入磁盘行为等。这些是「官方文档 + 本机实测」叠加出来的，不与官方冲突，而是把官方没展开的角落补全。
 
 </div>
 
@@ -50,7 +50,7 @@
 | 信源 | 用途 | 覆盖 |
 |---|---|---|
 | `@anthropic-ai/claude-code` 包内的 **`sdk-tools.d.ts`** | `WorkflowInput` / `WorkflowOutput` 两个接口的字段与类型 | `script` / `name` / `args` / `scriptPath` / `resumeFromRunId`；`status` / `taskId` / `runId` / `transcriptDir` / `scriptPath` / `sessionUrl` / `warning` / `error` |
-| **Workflow 工具定义**（工具的运行时描述） | 脚本体内全局钩子的签名与语义、触发方式、并发与规模约束 | `meta` / `agent()` / `parallel()` / `pipeline()` / `phase()` / `log()` / `args` / `budget` / `workflow()`；`min(16, cores−2)` 并发上限、1000 agent 兜底、嵌套一层 |
+| **Workflow 工具定义**（工具的运行时描述） | 脚本内全局钩子的签名与语义、触发方式、并发与规模约束 | `meta` / `agent()` / `parallel()` / `pipeline()` / `phase()` / `log()` / `args` / `budget` / `workflow()`；`min(16, cores−2)` 并发上限、1000 agent 兜底、嵌套一层 |
 
 <div class="callout warn">
 
@@ -147,7 +147,7 @@
 | 系统 | 形态 | 精华（本书提炼） | 章节 |
 |---|---|---|---|
 | **ccg-workflow**（Claude+Codex+Gemini 多模型协作） | 提示词状态机 + JS Hook + Go 二进制桥接异构 CLI | 磁盘状态 `task.json` + 每轮 Hook 注入面包屑对抗上下文压缩；Ralph Loop 干净上下文迭代；文件归属 + Layer 分层并行；Spec Evolution；死循环检测 | [第 23 章](#/zh/p5-23) / [第 24 章](#/zh/p5-24) |
-| **superpowers**（obra，跨 7 个 harness 的方法论） | 纯 skill + SessionStart hook 注入「行为宪法」，概率性编排 | 两段式评审闭环（spec 合规 → code quality 各自循环到过）；Brainstorming-first 硬门禁；TDD Iron Law；Verification-before-completion；结构化状态返回 | [第 23 章](#/zh/p5-23) / [第 24 章](#/zh/p5-24) |
+| **superpowers**（obra，跨 7 个 harness 的方法论） | 纯 skill + SessionStart hook 注入「行为宪法」，概率性编排 | 两段式评审循环（spec 合规 → code quality 各自循环到过）；Brainstorming-first 硬门禁；TDD Iron Law；Verification-before-completion；结构化状态返回 | [第 23 章](#/zh/p5-23) / [第 24 章](#/zh/p5-24) |
 | **oh-my-claudecode（OMC）** | hooks + 状态文件模拟编排，无 JSON Schema 强约束 | `Stop` 钩子持久循环（「boulder never stops」）；控制面/数据面分离 + Artifact 句柄；声明式委派强制；echo-guard；PRD 驱动 + 独立 reviewer 签核；20 角色 | [第 23 章](#/zh/p5-23) / [第 24 章](#/zh/p5-24) |
 | **oh-my-openagent（OmO）**（建在 opencode 上，非 Claude Code） | 工具层护栏 throw + system-reminder 注入纠偏 | 规划者物理无法写码（工具层 throw）；Category（语义意图）而非模型名委派；跨会话 `boulder.json` + notepad 外化记忆 | [第 23 章](#/zh/p5-23) / [第 24 章](#/zh/p5-24) |
 
@@ -202,7 +202,7 @@ flowchart TD
 - **用量/返回值** → 顺着 Run ID 翻 [E.3](#e3-真实运行记录第一批10-次完成记录9-个唯一-run-id覆盖的机制) 指向的 transcript 文件，所有数字原样保留、可复算。
 - **生态精华** → [E.4](#e4-四大社区系统生态借鉴的源码仓库) 的源码仓库 + 第五部。
 
-> 配套阅读：字段速查 [附录 A · API 完整参考](#/zh/app-a)；坑与排错 [附录 B · 陷阱与排错](#/zh/app-b)；最佳实践 [附录 C · 最佳实践清单](#/zh/app-c)；术语 [附录 D · 术语表](#/zh/app-d)。
+> 配套阅读：字段速查 [附录 A · API 完整参考](#/zh/app-a)；坑与排错 [附录 B · 陷阱与排错](#/zh/app-b)；推荐做法 [附录 C · 推荐做法清单](#/zh/app-c)；术语 [附录 D · 术语表](#/zh/app-d)。
 
 ---
 

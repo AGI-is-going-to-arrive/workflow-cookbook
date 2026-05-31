@@ -2,7 +2,7 @@
 
 > Getting an agent to "find bugs" isn't hard; what's hard is **trusting** the bugs it finds. LLMs are very good at making up "looks-like-a-bug" false positives. This chapter's Bug Hunter recipe solves that trust problem with **adversarial verification**: hunt first, then send in an independent "devil's advocate" agent to **refute by default**, so only what survives refutation counts.
 >
-> This chapter is based on a real run (Run `wf_53da9a06-915`, 11 agents / 311,134 tokens / 61,660ms, 5/5 confirmed), and it demonstrates the most striking facet of adversarial verification: **the verifier corrected the hunter in turn.** On top of that, we build a **production-grade bug-hunter workflow** from scratch (**finder pool → adversarial refutation → synthesis**), then see how it uses **pigeonhole early-exit** and a **K-consecutive-round dry-streak** to be both cheap and miss-proof.
+> This chapter is based on a real run (Run `wf_53da9a06-915`, 11 agents / 311,134 tokens / 61,660ms, 5/5 confirmed), and it demonstrates the most remarkable facet of adversarial verification: **the verifier corrected the hunter in turn.** On top of that, we build a bug-hunter workflow from scratch (**finder pool → adversarial refutation → synthesis**), then see how it uses **pigeonhole early-exit** and a **K-consecutive-round dry-streak** to save cost without missing bugs.
 >
 > <div class="callout warn">
 >
@@ -12,14 +12,14 @@
 
 ---
 
-## 15.1 Recipe Motivation: a "Unknown-Scale + Untrustworthy" Double Problem
+## 15.1 Recipe Motivation: an "Unknown-Scale + Untrustworthy" Double Problem
 
 "Finding bugs" is a classic **unknown-scale discovery task**. You don't know up front how many bugs there are, so you can't write it as a fixed-quota loop like "find these 5." Worse, it lands you in the two nastiest traps of discovery tasks at once:
 
-1. **False positives**: the model loves to report something. You say "find bugs," and even when it finds zero real ones, it makes up a few plausible-looking "bugs" to hand in, because to it, turning in a blank feels like not finishing the job.
-2. **Wrong argumentation**: even when the bug is real, the "why it's wrong" the model gives may be wrong. It can nail the symptom but botch the mechanism.
+1. **False positives**: the model tends to report something regardless. Even when it finds zero real bugs, it fabricates a few plausible-looking "bugs" as output, because an empty result registers as an incomplete task.
+2. **Wrong argumentation**: even when the bug is real, the model's "why it's wrong" may itself be wrong. It can identify the symptom correctly but mischaracterize the mechanism.
 
-Stack the two traps together and you get this: **looking at a single hunter agent's output tells you neither whether it found them all nor whether it got them right.** This chapter's recipe presses both uncertainties down with a three-stage orchestration:
+These two problems compound: **a single hunter agent's output reveals neither whether it found them all nor whether it got them right.** This chapter's recipe addresses both uncertainties with a three-stage orchestration:
 
 ```mermaid
 flowchart LR
@@ -28,13 +28,13 @@ flowchart LR
   S --> O["a trustworthy confirmed list"]
 ```
 
-- **① Hunt** handles "find them all": use one finder agent, or a finder **pool**, to list suspected bugs. When the scale is unknown, let the pool self-respawn and loop until dry (15.5, 15.7).
-- **② Verify** handles "get them right": for **each** suspected bug, dispatch N **independent** verifiers, and explicitly tell them to refute by default. That puts the burden of proof on the "this is a real bug" side. This is a direct application of Chapter 17's adversarial verification.
+- **① Hunt** addresses "find them all": use one finder agent, or a finder **pool**, to list suspected bugs. When the scale is unknown, let the pool self-respawn and loop until dry (15.5, 15.7).
+- **② Verify** addresses "get them right": for **each** suspected bug, dispatch N **independent** verifiers, and explicitly instruct them to refute by default. This places the burden of proof on the "this is a real bug" side. This is Chapter 17's adversarial verification, applied to bug hunting.
 - **③ Synthesize** closes out: use **code** to tally, dedup, and prioritize, producing the final confirmed list.
 
 <div class="callout info">
 
-**Why "refute" rather than "confirm"?** Because confirmation bias only points one way: ask an agent "is this a bug?" and it tends to nod. Order it to "try your best to **refute** this; judge refuted if you're not sure," and it has to go hunt for counterexamples. With the default set to refuted, **the model's silence and hesitation both fall to "doesn't count,"** and false positives get filtered out on their own. The mechanism behind "refute by default, flip the burden of proof" is unpacked in Chapter 17 ([adversarial verification](#/en/p4-17)); this chapter is where it lands on hunting bugs.
+**Why "refute" rather than "confirm"?** Confirmation bias only points one way: ask an agent "is this a bug?" and it tends to agree. Instructing it to "try your best to **refute** this; judge refuted if you're not sure" forces it to actively hunt for counterexamples. With the default set to refuted, **the model's silence and hesitation both fall to "doesn't count,"** and false positives get filtered out naturally. The full mechanism behind "refute by default, flip the burden of proof" is covered in Chapter 17 ([adversarial verification](#/en/p4-17)); this chapter applies it to hunting bugs.
 
 </div>
 
@@ -42,7 +42,7 @@ flowchart LR
 
 ## 15.2 The Full Script
 
-Below is the script used in this chapter's real run, the minimal trustworthy shape of one finder (Hunt) + two refuters per bug (Verify):
+Below is the script used in this chapter's real run, the minimal trustworthy shape of one finder (Hunt) plus two refuters per bug (Verify):
 
 ```javascript
 export const meta = {
@@ -78,11 +78,11 @@ const confirmed = verified.filter(Boolean).filter(b => b.confirmed)
 return { hunted: hunt.bugs.length, confirmedCount: confirmed.length, confirmed }
 ```
 
-Note the structure here: **Hunt is a single agent** (it produces the suspected list), and **Verify uses `pipeline`**, so each bug flows independently through the stage of "2 refuters concurrent + tally." This is the typical pattern of `parallel` nested inside `pipeline` (Chapter 08). Pipeline stages have no barrier, so while bug A is still being refuted, bug B may already be in synthesis; meanwhile, inside each bug, the two refuters use the `parallel` barrier to finish together so they can be tallied.
+The structure here: **Hunt is a single agent** (it produces the suspected list), and **Verify uses `pipeline`**, so each bug flows independently through the stage of "2 refuters concurrent + tally." This is the typical pattern of `parallel` nested inside `pipeline` (Chapter 08). Pipeline stages have no barrier, so while bug A is still being refuted, bug B may already be in synthesis; meanwhile, inside each bug, the two refuters use the `parallel` barrier to finish together so they can be tallied.
 
 <div class="callout tip">
 
-**This minimal shape is enough to build intuition, but it deliberately omits three "production-grade" things**, which the rest of this chapter adds one by one: ① Hunt has only one finder, so it will miss bugs once the scale grows, which the finder pool in 15.5 fixes; ② each bug runs all refuters before tallying, with no early stop even when a majority has already vetoed, which pigeonhole in 15.6 fixes; ③ a single round of Hunt means missed tail bugs can never be recovered, which loop-until-dry in 15.7 fixes. Master the minimal shape first, then add these three layers.
+**This minimal shape is enough to build intuition, but it deliberately omits three things**, which the rest of this chapter adds one by one: ① Hunt has only one finder, so it will miss bugs once the scale grows, which the finder pool in 15.5 fixes; ② each bug runs all refuters before tallying, with no early stop even when a majority has already vetoed, which pigeonhole in 15.6 fixes; ③ a single round of Hunt means missed tail bugs can never be recovered, which loop-until-dry in 15.7 fixes. Understanding the minimal shape first is recommended before layering on these three additions.
 
 </div>
 
@@ -103,17 +103,17 @@ The target file is `assets/samples/buggy-cart.js` (a synthetic sample with 5 del
 | `findItem` | `==` instead of `===`, type coercion mismatch | 2:0 |
 | `mergeCarts` | mutates the argument in place via `a.push()` (aliasing bug) | 2:0 |
 
-How the 11-agent count adds up: `1 finder + 5 bugs × 2 refuters = 11`. ~310K tokens, ~62 seconds wall clock. Note the wall clock is far less than running all 11 agents back to back, because the refutation of the 5 bugs **overlaps** in the pipeline: wall clock depends on the critical path, not the sum of every agent's time (Chapter 08).
+The 11-agent count breaks down as: `1 finder + 5 bugs × 2 refuters = 11`. ~310K tokens, ~62 seconds wall clock. The wall clock is far less than running all 11 agents sequentially, because the refutation of the 5 bugs **overlaps** in the pipeline: wall clock depends on the critical path, not the sum of every agent's time (Chapter 08).
 
 <div class="callout info">
 
-**Why use a synthetic sample as the hunting target?** Because to check how accurate the hunter actually is, you first need a **known answer key**. Every bug in `buggy-cart.js` carries a seed comment, so "found 5/5" is a hard metric you can verify line by line, not a vague feeling of "looks like it found quite a few." Real projects have no such annotations, which is exactly why ② Verify exists: to **approximate** ground truth via adversarial refutation.
+**Why use a synthetic sample as the hunting target?** Checking hunter accuracy requires a **known answer key**. Every bug in `buggy-cart.js` carries a seed comment, so "found 5/5" is a hard metric verifiable line by line, not a vague impression of "it found quite a few." Real projects lack such annotations, which is exactly why ② Verify exists: to **approximate** ground truth via adversarial refutation.
 
 </div>
 
 ---
 
-## 15.4 The Striking Part: the Verifier Corrected the Hunter
+## 15.4 The Remarkable Part: the Verifier Corrected the Hunter
 
 The refuter for `applyDiscount`, while **confirming the bug is real**, corrected a piece of wrong argumentation from the hunter (and the seed comment). The seed comment and the hunter both claimed "percent as a string would concatenate," and the refuter pointed out:
 
@@ -123,7 +123,7 @@ It's right: `*`/`/` coerce strings into numbers; only `+` concatenates. So `appl
 
 <div class="callout tip">
 
-**This is where adversarial verification earns its keep**: it doesn't just filter false positives, it can also **fix the faulty reasoning inside a true positive.** A checker that only echoes would never catch this; only a verifier told to "refute by default, judge refuted if uncertain" bothers to get pedantic, not even letting a flaw buried in the premise slip by. The refuter hands back not just a "true/false" ballot but **an auditable line of reasoning**, and that reasoning itself can correct upstream. This is also why `reason` is a required field in the refutation schema in 15.2.
+**This is where adversarial verification proves its value**: it does not just filter false positives, it can also **fix the faulty reasoning inside a true positive.** A checker that only agrees would never catch this; only a verifier instructed to "refute by default, judge refuted if uncertain" will scrutinize to this degree, including flaws buried in the premise. The refuter hands back not just a "true/false" ballot but **an auditable line of reasoning**, and that reasoning itself can correct upstream. This is also why `reason` is a required field in the refutation schema in 15.2.
 
 </div>
 
@@ -131,9 +131,9 @@ It's right: `*`/`/` coerce strings into numbers; only `+` concatenates. So `appl
 
 ## 15.5 The Finder Pool: Fixed vs Self-Respawning
 
-The minimal shape in 15.2 has only **one** finder. That's fine for a small target, but the moment it grows from a 40-line synthetic file to dozens of files across an entire branch, a single finder can't keep up: its attention gets spread thin and it's bound to miss things. That's when you reach for a **finder pool**: multiple hunters scanning concurrently, **streaming** their findings into the same refutation pipeline.
+The minimal shape in 15.2 has only **one** finder. This suffices for a small target, but once the scope grows from a 40-line synthetic file to dozens of files across an entire branch, a single finder's attention gets spread thin and missed bugs become inevitable. This is when a **finder pool** is needed: multiple hunters scanning concurrently, **streaming** their findings into the same refutation pipeline.
 
-Early v2.1.150's built-in registry held two named workflows of the same lineage as the bug hunter, `bughunt` and `bughunt-lite` (Run `wf_2b04881f-6a9` real run: calling an unknown named workflow throws and lists the then-current set `bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`). **Note: as of v2.1.156 these two are no longer in the registry** (only `deep-research` remains; see the version note at the top of this chapter and [Appendix A.13.1](#/en/app-a)). So what follows isn't teaching you to call them; it takes their old orchestration skeleton as a **blueprint** and **writes the same structure yourself**. The table below dissects that skeleton into the two pool shapes "fixed" and "self-respawning":
+Early v2.1.150's built-in registry held two named workflows of the same lineage as the bug hunter, `bughunt` and `bughunt-lite` (Run `wf_2b04881f-6a9` real run: calling an unknown named workflow threw and listed the then-current set `bughunt, bughunt-lite, deep-research, plan-hunter, review-branch`). **As of v2.1.156 these two are no longer in the registry** (only `deep-research` remains; see the version note at the top of this chapter and [Appendix A.13.1](#/en/app-a)). So what follows isn't teaching you to call them; it takes their old orchestration skeleton as a **blueprint** and **writes the same structure yourself**. The table below dissects that skeleton into the two pool shapes "fixed" and "self-respawning":
 
 | Workflow | Finder pool | Verification | Close-out |
 |---|---|---|---|
@@ -148,15 +148,15 @@ Early v2.1.150's built-in registry held two named workflows of the same lineage 
 
 The two pools differ on exactly one axis: **whether the finder count is fixed.**
 
-- **Fixed pool**: dispatch `N` hunters, collect `N` sets of findings, so orchestration is predictable and cost has an upper bound. Good when you roughly know the target scale or want a deterministic budget. `bughunt-lite`'s "3 rapid + 2 deep" is a fixed 5 finders.
-- **Self-respawning pool**: the finder pool keeps **topping up with new hunters** until a stopping condition is met (dry-streak, see 15.7). Good when the target scale is completely unknown and you'd rather overspend than miss. The cost is that the upper bound is uncertain, so it needs a dry-streak + budget double brake (Chapter 18).
+- **Fixed pool**: dispatch `N` hunters, collect `N` sets of findings. Orchestration is predictable and cost has an upper bound. Suited to cases where the target scale is roughly known or a deterministic budget is required. `bughunt-lite`'s "3 rapid + 2 deep" is a fixed 5 finders.
+- **Self-respawning pool**: the finder pool **continuously adds new hunters** until a stopping condition is met (dry-streak, see 15.7). Suited to cases where the target scale is completely unknown and missing bugs is more costly than overspending. The trade-off is an uncertain cost ceiling, requiring a dry-streak + budget double brake (Chapter 18).
 
 The "rapid + deep" split that shows up in both pools is another, orthogonal design, one fast and one slow:
 
 - **rapid finder**: fast, shallow, wide net, scooping up the obvious-at-a-glance suspects first (can use `model:'haiku'` to cut cost).
 - **deep finder**: slow, deep, detail-oriented, digging out the subtle bugs the rapid pass missed, the ones that need cross-function reasoning.
 
-The phrase "the pool streams into the pipeline" (finders **stream into** verification) is the key part: finders don't all have to finish before refutation begins. This is exactly where the **no-barrier** nature of `pipeline` stages pays off (Chapter 08): the moment one finder hands back a finding, the refutation pipeline can start on it while the other finders are still running.
+The phrase "the pool streams into the pipeline" (finders **stream into** verification) is the key concept: finders do not all have to finish before refutation begins. This is exactly where the **no-barrier** nature of `pipeline` stages applies (Chapter 08): the moment one finder hands back a finding, the refutation pipeline can start on it while the other finders are still running.
 
 Below is a skeleton of a **fixed pool + stream-dedup + flow-into-refutation** (echoing `bughunt-lite`):
 
@@ -193,7 +193,7 @@ log(`finder pool merged ${pooled.length} findings, ${candidates.length} after de
 
 <div class="callout warn">
 
-**A finder pool must always go through "stream-dedup" before refutation, and dedup must use code, not an agent.** Multiple finders (especially rapid vs deep) are bound to report duplicate bugs; without deduping first, the same bug gets refuted by N sets of refuters, wasting tokens several times over. Dedup is a **deterministic operation** (same input, same output), done at zero cost with a `Set` + a normalized key, consistent with Chapter 18's "hand deterministic operations to code, leave judgment to agents." Asking an agent to dedup for you is both expensive and introduces non-determinism.
+**A finder pool must go through "stream-dedup" before refutation, and dedup must use code, not an agent.** Multiple finders (especially rapid vs deep) inevitably report duplicate bugs; without deduping first, the same bug gets refuted by N sets of refuters, wasting tokens several times over. Dedup is a **deterministic operation** (same input, same output), achievable at zero cost with a `Set` + a normalized key, consistent with Chapter 18's principle: "hand deterministic operations to code, leave judgment to agents." Having an agent perform dedup is both expensive and introduces non-determinism.
 
 </div>
 
@@ -201,28 +201,28 @@ log(`finder pool merged ${pooled.length} findings, ${candidates.length} after de
 
 ## 15.6 Pigeonhole Early-Exit: Once a Majority Has Vetoed, Stop Voting
 
-The refutation in 15.2 is "run all N refuters for each bug, then tally." When N is large (`bughunt` uses **5 votes**), there's an obvious waste: **once a bug has been vetoed by a majority of refuters, the remaining votes can't flip the outcome**, since the conclusion is already locked.
+The refutation in 15.2 is "run all N refuters for each bug, then tally." When N is large (`bughunt` uses **5 votes**), there is an obvious waste: **once a bug has been vetoed by a majority of refuters, the remaining votes cannot flip the outcome**, since the conclusion is already determined.
 
-This is **pigeonhole early-exit**: treat "majority" as a threshold you can hit early, and the moment one side's vote count locks in the win, decide **logically** ahead of time instead of waiting on the rest. But keep one thing in mind: **the agents already dispatched usually still finish, their results just ignored** (for the mechanism, see the callout below in this section, `_grounding.md`, and Chapter 18). To **physically** dispatch fewer agents, you have to **vote in batches**: send the majority-line votes first, and only add the rest when it's a tie or close.
+This is **pigeonhole early-exit**: treat "majority" as a threshold reachable early, and the moment one side's vote count locks in the outcome, decide **logically** rather than waiting for the rest. Note, however, that **agents already dispatched usually still finish; their results are simply ignored** (for the mechanism, see the callout below in this section, `_grounding.md`, and Chapter 18). To **physically** dispatch fewer agents, **vote in batches**: send the majority-line votes first, and add the remaining votes only when the result is close or tied.
 
 Take 5 votes with "keep only if a majority confirms" (≥3 confirm) as an example. The pigeonhole principle gives two early-exit points:
 
-- **Early veto**: once **3 refute votes** accumulate, no matter how the remaining 2 vote, confirm can't reach ≥3 → this bug is doomed to be vetoed → stop the remaining refuters.
-- **Early confirm**: once **3 confirm votes** accumulate, the majority is reached → this bug is destined to be kept → stop the remaining refuters.
+- **Early veto**: once **3 refute votes** accumulate, no matter how the remaining 2 vote, confirm can't reach ≥3 → this bug is certain to be vetoed → stop the remaining refuters.
+- **Early confirm**: once **3 confirm votes** accumulate, the majority is reached → this bug is certain to be kept → stop the remaining refuters.
 
 ```mermaid
 flowchart TB
   A["start 5 refuters on one bug"] --> B{"tally vote by vote"}
-  B -->|"refute votes == 3"| R["doomed to veto<br/>stop remaining 2 votes"]
-  B -->|"confirm votes == 3"| C["destined to confirm<br/>stop remaining 2 votes"]
+  B -->|"refute votes == 3"| R["certain to be vetoed<br/>stop remaining 2 votes"]
+  B -->|"confirm votes == 3"| C["certain to be confirmed<br/>stop remaining 2 votes"]
   B -->|"both sides < 3"| B
   R --> D["close out: refuted"]
   C --> E["close out: confirmed"]
 ```
 
-How much does early exit save? Under "5-vote majority," the soonest it can settle is at the 3rd vote, saving 2 refuters, **nearly 40% of verification cost**, and the more one-sided the bug (a real bug all-confirm, a false positive all-refute), the more it saves.
+Savings: under "5-vote majority," the earliest settlement is at the 3rd vote, saving 2 refuters, **nearly 40% of verification cost**; the more one-sided the bug (a real bug all-confirm, a false positive all-refute), the greater the savings.
 
-There's a catch in the implementation: `parallel` is a **barrier** (it waits for all thunks) and has no built-in way to stop midway. To get pigeonhole early-exit, you need a structure that can settle early, namely a race. Below is an **illustrative** skeleton built from a `Promise` race plus a tally closure; note it already goes beyond `parallel`'s standard usage and is here only to show the idea:
+An implementation constraint: `parallel` is a **barrier** (it waits for all thunks) and has no built-in way to stop midway. To achieve pigeonhole early-exit, a structure that can settle early is needed, namely a race. Below is an **illustrative** skeleton using a `Promise` race plus a tally closure; it goes beyond `parallel`'s standard usage and serves only to demonstrate the approach:
 
 ```javascript
 // (illustrative, not executed) — the idea skeleton of pigeonhole early-exit
@@ -256,7 +256,7 @@ async function verifyWithPigeonhole(bug, voters = 5) {
 
 <div class="callout warn">
 
-**"Early exit" saves "waiting and deciding," not necessarily "in-flight agents."** Per `_grounding.md`, once `parallel` starts all N thunks, they run concurrently. The race skeleton above lets you **grab the conclusion the instant a majority locks in, without blocking**, but the agent calls already dispatched will usually run to completion, their results just ignored. To actually dispatch fewer agents physically, you have to **vote in batches**: send 3 votes first (the majority line), and only add the 4th and 5th when it's a tie or close. That's the step that upgrades pigeonhole from "logical early stop" to "physical savings." Either way, the core idea is the same: **don't pay full price for a verdict that's already settled.**
+**"Early exit" saves waiting and decision time, not necessarily in-flight agents.** Per `_grounding.md`, once `parallel` starts all N thunks, they run concurrently. The race skeleton above enables **grabbing the conclusion the instant a majority locks in, without blocking**, but agent calls already dispatched will usually run to completion; their results are simply ignored. To physically dispatch fewer agents, **vote in batches**: send 3 votes first (the majority line), and add the 4th and 5th only when the result is close or tied. This step upgrades pigeonhole from "logical early stop" to "physical savings." Either way, the principle is the same: **do not pay full price for a verdict that is already settled.**
 
 </div>
 
@@ -264,12 +264,12 @@ async function verifyWithPigeonhole(bug, voters = 5) {
 
 ## 15.7 Loop-Until-Dry and "K Consecutive Rounds with No New Findings": Stop Missing the Tail
 
-A single round of Hunt, even with a finder pool, can still miss tail-end bugs, especially the subtle ones you only think of once earlier rounds hand you a "clue." For discovery tasks where you don't know how many, the ultimate weapon is **loop-until-dry** (Chapter 18): keep dispatching new hunters until **K consecutive rounds add no new** confirmed bugs.
+A single round of Hunt, even with a finder pool, can still miss tail-end bugs, especially subtle ones that only become apparent once earlier rounds provide a "clue." For discovery tasks where the total count is unknown, the most robust approach is **loop-until-dry** (Chapter 18): keep dispatching new hunters until **K consecutive rounds add no new** confirmed bugs.
 
-The key here is how you write the **stopping condition**. Two ways, and they differ a lot:
+The critical element is the **stopping condition design**. Two approaches differ significantly:
 
-- **Naive version**: "stop if this round found no new bug" (K=1). Trouble is, discovery tasks often hit empty rounds: one round happens to scoop up nothing new, but the next round, from a different angle, digs more out. K=1 **quits too early** and misses the tail.
-- **dry-streak version**: "stop only after **K consecutive rounds** (say K=2 or 3) with no new findings." This gives hunters a chance to try a few more times, and the odds of missing the tail drop sharply. This is exactly what **deep-until-dry-streak** means in `bughunt`'s registered description: deep hunters keep getting dispatched until several rounds in a row squeeze out nothing new.
+- **Simple version**: "stop if this round found no new bug" (K=1). The problem is that discovery tasks often produce empty rounds: one round yields nothing new, but the next round, from a different angle, uncovers more. K=1 **quits too early** and misses the tail.
+- **dry-streak version**: "stop only after **K consecutive rounds** (say K=2 or 3) with no new findings." This gives hunters a chance to try a few more times, and the odds of missing the tail drop significantly. This is exactly what **deep-until-dry-streak** means in `bughunt`'s registered description: deep hunters keep getting dispatched until several rounds in a row produce nothing new.
 
 ```mermaid
 stateDiagram-v2
@@ -331,11 +331,11 @@ while (dryStreak < K && round < MAX_ROUNDS) {
 return { rounds: round, confirmedCount: confirmed.length, confirmed }
 ```
 
-Keep the three roles straight: **the finder pool** does the finding (each round feeds in the "already confirmed list" and asks for new ones only); **the adversarial refutation pipeline** does the screening (each new suspect still has to pass refutation); **the `while` + `dryStreak` counter** decides when to stop. That last piece is real JavaScript control flow: the model only judges, the code does the orchestrating.
+The three roles must be kept distinct: **the finder pool** does the finding (each round receives the "already confirmed list" and reports only new ones); **the adversarial refutation pipeline** does the screening (each new suspect still passes through refutation); **the `while` + `dryStreak` counter** decides when to stop. This last piece is JavaScript control flow: the model handles judgment, the code handles orchestration.
 
 <div class="callout warn">
 
-**dry-streak guards against missing the tail, but never drop the hard cap.** The `round < MAX_ROUNDS` in the `while` condition and the `budget.remaining()` check are **seatbelts**, not decoration. Run into a hunter that can always make up a new suspect and it will keep resetting the dry-streak, so the loop never exits. Per `_grounding.md`, `budget` is a hard cap (calling `agent()` after reaching `total` throws), and the per-workflow lifetime cap of 1000 total agents is the last global safety net, but you should **never** lean on them to terminate a business loop. The right discipline: **dry-streak decides "when to stop normally," the round cap + budget decide "when to force-stop in the worst case," and all three are indispensable** (see Chapter 18 §18.3).
+**dry-streak guards against missing the tail, but the hard cap must not be removed.** The `round < MAX_ROUNDS` in the `while` condition and the `budget.remaining()` check are **safety mechanisms**, not decoration. A hunter that can always fabricate a new suspect will keep resetting the dry-streak, preventing the loop from ever exiting. Per `_grounding.md`, `budget` is a hard cap (calling `agent()` after reaching `total` throws), and the per-workflow lifetime cap of 1000 total agents is the last global safety net, but these should **not** be relied on to terminate a business loop. The correct strategy: **dry-streak decides "when to stop normally," the round cap + budget decide "when to force-stop in the worst case," and all three are indispensable** (see Chapter 18 §18.3).
 
 </div>
 
@@ -343,13 +343,13 @@ Keep the three roles straight: **the finder pool** does the finding (each round 
 
 ## 15.8 Design Points
 
-**① Verifiers must each be independent.** Use `parallel` (or a race) to let each refuter judge **on its own**, unable to see the others, so their errors don't correlate and a majority vote actually means something. The moment they can see each other's votes, it degenerates into following the crowd and the vote is worthless.
+**① Verifiers must each be independent.** Use `parallel` (or a race) to let each refuter judge **on its own**, unable to see the others, so their errors don't correlate and a majority vote actually means something. The moment they can see each other's votes, it degenerates into following the crowd and the vote becomes worthless.
 
 **② Refute by default (refute-by-default).** Hard-code "Default to refuted=true if not certain" in the prompt, pushing the burden of proof onto the "this is a real bug" side. Better to under-report than to let a false positive slip through.
 
 **③ Use a tally, don't let one agent call it.** Letting a single agent judge true or false holistically drags its own bias in; multiple independent refuters plus a tally is far steadier. Tallying, deduping, and filtering are all **deterministic operations**, so hand them to JS code (`filter`/`Set`/`reduce`), not to an agent.
 
-**④ The threshold is tunable, and it drives cost directly.** This chapter's real run uses 2 votes and "keep unless outvoted by a majority" (`confirms >= 1`, fairly lenient, suited to "rather over-report than miss"); `bughunt` uses a 5-vote majority. Want it stricter? Bump to 3–5 votes and switch to "keep only if a majority **confirms**" (see Chapter 17 §17.6). More votes are more trustworthy and more expensive, so let the **cost of being wrong** set the vote count.
+**④ The threshold is tunable, and it drives cost directly.** This chapter's real run uses 2 votes and "keep unless outvoted by a majority" (`confirms >= 1`, fairly lenient, suited to "rather over-report than miss"); `bughunt` uses a 5-vote majority. Want it stricter? Bump to 3-5 votes and switch to "keep only if a majority **confirms**" (see Chapter 17 §17.6). More votes are more trustworthy and more expensive, so let the **cost of being wrong** set the vote count.
 
 **⑤ Match the finder pool size to the target scale.** A small target (one file) needs just one finder; an entire branch wants a fixed pool (the `bughunt-lite` 3+2 shape, 5 finders); only when the scale is completely unknown and the cost of missing is high should you reach for the self-respawning pool + dry-streak (the `bughunt` shape).
 
@@ -365,12 +365,12 @@ Keep the three roles straight: **the finder pool** does the finding (each round 
 
 ## 15.9 The Boundary with "Code Review" and "Adversarial Verification"
 
-Bug Hunter is easy to mix up with the review of Chapters 10/11 and the adversarial verification of Chapter 17. They run on the same underlying primitives (`agent`/`pipeline`/`parallel`/`schema`), but they chase different goals. Get the boundary clear and you'll know which recipe to pick:
+Bug Hunter is easily confused with the review patterns of Chapters 10/11 and the adversarial verification of Chapter 17. They use the same underlying primitives (`agent`/`pipeline`/`parallel`/`schema`), but pursue **different goals**. Clarifying the boundaries helps select the correct recipe:
 
-| | Leans toward | How it splits | Core question | Real run |
+| | Leans toward | How it splits | Question | Real run |
 |---|---|---|---|---|
 | **Ch 10** Sharded review | **coverage** (miss no file) | by **file/module** | "did I review every shard?" | frontend-review `wf_4c5caabb-b73` |
-| **Ch 11** Multi-dimension review | **coverage** (miss no dimension) | by **dimension** (a11y/perf/correctness…) | "did I check every dimension?" | `wf_4c5caabb-b73` (26→16) |
+| **Ch 11** Multi-dimension review | **coverage** (miss no dimension) | by **dimension** (a11y/perf/correctness...) | "did I check every dimension?" | `wf_4c5caabb-b73` (26→16) |
 | **Ch 17** Adversarial verification | **truth** (the mother pattern) | generation ↔ verification split | "is this claim true?" | pipeline-demo `wf_bf086b98-6ec` |
 | **Ch 15** Bug Hunter (this chapter) | **discovery + refutation** | finder pool → refute → synthesize | "which are real bugs, and can I trust them?" | `wf_53da9a06-915` (5/5) |
 
@@ -378,7 +378,7 @@ In one line:
 
 - **Review (10/11) leans toward "coverage across dimensions."** It assumes the target boundary is already known (these files, these dimensions), and the job is to review every block and miss nothing. The hard parts are **how to split** and **how to synthesize and dedup**; adversarial verification is just one Verify step inside it (a link in Chapter 10's skeleton).
 - **Adversarial verification (17) is the mother pattern of "judging truth."** It doesn't care about finding them all, only about refuting or confirming a claim that's already been generated. It's a **reusable sub-structure** that Bug Hunter, the Judge Panel (Chapter 14), and sharded review (Chapter 10) all borrow.
-- **Bug Hunter (15) leans toward "discovery + refutation."** Its target scale is **unknown** (you have no idea how many bugs there are), so the two main acts are ① how to **find them all** (finder pool, loop-until-dry, dry-streak) and ② how to **trust them** (adversarial refutation, pigeonhole). Put simply, it's "unknown-scale discovery" plus "adversarial verification," fused.
+- **Bug Hunter (15) leans toward "discovery + refutation."** Its target scale is **unknown** (you have no idea how many bugs there are), so the two main acts are ① how to **find them all** (finder pool, loop-until-dry, dry-streak) and ② how to **trust them** (adversarial refutation, pigeonhole). It is "unknown-scale discovery" plus "adversarial verification," fused.
 
 <div class="callout tip">
 
@@ -395,7 +395,7 @@ In one line:
 
 - Bug Hunter = **Hunt (finder pool surfaces suspects) → Verify (each bug gets N independent verifiers that refute by default + a tally) → Synthesize (code dedups and prioritizes to close out)**. It is built for the double problem of "unknown scale + untrustworthy." The five design points are in §15.8.
 - Real run `wf_53da9a06-915` (11 agents / 311,134 tokens / 61,660ms): all 5 seeded bugs found and confirmed 2:0; the verifier also **corrected the hunter's wrong argumentation** (the string-concatenation claim).
-- Three production-grade layers: the **finder pool** (a fixed pool `bughunt-lite` of 3 rapid + 2 deep, or a self-respawning pool `bughunt` of deep-until-dry-streak; rapid casts a wide net, deep digs in; finders **stream into** the no-barrier refutation pipeline); **pigeonhole early-exit** (once a majority of votes locks in the outcome, stop voting; a logical early stop saves "waiting," batched voting saves "physical agents"); **loop-until-dry + dry-streak** (use "K consecutive rounds, K≥2, with no new ones" rather than "stop if one round finds nothing" to guard against missing the tail; the hard cap + budget are seatbelts you cannot remove).
+- Three hardening layers: the **finder pool** (a fixed pool `bughunt-lite` of 3 rapid + 2 deep, or a self-respawning pool `bughunt` of deep-until-dry-streak; rapid casts a wide net, deep digs in; finders **stream into** the no-barrier refutation pipeline); **pigeonhole early-exit** (once a majority of votes locks in the outcome, stop voting; a logical early stop saves "waiting," batched voting saves "physical agents"); **loop-until-dry + dry-streak** (use "K consecutive rounds, K≥2, with no new ones" rather than "stop if one round finds nothing" to guard against missing the tail; the hard cap + budget are seatbelts you cannot remove).
 - The boundary with review (leans toward **coverage** across dimensions) and adversarial verification (leans toward the **truth** mother pattern): Bug Hunter = **discovery + refutation** fused.
 
 The next chapter is this part's last recipe: the "documentation/migration sweep" that finishes off the same kind of change scattered across a large number of files in one pass.

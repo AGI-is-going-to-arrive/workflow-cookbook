@@ -2,13 +2,13 @@
 
 > The first twenty-five chapters covered "how to do it." This last one flips it around to "**how not to do it**," turning the whole book's hard constraints into a pitfall-avoidance checklist. Every anti-pattern follows the same three-part shape: **wrong way → consequence → right way**, plus a note on which rule it breaks (source: `assets/_grounding.md`).
 >
-> These pitfalls aren't hypothetical. They're the writings the Workflow runtime **really punishes**: some throw on the spot, some quietly burn through the budget, some rob your script of replayability and make regression tests fail wholesale. Once you've read this chapter, you've got a "pre-submission self-check sheet" in hand.
+> These pitfalls are not hypothetical. They are patterns the Workflow runtime **actually punishes**: some throw on the spot, some quietly burn through the budget, some rob the script of replayability and make regression tests fail wholesale. After reading this chapter, you have a "pre-submission self-check sheet" in hand.
 
 ---
 
 ## 26.1 Why Anti-patterns Deserve Their Own Chapter
 
-Positive rules are easy to remember, but people trip up on **some intuition that looks perfectly reasonable**: "parallel is always faster than serial," "the stricter the schema the safer," "letting the model decide when to stop in a loop is the smartest." Those intuitions hold elsewhere, but in Workflow they walk you straight into a pitfall. This chapter earns its keep by naming these **counter-intuitive traps** one by one.
+Positive rules are easy to remember, but errors tend to come from **an intuition that looks perfectly reasonable**: "parallel is always faster than serial," "the stricter the schema the safer," "letting the model decide when to stop in a loop is the smartest." Those intuitions hold elsewhere, but in Workflow they lead straight into a pitfall. This chapter identifies these **counter-intuitive traps** one by one.
 
 The whole book's hard constraints (`_grounding.md` section B "hard constraints" and the various "prohibited" notes) sort into four categories, and that's how this chapter is laid out:
 
@@ -28,7 +28,7 @@ Let's take them one category at a time. Each comes with a "self-check question" 
 
 ### Anti-pattern A1: passing `parallel` a Promise instead of a thunk
 
-This is the most common and most insidious error, because it **doesn't error**. It just quietly wrecks your concurrency.
+This is the most common and most insidious error, because it **does not throw**. It just quietly breaks the concurrency semantics.
 
 **Wrong way:**
 
@@ -63,7 +63,7 @@ const results2 = await parallel(
 
 <div class="callout warn">
 
-`pipeline` doesn't suffer this. Its signature is `pipeline(items, stage1, stage2, ...)`, where `items` is **data** and stages are **callback functions**, so you wouldn't write `agent()` calls there anyway. But `parallel` looks like "pass in a set of tasks," so it's all too easy to write it as direct `agent()` calls. **Remember: `parallel` wants thunks, not Promises.**
+`pipeline` is not affected by this. Its signature is `pipeline(items, stage1, stage2, ...)`, where `items` is **data** and stages are **callback functions**, so direct `agent()` calls would not appear there. But `parallel` looks like "pass in a set of tasks," making it easy to accidentally write direct `agent()` calls. **Remember: `parallel` wants thunks, not Promises.**
 
 </div>
 
@@ -81,7 +81,7 @@ phase('Synthesize')
 const synths = await parallel(reviews.map((r) => () => agent(`synthesize ${JSON.stringify(r)}`, { schema: S })))
 ```
 
-**Consequence:** `parallel` is a **barrier** that means "wait for all to complete" (section B). So the first line has to wait for **the slowest review** to finish before any item can move into the synthesis stage together. If one item's review is especially slow, every other item's synthesis stage sits there idling, waiting on it. The wall clock is `max(review) + max(synthesize)`, not "each chain finishing as fast as it can on its own."
+**Consequence:** `parallel` is a **barrier** that means "wait for all to complete" (section B). So the first line has to wait for **the slowest review** to finish before any item can move into the synthesis stage together. If one item's review is especially slow, every other item's synthesis stage sits there idling. The wall clock is `max(review) + max(synthesize)`, not "each chain finishing as fast as it can on its own."
 
 **Right way:** use `pipeline`, where "each item flows independently through all stages, no barrier between stages" (section B):
 
@@ -94,7 +94,7 @@ const out = await pipeline(
 )
 ```
 
-`pipeline`'s wall clock is "≈ the slowest single chain, not the sum of each stage's slowest" (section B). An item that finishes reviewing can step **immediately** into its own synthesis stage, without waiting on the others. This book's real pipeline run (pipeline-demo, Run ID `wf_bf086b98-6ec`, 3 items × 2 stages, `agent_count=6`, `total_tokens=158982`, 26.7s) proves this out: 6 agents, yet a wall clock far below "3 review barriers then 3 synthesis barriers."
+`pipeline`'s wall clock is "approximately the slowest single chain, not the sum of each stage's slowest" (section B). An item that finishes reviewing can step **immediately** into its own synthesis stage, without waiting on the others. This book's real pipeline run (pipeline-demo, Run ID `wf_bf086b98-6ec`, 3 items x 2 stages, `agent_count=6`, `total_tokens=158982`, 26.7s) proves this out: 6 agents, yet a wall clock far below "3 review barriers then 3 synthesis barriers."
 
 > **Self-check question**: between these stages, do I really need "all items to finish stage 1 before stage 2 can start"? If each item can move along on its own, use `pipeline`. **Multi-stage defaults to `pipeline`** (section B's exact words); only use `parallel` when you "genuinely need all results together."
 
@@ -123,7 +123,7 @@ log(`${drafts.length}/${tasks.length} drafts succeeded (the rest threw or were s
 
 <div class="callout info">
 
-`pipeline` is no different: "a stage throws → that item becomes `null` and skips the remaining stages" (section B). So `pipeline`'s return array also needs `.filter(Boolean)` before use. Make "first `.filter(Boolean)` the result of `parallel`/`pipeline`" muscle memory.
+`pipeline` is no different: "a stage throws → that item becomes `null` and skips the remaining stages" (section B). So `pipeline`'s return array also needs `.filter(Boolean)` before use. Make "first `.filter(Boolean)` the result of `parallel`/`pipeline`" a habit.
 
 </div>
 
@@ -157,7 +157,7 @@ const cResult = await agent('what C was originally supposed to do ...', { schema
 
 ## 26.3 Category B · Replayability Breakage
 
-Everything in this category ends the same way: **it breaks "the same script + the same args → 100% cache hit,"** and that drags resume (Chapter 22) and regression testing (Chapter 25) down with it, wholesale. This section just points at the rule; for the full empirical proof of that cache guarantee, see [Chapter 22 · Resume & Caching](#/en/p4-22).
+Everything in this category leads to the same outcome: **it breaks "the same script + the same args → 100% cache hit,"** which in turn breaks resume (Chapter 22) and regression testing (Chapter 25) wholesale. For the full empirical proof of that cache guarantee, see [Chapter 22 · Resume & Caching](#/en/p4-22).
 
 ### Anti-pattern B1: using `Date.now()` / `Math.random()` / arg-less `new Date()` in the script
 
@@ -192,7 +192,7 @@ const variants = await parallel(
 
 <div class="callout warn">
 
-Standard JS built-ins (the pure functions of `JSON`/`Math`/`Array`…) **are available** (section B: "standard JS built-ins available"). The only banned ones are those that **introduce nondeterminism**: `Math.random()`, `Date.now()`, arg-less `new Date()`. `Math.floor`, `Math.max`, `new Date(args.iso)` (with an argument) are all fine. Don't steer clear of the whole `Math` object out of overcaution.
+Standard JS built-ins (the pure functions of `JSON`/`Math`/`Array`...) **are available** (section B: "standard JS built-ins available"). The only banned ones are those that **introduce nondeterminism**: `Math.random()`, `Date.now()`, arg-less `new Date()`. `Math.floor`, `Math.max`, `new Date(args.iso)` (with an argument) are all fine. Don't steer clear of the whole `Math` object out of overcaution.
 
 </div>
 
@@ -306,7 +306,7 @@ while (!done && round < 10) {
 
 <div class="callout info">
 
-You can anchor cost estimates to this book's real data: a single agent runs about **25–30K tokens** (hello `wf_dacbd480-d5d` measured 26,338; the rule of thumb is "tokens ≈ agent count × per-agent context," whose derivation lives in [Chapter 09 · Progress, Logs, Resume, Budget](#/en/p2-09)). A round of "generate + accept" with two agents is about 50–60K. Chapter 18 gave the same cost intuition: "running 4 rounds is about 200K tokens." Use these anchors to set `ROUND_COST_EST` and the fallback threshold.
+You can anchor cost estimates to this book's real data: a single agent runs about **25-30K tokens** (hello `wf_dacbd480-d5d` measured 26,338; the rule of thumb is "tokens = agent count x per-agent context," whose derivation lives in [Chapter 09 · Progress, Logs, Resume, Budget](#/en/p2-09)). A round of "generate + accept" with two agents is about 50-60K. Chapter 18 gave the same cost intuition: "running 4 rounds is about 200K tokens." Use these anchors to set `ROUND_COST_EST` and the fallback threshold.
 
 </div>
 
@@ -355,13 +355,13 @@ const schema = {
 
 <div class="callout warn">
 
-**Don't treat a schema as a way to "make the model think harder."** Some people deliberately make the schema very complex, figuring it'll force the model into a better result. In reality it just forces it to retry over and over, burning tokens. To steer quality, lean on **the prompt** (spell out what you want, give a rubric; see how judge-panel uses a schema to pin accuracy/clarity/completeness into **numeric fields**, but with loose value ranges). The schema is responsible for **machine-readability**, not for **forcing thought.**
+**Do not treat a schema as a way to force the model into deeper thinking.** Some people deliberately make the schema very complex, assuming it will force the model into a better result. In practice it just forces repeated retries, burning tokens. To steer quality, rely on **the prompt**: spell out the requirements, provide a rubric. For example, judge-panel uses a schema to pin accuracy/clarity/completeness into **numeric fields**, but with loose value ranges. The schema is responsible for **machine-readability**, not for **forcing deeper analysis.**
 
 </div>
 
 ### Anti-pattern D2: treating script-body/subprocess disk writes as persistent side effects
 
-This one gets misread all the time as "subagents can't write files," and **that's wrong**. First, let's pull apart three things that keep getting conflated:
+This one is frequently misread as "subagents cannot write files," which **is incorrect**. First, distinguish three things that are often conflated:
 
 | # | Statement | True/False | Basis |
 |---|---|---|---|
@@ -369,7 +369,7 @@ This one gets misread all the time as "subagents can't write files," and **that'
 | ② | A **subagent** dispatched by Workflow can use the native `Write`/`Edit` tools to produce **real** file side effects | **True** (so "subagents can't write files" is wrong) | Chapter 19 worktree: "multiple agents each Write/Edit to refactor in parallel" relies on exactly this |
 | ③ | **External models** (codex/antigravity via CCG) are usually constrained to **zero writes**, producing only opinions | True, but this is a **different** guardrail concept | Chapter 23 CCG multi-model collaboration |
 
-This anti-pattern is about **①**: **don't assume "running some code in the script body to write a file" will land**, and even less should you build cross-agent data flow on this kind of "script-body side effect."
+This anti-pattern targets **①**: **do not assume "running code in the script body to write a file" will persist**, and do not build cross-agent data flow on this kind of script-body side effect.
 
 **Wrong way:**
 
@@ -449,7 +449,7 @@ Let's pull all the preceding "self-check questions" together into one sheet. **E
 | C1 | Loop | Does every `while` have an exit condition not dependent on the model? | Infinite loop burns the budget |
 | C2 | Loop | Does the loop look at `budget.remaining()` at the start of each round? | Hits the hard cap and throws |
 | D1 | Contract | Are the schema's `enum`/`required`/`pattern` definitely satisfiable by the model? | Repeated retries burn tokens |
-| D2 | Boundary | Are you passing data via "write a file in the script body then read it"? | Script-body write doesn't land, data lost (subagents can still write — Ch.19) |
+| D2 | Boundary | Are you passing data via "write a file in the script body then read it"? | Script-body write doesn't land, data lost (subagents can still write -- Ch.19) |
 | D3 | Observability | Did every truncation/filter leave a trace via `log`? | Black box, can't investigate |
 
 <div class="callout tip">
@@ -462,7 +462,7 @@ This sheet is also the reverse check of Chapter 25's "shareable-workflow finishe
 
 ## 26.7 The Root of Anti-patterns: Treating Workflow as an "Ordinary Script"
 
-Looking back at these 11 items, most come down to the same misunderstanding: **writing a Workflow script as a piece of ordinary Node.js.** But it isn't. It runs in a special runtime, and that runtime has four distinctive "laws of physics":
+Reviewing these 11 items, most stem from the same misunderstanding: **writing a Workflow script as though it were ordinary Node.js.** It is not. It runs in a special runtime with four distinctive "laws of physics":
 
 ```mermaid
 flowchart TD
@@ -482,13 +482,13 @@ flowchart TD
 
 Once you've got these four (plus the nesting limit, five) "laws of physics," anti-patterns are no longer a list to memorize, but **natural corollaries of the laws.** When you subconsciously ask "does this break any law?" as you write each line, you'll intercept the vast majority of pitfalls before submitting.
 
-This also echoes the whole book's through-line: native Workflow hands you a deterministic skeleton built from **code + Schema** (Chapter 23), but "determinism" comes with **preconditions**. The script must be replayable, loops must be bounded, scheduling must be handed to the runtime, the output must go through the contract. Hold these preconditions, and you truly own the "reusable, testable, shareable" orchestration engine that Chapter 01 promised.
+This also echoes the whole book's through-line: native Workflow hands you a deterministic skeleton built from **code + Schema** (Chapter 23), but "determinism" has **preconditions**: the script must be replayable, loops must be bounded, scheduling must be handed to the runtime, and the output must go through the contract. Hold these preconditions, and you truly own the "reusable, testable, shareable" orchestration engine that Chapter 01 promised.
 
 ---
 
 ## 26.8 Chapter Summary
 
-- Anti-patterns sort into four categories by the runtime's "laws of physics" (the per-item "wrong → consequence → right" for all 11 lives in 26.2–26.5; the one-line self-check questions are the 26.6 sheet):
+- Anti-patterns sort into four categories by the runtime's "laws of physics" (the per-item "wrong → consequence → right" for all 11 lives in 26.2-26.5; the one-line self-check questions are the 26.6 sheet):
   - **A control-flow misuse**: `parallel` wants thunks not Promises (A1), multi-stage defaults to `pipeline` (A2), `.filter(Boolean)` the result first (A3), `workflow()` nesting only one layer (A4).
   - **B replayability breakage**: ban `Date.now`/`Math.random`/arg-less `new Date()` (B1), `meta` must be a pure literal (B2); break these two and resume and regression testing both fail wholesale.
   - **C runaway loops**: a `while` needs an exit condition that doesn't depend on the model, and note the global 1000 cap is a safety net, not a business exit (C1); look at `budget.remaining()` at the start of each round, or you hit the hard cap and throw (C2).
@@ -500,4 +500,4 @@ With that, Part V "Ecosystem and Borrowing" is complete: Chapter 23 saw clearly 
 
 > Continue reading: [Chapter 27 · The Authoring Workflow](#/en/p6-27)
 >
-> Further reading: [Appendix A · Full API Reference](#/en/app-a) · [Appendix B · Pitfalls and Troubleshooting](#/en/app-b) · [Appendix C · Best-practices Checklist](#/en/app-c)
+> Further reading: [Appendix A · Full API Reference](#/en/app-a) · [Appendix B · Pitfalls and Troubleshooting](#/en/app-b) · [Appendix C · Recommended-practices Checklist](#/en/app-c)

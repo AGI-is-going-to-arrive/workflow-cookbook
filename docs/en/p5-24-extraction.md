@@ -1,6 +1,6 @@
 # Chapter 24 · The Art of Extraction
 
-> In the last chapter we popped the hood on four community systems and went through them, saying over and over "this bit is worth stealing." But stealing isn't copy-pasting someone's prompts over. Do that and you get an organ grown on someone else's host, which gets rejected the moment you transplant it into native Workflow. This chapter hands you a reusable method for taking "good ideas from other people's systems" apart step by step, peeling them off, and rewriting them into your own deterministic, reusable Workflow.
+> The previous chapter dissected four community systems one by one, repeatedly flagging "this bit is worth borrowing." But borrowing is not copy-pasting someone's prompts. Do that and you get an organ grown on someone else's host, which gets rejected the moment you transplant it into native Workflow. This chapter provides a reusable method for taking good ideas from other systems apart step by step, peeling them off, and rewriting them into your own deterministic, reusable Workflow.
 >
 > The method has four actions, and you skip none of them: **deconstruct** (see how it really runs), **abstract** (strip the host, pull out the pattern's essence), **adapt** (rewrite with `phase`/`schema`/`parallel`/`pipeline`), and **verify** (actually run it, hold it up against the original). Below we walk these four steps from the top using Chapter 23's four real cases.
 
@@ -8,19 +8,19 @@
 
 ## 24.1 Why an "Art" Is Needed, Rather Than Direct Copying
 
-First a story that's bound to crash, and you'll get what the "art" is here to solve.
+Consider a scenario that is bound to fail, and the purpose of the "art" becomes clear.
 
-Suppose you read superpowers' `subagent-driven-development/SKILL.md` and got taken with its "two-stage review": each task first goes through a spec-compliance review, then a code-quality review, each looping until it passes. You naturally think: **just copy those two review prompts into my project, won't that do it?**
+Suppose you read superpowers' `subagent-driven-development/SKILL.md` and were drawn to its "two-stage review": each task first goes through a spec-compliance review, then a code-quality review, each looping until it passes. The natural thought: **just copy those two review prompts into my project and it should work, right?**
 
-So you copy that markdown into your own `.claude/skills/`, happily figuring you've got "two-stage review." But you'll soon run into three problems:
+So you copy that markdown into your own `.claude/skills/`, assuming "two-stage review" is in hand. But three problems surface quickly:
 
-1. **It leans on a host you don't even have.** The reason superpowers' review "loops until it passes" isn't those two prompts themselves but its whole `SessionStart`-injected "behavioral constitution" plus the skill chain and checkbox state files. Lift the prompts out on their own and they become the kind of "dead code" from Chapter 23: without the bootstrap, the skill doesn't get force-triggered.
+1. **It depends on a host you do not have.** The reason superpowers' review "loops until it passes" is not those two prompts themselves but its entire `SessionStart`-injected "behavioral constitution" plus the skill chain and checkbox state files. Lift the prompts out on their own and they become the kind of "dead code" described in Chapter 23: without the bootstrap, the skill never gets force-triggered.
 2. **Its "guarantee" is probabilistic.** Even with the full host, superpowers' review loop is basically "a prompt begging the model to review once more." The model may actually review, or may decide "good enough" and skip. It's a soft convention, not a hard control flow.
 3. **What it produces is text for a human to read, not data for a program to chew on.** The review conclusion sits in the conversation, and you can't use code to judge "did this round pass, do we need another round."
 
 <div class="callout warn">
 
-**Here's the root illness of copying directly.** What you copied is the **implementation**: a specific combo of prompts + hooks + state files on some host. What you actually want is the **pattern**: the control structure "after writing, first check the spec, then check the quality, redo if it doesn't pass." The implementation is grown on the host; the pattern is the part you can carry off. The whole point of the art of extraction is to peel the pattern out of the implementation, then grow a fresh implementation on native Workflow's skeleton.
+**The root problem of copying directly.** What you copied is the **implementation**: a specific combo of prompts + hooks + state files on some host. What you actually want is the **pattern**: the control structure "after writing, first check the spec, then check the quality, redo if it doesn't pass." The implementation is grown on the host; the pattern is what you can carry away. The purpose of extraction is to peel the pattern out of the implementation, then grow a fresh implementation on native Workflow's skeleton.
 
 </div>
 
@@ -29,7 +29,7 @@ Back to Chapter 23's book-wide insight: these four systems were all born before 
 Native Workflow hands you a more capable set of carrying tools:
 - `pipeline` / `parallel` / `phase`: write control flow in **code**, a hard guarantee.
 - JSON Schema: turn "what the product looks like, whether it's qualified" from free text into a **machine-decidable contract**.
-- `agent({ schema })`'s tool-layer validation plus auto-retry: turn "ask the model to try again" from a prayer into a **runtime discipline.**
+- `agent({ schema })`'s tool-layer validation plus auto-retry: turn "ask the model to try again" from an uncertain hope into a **runtime discipline.**
 
 So what the art of extraction produces is a Workflow script that welds someone else's pattern onto the native skeleton. The diagram below is the chapter's master outline:
 
@@ -57,9 +57,9 @@ flowchart LR
 
 ## 24.2 Step One · Deconstruct: See Its Real Mechanism Clearly
 
-"Deconstruct" answers one question: **what's the mechanism that actually makes this good idea work?** Note the word "actually." What people **say** about their own system often doesn't line up with how it **really runs.** Extraction's first principle is one line: **trust only the source code, not the marketing copy.**
+"Deconstruct" answers one question: **what is the mechanism that actually makes this good idea work?** Note the word "actually." What people **say** about their own system often does not line up with how it **really runs.** Extraction's first principle is one line: **trust only the source code, not the marketing copy.**
 
-Deconstruction has three interrogations, each digging a layer deeper, which I call "the three questions":
+Deconstruction has three interrogations, each digging a layer deeper -- "the three questions":
 
 ### Question one: what does it claim to do? (the narrative layer)
 
@@ -90,7 +90,7 @@ Take OMC's Stop hook:
 | Criteria stored in `.omc/state/sessions/{id}/` | **Host accident** | Because a prompt-driven loop has no memory, it can only rely on disk for life-extension |
 | Re-injecting "The boulder never stops" text | **Host accident** | This is the prompt means of "asking the model to continue" |
 
-Peel it and the conclusion is obvious at a glance, and the essence is just one sentence: **whether you're allowed to end should be decided by a programmable criterion.** The rest is all scaffolding OMC was forced to invent under the "no native loop" constraint.
+After peeling, the conclusion is clear. The essence is one sentence: **whether the process is allowed to end should be decided by a programmable criterion.** The rest is scaffolding OMC was forced to invent under the "no native loop" constraint.
 
 <div class="callout tip">
 
@@ -104,7 +104,7 @@ Peel it and the conclusion is obvious at a glance, and the essence is just one s
 
 Deconstruction tells you "which parts are the essence"; abstraction **re-says these essences as a host-independent control-structure description** and translates them into native Workflow's vocabulary.
 
-The key move in abstraction is matching each pattern to a **control-flow primitive.** Native Workflow has just a handful of primitives, and a pattern's essence often lands on exactly one.
+The key operation in abstraction is matching each pattern to a **control-flow primitive.** Native Workflow has a small set of primitives, and a pattern's essence often maps to exactly one.
 
 | Pattern essence (the one-line abstraction) | The corresponding Workflow primitive | Why it |
 |---|---|---|
@@ -115,7 +115,7 @@ The key move in abstraction is matching each pattern to a **control-flow primiti
 | "The product must take a certain shape to count" | `agent({ schema })` | The schema forces structure and type at the tool layer |
 | "Show this thing under a certain phase" | `phase()` / `opts.phase` | Progress grouping |
 
-This table is the art of extraction's "translation dictionary." The abstraction step boils down to looking things up in this dictionary over and over: **translate each deconstructed essence into a combination of one or more primitives from the dictionary's right column.**
+This table is the art of extraction's "translation dictionary." The core operation of the abstraction step is to look things up in this dictionary repeatedly: **translate each deconstructed essence into a combination of one or more primitives from the dictionary's right column.**
 
 Let's abstract the four cases one by one:
 
@@ -239,9 +239,9 @@ log(`Two-stage review complete: ${results.filter(Boolean).length} tasks flowed t
 return results
 ```
 
-This script turns superpowers' "prompt-begged re-review" soft convention into **two physical gates**: if the first `SPEC_SCHEMA.pass` isn't true, the second one doesn't even open (no quality agent gets dispatched, saving a token); both pass, and `accepted` is true. `pipeline` lets each task flow through both gates **on its own**, so 10 tasks' wall clock is about the time for the slowest single task to clear both gates, not "review all the specs, then review all the qualities" (that's the inefficient `parallel` barrier form, which Chapter 26 takes apart specifically).
+This script turns superpowers' "prompt-requested re-review" soft convention into **two deterministic gates**: if the first `SPEC_SCHEMA.pass` isn't true, the second one doesn't even open (no quality agent gets dispatched, saving a token); both pass, and `accepted` is true. `pipeline` lets each task flow through both gates **on its own**, so 10 tasks' wall clock is about the time for the slowest single task to clear both gates, not "review all the specs, then review all the qualities" (that's the inefficient `parallel` barrier form, which Chapter 26 takes apart specifically).
 
-But what about "redo if it doesn't pass"? The version above is "review once, hand back a conclusion." To get superpowers' real "loop until pass," add **bounded retry** inside the gate. Retry means "review → if it doesn't pass, fix → review again," which actually degenerates into Chapter 12's GCF (generate-critique-fix) loop. Let's spell it out:
+But what about "redo if it doesn't pass"? The version above only "reviews once and hands back a conclusion." To achieve superpowers' actual "loop until pass," add **bounded retry** inside the gate. Retry means "review → if it doesn't pass, fix → review again," which degenerates into Chapter 12's GCF (generate-critique-fix) loop. The complete version:
 
 ```javascript
 // (illustrative, not run) — bounded loop inside the gate: review → fix → re-review, until pass or hitting the cap
@@ -276,7 +276,7 @@ Every detail here picks up disciplines set in earlier chapters: `maxRounds` is C
 
 ### Case 2: OMC Stop-hook completion criteria → a `while(!done)` loop + an acceptance schema
 
-OMC's gem abstracts to "keep pushing forward, until a programmable criterion says we can wrap up." This already has a full Workflow incarnation in Chapter 18 ("loop-until-dry"); here we demo a form closer to OMC's "every story in the PRD must be `passes:true` to count as done," namely **accept item by item, stop only when all of them pass**:
+OMC's gem abstracts to "keep pushing forward until a programmable criterion confirms the work is done." This pattern already has a full Workflow incarnation in Chapter 18 ("loop-until-dry"); here a form closer to OMC's "every story in the PRD must be `passes:true` to count as done" is demonstrated, namely **accept item by item, stop only when all pass**:
 
 ```javascript
 // (illustrative, not run) — OMC "boulder never stops" → while + acceptance schema
@@ -365,7 +365,7 @@ return {
 }
 ```
 
-Hold this up against OMC's real mechanism and you see a beautiful **dimensionality reduction**:
+Compared against OMC's real mechanism, this produces a clean **dimensionality reduction**:
 
 | OMC's implementation (host-specific) | Workflow's counterpart (native skeleton) |
 |---|---|
@@ -375,11 +375,11 @@ Hold this up against OMC's real mechanism and you see a beautiful **dimensionali
 | An independent critic verifying `passes:true` | An independent `agent({ schema: ACCEPT_SCHEMA })` |
 | Resume after a stop within the same session | `resumeFromRunId` resume (same session only; after a process-level crash/exit the next session starts fresh, Chapter 22) |
 
-All the scaffolding OMC put up to "make the loop programmable" (hooks, state files, re-injected text) **collapses into a `while` and a few local variables** in native Workflow. This isn't OMC being dumb; it was born in an era without native loops. And it's the literal payoff of Chapter 23's line: **native Workflow gives them the deterministic skeleton they were missing.**
+All the scaffolding OMC put up to "make the loop programmable" (hooks, state files, re-injected text) **collapses into a `while` and a few local variables** in native Workflow. This is not a design failure on OMC's part; it was born in an era without native loops. And it concretely delivers on Chapter 23's conclusion: **native Workflow provides the deterministic skeleton they were missing.**
 
 <div class="callout warn">
 
-**Don't transplant OMC's gem into an "unbounded loop."** When you transplant a "keep going until a criterion passes" persistent loop like this, you **must** steer clear of an unbounded loop: the Workflow version must bring along `MAX_ROUNDS` plus a `budget.remaining()` fallback, which is Chapter 18's iron law (the model's `done`/`accepted` is a probabilistic judgment and may sit on approval forever). Honestly mark `hitCeiling` in the return value, so the caller knows whether this was "truly accepted" or "hit the cap and got forced to wrap up." Never let "boulder never stops" turn into "token never stops."
+**Do not transplant OMC's gem into an unbounded loop.** When transplanting a "keep going until a criterion passes" persistent loop like this, you **must** avoid an unbounded loop: the Workflow version must bring along `MAX_ROUNDS` plus a `budget.remaining()` fallback, which is Chapter 18's iron law (the model's `done`/`accepted` is a probabilistic judgment and may sit on approval forever). Mark `hitCeiling` in the return value so the caller knows whether this was "truly accepted" or "hit the cap and was forced to wrap up." Never let "boulder never stops" turn into "token never stops."
 
 </div>
 
@@ -597,7 +597,7 @@ Adaptation produced a script, but **a script that hasn't been run isn't a succes
 
 ### The three levels of verification
 
-**Level one: it runs (syntax + execution).** Hand the script to the Workflow tool. Recall Chapter 01: the return is async, handing you `taskId`/`runId` right away; if `meta` isn't a pure literal or the script has a syntax problem, `WorkflowOutput` carries `error` (on syntax-check failure). This level checks "the skeleton stands up."
+**Level one: it runs (syntax + execution).** Hand the script to the Workflow tool. Recall Chapter 01: the return is async, handing you `taskId`/`runId` right away; if `meta` isn't a static literal or the script has a syntax problem, `WorkflowOutput` carries `error` (on syntax-check failure). This level checks "the skeleton stands up."
 
 **Level two: behavior is right (the product meets expectations).** After running, look at the return value in the completion notification. Here `schema` is your free assertion: if `agent({ schema })` returned, the product **already** cleared structural validation. But right structure doesn't mean right semantics, so you must check by hand: did the two-stage review really stop a non-compliant diff? Did the acceptance loop really stop only when everything passed?
 
@@ -622,7 +622,7 @@ Verification has one often-overlooked use: **calibrate your gut feel about cost 
 | Real run | Run ID | Calibration for extraction |
 |---|---|---|
 | judge-panel (3 judges scoring independently) | `wf_f5b69668-b18` | 3 non-communicating judges **independently converged 3:0** on candidates with "clearly differing quality," observed evidence consistent with "multiple independent perspectives reduce single-reviewer bias" (an assumption both superpowers/OMC rely on) (a single 3:0 convergence, not a general proof) |
-| frontend-review (3-dimension concurrent review + synthesis) | `wf_4c5caabb-b73` | `agent_count=4`, `total_tokens=221648`, confirming "token ≈ agent count × per-agent context," and you can estimate cost from this before transplanting "multi-dimension review" |
+| frontend-review (3-angle concurrent review + synthesis) | `wf_4c5caabb-b73` | `agent_count=4`, `total_tokens=221648`, confirming "token ≈ agent count × per-agent context," and you can estimate cost from this before transplanting "multi-angle review" |
 | nested-parent (nested sub-flow) | `wf_85e22b38-126` | The sub-flow's agents **count toward the parent flow**'s `agent_count`/`budget.spent()`, so when transplanting the "sub-flow delegation" pattern, budget must be computed as parent+child combined |
 
 <div class="callout info">
@@ -715,7 +715,7 @@ Why can't even the source be read? Because Claude Code's CLI is a bundled artifa
 **Official skill description (architecture summary, not source code)**:
 > Multi-agent bug sweep of the current branch. Self-respawning finder pool (3 rapid + deep-until-dry-streak) streams into 5-vote adversarial verification with pigeonhole early-exit, then synthesis.
 
-**One-line positioning**: a full-scale sweep of the current branch where "you don't know how many bugs there are." The main event is **how to find them all** (the self-respawning hunter pool) and **how to trust the results** (five-vote adversarial refutation).
+**What it solves**: a full-scale sweep of the current branch where "you don't know how many bugs there are." The main event is **how to find them all** (the self-respawning hunter pool) and **how to trust the results** (five-vote adversarial refutation).
 
 **Which pattern it demonstrates** (based on the official skill description + behavioral observation, not line-by-line source):
 
@@ -761,7 +761,7 @@ The skeleton's three gears are cleanly separated: the **finder pool** finds (eac
 **Official skill description (architecture summary, not source code)**:
 > Lighter bug sweep — fixed 3-rapid+2-deep finders stream into 5-vote adversarial verification (pigeonhole early-exit), then synthesis. Simpler than bughunt: no self-respawning, no dry-streak.
 
-**One-line positioning**: a lighter version of `bughunt`, likewise "finder pool → five-vote adversarial refutation → synthesis," but the finder pool is **fixed** (3 rapid + 2 deep, stops once run), **cutting out self-respawning and dry-streak.**
+**What it solves**: a lighter version of `bughunt`, likewise "finder pool → five-vote adversarial refutation → synthesis," but the finder pool is **fixed** (3 rapid + 2 deep, stops once run), **cutting out self-respawning and dry-streak.**
 
 **Which pattern it demonstrates** (based on the official skill description + behavioral observation, not line-by-line source): a **fixed finder pool**. Put next to `bughunt`, it lays out a rather important engineering trade-off.
 
@@ -794,7 +794,7 @@ The design lesson here: **get the verification layer (refutation + synthesis) so
 **Official skill description (architecture summary, not source code)**:
 > Deep research harness — fan-out web searches, fetch sources, adversarially verify claims, synthesize a cited report.
 
-**One-line positioning**: a scaffold for deep research. **Fan out** a question into a bunch of concurrent retrievals, fetch the primary sources, **adversarially check each claim**, and finally produce a cited report.
+**What it solves**: a scaffold for deep research. **Fan out** a question into a bunch of concurrent retrievals, fetch the primary sources, **adversarially check each claim**, and finally produce a cited report.
 
 **Which pattern it demonstrates** (based on the official skill description + behavioral observation, not line-by-line source):
 
@@ -839,7 +839,7 @@ The key discipline: **the retrieval agent handles "searching and fetching," the 
 **Official skill description (architecture summary, not source code)**:
 > Exhaustive planning harness. Generates 4 independent draft plans (MVP-first, risk-first, dependency-first, user-first), scores them with 4 parallel judges, picks the winner by vote, then synthesizes a polished final plan grafting in the best ideas from runners-up.
 
-**One-line positioning**: exhaustive planning. Produce one independent draft each from **four different perspectives**, use **four concurrent judges** to score and vote for a winner, then **graft** the good ideas from the runners-up into the winner, and synthesize the final version.
+**What it solves**: exhaustive planning. Produce one independent draft each from **four different perspectives**, use **four concurrent judges** to score and vote for a winner, then **graft** the good ideas from the runners-up into the winner, and synthesize the final version.
 
 **Which pattern it demonstrates** (based on the official skill description + behavioral observation, not line-by-line source):
 
@@ -879,22 +879,22 @@ Two engineering disciplines: **① "independence" must be done with concurrency 
 
 </div>
 
-#### 5. `review-branch` — Multi-dimension review + item-by-item adversarial verification (early built-in, now retired)
+#### 5. `review-branch` — Six-dimension review + item-by-item adversarial verification (early built-in, now retired)
 
 **Official skill description (architecture summary, not source code)**:
 > Thoroughly review the current branch for bugs, simplicity, architecture, dead code, best practices, and pattern consistency. Each finding is adversarially verified before reporting.
 
-**One-line positioning**: a **multi-dimension** review of the current branch (six dimensions: bugs, simplicity, architecture, dead code, best practices, pattern consistency), where **each finding is adversarially verified before it gets reported.**
+**What it solves**: a **six-dimension** review of the current branch (bugs, simplicity, architecture, dead code, recommended practices, pattern consistency), where **each finding is adversarially verified before it gets reported.**
 
 **Which pattern it demonstrates** (based on the official skill description + behavioral observation, not line-by-line source):
 
-- **Multi-dimension division-of-labor review**. `bugs, simplicity, architecture, dead code, best practices, and pattern consistency` lists six **orthogonal review perspectives**, which is exactly the idea of this book's Chapter 10 "sharded/multi-dimension review": rather than have one agent "find every problem" (attention spread thin, dimensions stepping on each other), dispatch a dedicated agent per dimension, each minding its own patch.
-- **Item-by-item adversarial verification**. `Each finding is adversarially verified before reporting`, the "refute by default, only report what survives" of the same lineage as `bughunt`, filtering out the false positives in a multi-dimension review.
+- **Six-dimension division-of-labor review**. `bugs, simplicity, architecture, dead code, best practices, and pattern consistency` lists six **orthogonal review perspectives**, which is exactly the idea of this book's Chapter 10 "sharded/multi-angle review": rather than have one agent "find every problem" (attention spread thin, dimensions stepping on each other), dispatch a dedicated agent per dimension, each minding its own patch.
+- **Item-by-item adversarial verification**. `Each finding is adversarially verified before reporting`, the "refute by default, only report what survives" of the same lineage as `bughunt`, filtering out the false positives in a six-dimension review.
 
-**What you can learn from it**: the review skeleton of "multi-dimension fan-out → confluence → item-by-item adversarial verification."
+**What you can learn from it**: the review skeleton of "six-dimension fan-out → confluence → item-by-item adversarial verification."
 
 ```javascript
-// (illustrative, not run) — multi-dimension review + item-by-item adversarial verification
+// (illustrative, not run) — six-dimension review + item-by-item adversarial verification
 phase('Review')
 const dims = ['bugs', 'simplicity', 'architecture', 'dead-code', 'best-practices', 'pattern-consistency']
 const reviews = await parallel(dims.map(d => () =>
@@ -909,7 +909,7 @@ const verified = await pipeline(findings, (f) =>      // each finding independen
 return verified.filter(Boolean).filter(f => !f.refuted)
 ```
 
-The lesson: **the easiest trap in a review task is "one agent does it all."** Split the dimensions and fan them out, and each dimension's agent has focused attention and a single-purpose prompt, bumping recall up a notch right away; then use adversarial verification to pull accuracy back up. This is exactly the real practice of this book's Chapter 11 multi-dimension PR review (Run `wf_4c5caabb-b73`, 4 agents, converging 26 issues down to 16), and of Chapter 10 sharded review.
+The lesson: **the easiest trap in a review task is "one agent does it all."** Split the dimensions and fan them out, and each dimension's agent has focused attention and a single-purpose prompt, bumping recall up a notch right away; then use adversarial verification to pull accuracy back up. This is exactly the real practice of this book's Chapter 11 multi-angle PR review (Run `wf_4c5caabb-b73`, 4 agents, converging 26 issues down to 16), and of Chapter 10 sharded review.
 
 ### Looking Across: The Same "Quality Routine" Shared by All Five Early Templates
 
@@ -917,7 +917,7 @@ Put these five templates side by side (whether or not they're still in the regis
 
 ```mermaid
 flowchart LR
-  A["① independent multi-perspective<br/>(fan-out / multi-lens / multi-dimension / finder pool)"] --> B["② adversarial verification<br/>(refute by default / judge voting / item-by-item checking)"]
+  A["① independent multi-perspective<br/>(fan-out / multi-lens / six-dimension / finder pool)"] --> B["② adversarial verification<br/>(refute by default / judge voting / item-by-item checking)"]
   B --> C["③ synthesize-and-close<br/>(tally & dedupe / graft highlights / cited report)"]
 ```
 
@@ -927,11 +927,11 @@ flowchart LR
 | `bughunt-lite` (early built-in, retired) | Fixed finder pool (3+2) | Five-vote adversarial refutation + pigeonhole | Synthesis |
 | `deep-research` (**still the only built-in on v2.1.156**) | Fan-out multi-path retrieval | Item-by-item claim checking | Cited report |
 | `plan-hunter` (early built-in, retired) | Four-perspective independent drafts | Four-judge voting | Graft the runners-up's highlights |
-| `review-branch` (early built-in, retired) | Six-dimension division-of-labor review | Item-by-item adversarial verification | Confluence and report |
+| `review-branch` (early built-in, retired) | Six-dimension (bugs/simplicity/arch/dead-code/practices/patterns) review | Item-by-item adversarial verification | Confluence and report |
 
 Why does this routine keep showing up? Because a single agent has two flaws you can't train away: **① narrow vision** (one agent can't cover every angle, so it's bound to miss); **② it makes things up** (it has a strong pull toward "report something / vouch for itself," so false positives are bound to creep in). The three actions treat one ailment each, then close out:
 
-1. **Independent multi-perspective treats "missing"**: let several agents strike concurrently from mutually different angles (`parallel`), maxing out recall. The word "independent" is the soul: they must not reference each other, or they converge and burn money for nothing.
+1. **Independent multi-perspective treats "missing"**: let several agents strike concurrently from mutually different angles (`parallel`), maxing out recall. The word "independent" is the key: they must not reference each other, or they converge and burn money for nothing.
 2. **Adversarial verification treats "making things up"**: for each output, dispatch verifiers (or a judge panel) that **disagree by default**, putting the burden of proof on the "this is true" side, with silence and hesitation both landing on "doesn't count," and the false positives get filtered out.
 3. **Synthesize-and-close goes for "accurate yet thrifty"**: **deterministic operations** like tallying, deduping, and grafting go to code; only judgments like "how to stitch the highlights in" go to an agent.
 

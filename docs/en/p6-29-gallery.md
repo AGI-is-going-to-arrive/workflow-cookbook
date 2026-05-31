@@ -1,8 +1,8 @@
 # Chapter 29 · Example Gallery
 
-> In one sentence: **the previous 28 chapters walked through every part of Workflow one by one (pipeline, parallel, adversarial verification, loop-until-dry, barriers, schema, resume). This chapter packs them into three "actually-run" application-level workflows and hands you the whole end-to-end result: Run ID, agent count, tokens, and wall-clock, every one of them traceable.**
+> **The previous 28 chapters covered every part of Workflow individually (pipeline, parallel, adversarial verification, loop-until-dry, barriers, schema, resume). This chapter assembles them into three "actually-run" application-level workflows and presents the end-to-end results: Run ID, agent count, tokens, and wall-clock, every one of them traceable.**
 >
-> This is a gallery, not one more walk through the mechanics. Three pieces (multi-dimension code review, dead-code scan, feedback clustering) each map to one core orchestration shape, and each comes with the real numbers and products of its actual run. What you read here is how it actually went, not how it should go.
+> This is a gallery, not one more walk through the mechanics. Three pieces (multi-dimension code review, dead-code scan, feedback clustering) each map to one orchestration shape, and each comes with the real numbers and products of its actual run. What you read here is how it actually went, not how it should go.
 
 ---
 
@@ -44,7 +44,7 @@ We unpack each piece below. Every section follows the same structure: **pattern 
 
 Review one piece of code across **multiple dimensions** (bugs / security / a11y), each dimension its own chain; the moment a dimension's review is done, **immediately** verify each of its findings, without waiting on the other dimensions. This bolts together two patterns. One is "pipeline lets each chain go its own way," covered in [Chapter 08](#/en/p2-08). The other is "adversarial verification trusts only findings that survive verification," covered in [Chapter 17](#/en/p4-17). Here we watch them work together in practice.
 
-The real target is the book's own `index.html` (a ~600-line vanilla-JS SPA). We are dogfooding, taking a knife to our own frontend.
+The real target is the book's own `index.html` (a ~600-line vanilla-JS SPA), i.e., dogfooding by using the book's own frontend as the test subject.
 
 ### Script: Orchestration Trade-offs
 
@@ -74,11 +74,11 @@ Three design trade-offs worth pausing on:
 
 **Trade-off 2: review uses schema=`FINDINGS`, verify uses schema=`VERDICT`.** Each stage carries its own strong-typed contract. The review stage forces the reviewer to return `{findings:[{title, evidence, severity}]}`; the verify stage forces the verifier to return `{isReal:boolean, reason}`. Schema gets validated right at the tool-call layer and hands back an already-validated object (see Chapters [06](#/en/p2-06), [07](#/en/p2-07)), so `review?.findings` and `f.verdict?.isReal` can be used straight away as structured data, no `JSON.parse` needed.
 
-**Trade-off 3: the verify agent is told to "try hard to refute."** The prompt reads "try hard to refute it; if you cannot, it is real." This is the soul of adversarial verification: doubt by default, count it real only if you can't refute it. The script's closing `.filter(f => f.verdict?.isReal)` keeps only the survivors.
+**Trade-off 3: the verify agent is told to "try hard to refute."** The prompt reads "try hard to refute it; if you cannot, it is real." This is the core principle of adversarial verification: doubt by default, and count it real only if it cannot be refuted. The script's closing `.filter(f => f.verdict?.isReal)` keeps only the findings that survived.
 
 <div class="callout info">
 
-**About `model: 'haiku'`**: the script tags the verify agents with `model: 'haiku'` (verification is a fairly simple checking job, meant to lean on a cheap model). But **this session set `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`, which overrides any per-call model** (see `_grounding.md` §A2, Run `wf_9c94951d-58c`), so these "haiku" verifiers all actually ran on Opus. That's one reason this run's token count is on the high side. §29.3 digs into this cost trap in detail.
+**About `model: 'haiku'`**: the script tags the verify agents with `model: 'haiku'` (verification is a relatively simple checking task, intended to save cost with a smaller model). But **this session set `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`, which overrides any per-call model** (see `_grounding.md` §A2, Run `wf_9c94951d-58c`), so these "haiku" verifiers all actually ran on Opus. That's one reason this run's token count is on the high side. §29.3 digs into this cost trap in detail.
 
 </div>
 
@@ -128,7 +128,7 @@ flowchart TD
 
 <div class="callout tip">
 
-**A finding surviving ≠ taking it wholesale.** A finding being `isReal=true` only says "it wasn't made up." Whether its severity is accurate, its wording precise, or whether it "triggers today" versus is merely "latent," that lives in `verdict.reason`. This run split the 18 accordingly into three tiers: "triggers today, not latent" high-priority items (say, removing `#content`'s `aria-live`), "real but low-impact" ordinary items, and "latent / supply-chain / transient" optional defensive items. **Adversarial verification earns its keep not just by filtering out false findings, but by pinning a trustworthy priority on each real one.** That's the practical meaning of [Chapter 17](#/en/p4-17)'s adversarial verification.
+**A finding surviving verification does not mean accepting it wholesale.** A finding being `isReal=true` only says "it was not fabricated." Whether its severity is accurate, its wording precise, or whether it "triggers today" versus is merely "latent" depends on `verdict.reason`. This run split the 18 accordingly into three tiers: "triggers today, not latent" high-priority items (e.g., removing `#content`'s `aria-live`), "real but low-impact" ordinary items, and "latent / supply-chain / transient" optional defensive items. **Adversarial verification provides value not just by filtering out false findings, but by assigning a trustworthy priority to each real one.** This is the practical meaning of [Chapter 17](#/en/p4-17)'s adversarial verification.
 
 </div>
 
@@ -327,7 +327,7 @@ Clustering is a "whole-set function": what it eats is the **entire batch** of su
 
 ### Teaching Point 2: Cost in Practice — the haiku Tag Silently Overridden by Opus
 
-This is the cost trap most worth watching in this chapter. The script tags all 18 summarize agents with `model: 'haiku'` (summarizing is a simple task, meant to save money). But this session set the environment variable `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`, **which overrides any per-call model** (see `_grounding.md` §A2, Run `wf_9c94951d-58c`). The result: the 18 agents tagged "haiku" **actually all ran on Opus 1M**, burning **607,307 tokens** in a single run.
+This is the cost trap most important to note in this chapter. The script tags all 18 summarize agents with `model: 'haiku'` (summarizing is a simple task, intended to save cost). But this session set the environment variable `CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-7[1m]`, **which overrides any per-call model** (see `_grounding.md` §A2, Run `wf_9c94951d-58c`). The result: the 18 agents tagged "haiku" **actually all ran on Opus 1M**, consuming **607,307 tokens** in a single run.
 
 <div class="callout warn">
 
@@ -351,9 +351,9 @@ Put the "nominal model" and "actual model" of the three runs side by side and th
 
 ## 29.4 How to Read These Numbers
 
-With all three pieces seen, let's boil the "reading method" running through them down to four intuitions you can take with you. These are **estimation heuristics** pulled from real runs, not new mechanisms. Next time you write a workflow and see `usage` in the completion notification, you can judge "is this number reasonable" on the spot.
+With all three pieces seen, let's step back and boil the "reading method" running through them down to four intuitions you can take with you. These are **estimation heuristics** pulled from real runs, not new mechanisms. Next time you write a workflow and see `usage` in the completion notification, you can judge "is this number reasonable" on the spot.
 
-**Heuristic 1: tokens ≈ agent count × per-agent context (~30k).** This is the most useful rough estimate going (the framing and derivation of this rule are in [Chapter 09 §9.3](#/en/p2-09)). Check it against the three runs:
+**Heuristic 1: tokens ≈ agent count × per-agent context (~30k).** This is the most practical rough estimate (the framing and derivation of this rule are in [Chapter 09 §9.3](#/en/p2-09)). Verified against the three runs:
 
 | Script | agent count | total_tokens | per-agent average |
 |---|---|---|---|
@@ -361,7 +361,7 @@ With all three pieces seen, let's boil the "reading method" running through them
 | dead-code-scan | 2 | 116,344 | ≈58,172 |
 | feedback-themes | 20 | 607,307 | ≈30,365 |
 
-`feedback-themes` sits closest to "~30k per agent" (summarize agents have short context); `review-spa` and `dead-code-scan` run higher, because the reviewer/finder repeatedly Read the same 600-line file, carrying heavier context (look at `tool_uses`: review-spa as high as 148, dead-code-scan 14). So the formula gives a **lower-bound order of magnitude**; re-reading files, long prompts, and adversarial verification all push it up. The point: **tokens are mainly driven by agent count**, so to save tokens, first ask "can I dispatch fewer agents."
+`feedback-themes` is closest to "~30k per agent" (summarize agents have short context); `review-spa` and `dead-code-scan` run higher, because the reviewer/finder repeatedly Read the same 600-line file, carrying heavier context (see `tool_uses`: review-spa as high as 148, dead-code-scan 14). So the formula gives a **lower-bound order of magnitude**; re-reading files, long prompts, and adversarial verification all push it up. The key point: **tokens are mainly driven by agent count**, so to save tokens, first consider whether fewer agents can be dispatched.
 
 **Heuristic 2: wall-clock comes down to the critical path; concurrency compresses N into "the slowest one."** Put tokens and wall-clock side by side and you'll see they're **not proportional**:
 
@@ -372,7 +372,7 @@ With all three pieces seen, let's boil the "reading method" running through them
 
 `feedback-themes` used 20 agents and 600k tokens, yet wall-clock was only **2 minutes**, because the 18 summarize agents ran **concurrently**, squeezing wall-clock down to the critical path of "the slowest single summary + load + cluster," not 18 added up in series. `review-spa`'s 6.6 minutes, by contrast, is because each chain in the pipeline is two serial stages ("review→verify"), plus a lot of fanned-out verify agents. **Concurrency saves wall-clock (not tokens)**: the tokens still get spent, but with N agents running at once, you only wait on the slowest one.
 
-**Heuristic 3: adversarial verification / fan-out is the token heavyweight.** Of `review-spa`'s 22 agents, 19 are verifiers. Adversarial verification's fan-out of "one verify agent per finding" is the main reason it creeps up toward a million tokens. It's a **cost worth paying**: the extra tokens bought the calibration value of "downgrading #1/#2 to latent, catching #2's false sub-claim" (see §29.1's teaching point). But keep one thing in mind: **give every finding its own verify agent and tokens grow linearly with the finding count.** When there are a lot of findings, consider adversarially verifying only the high-severity ones, and draw a token boundary (with [Chapter 21](#/en/p4-21)'s `budget`).
+**Heuristic 3: adversarial verification / fan-out is the token heavyweight.** Of `review-spa`'s 22 agents, 19 are verifiers. Adversarial verification's fan-out of "one verify agent per finding" is the main reason tokens approach a million. This is a **cost worth paying**: the extra tokens bought the calibration value of "downgrading #1/#2 to latent, catching #2's false sub-claim" (see §29.1's teaching point). But note: **assigning every finding its own verify agent means tokens grow linearly with finding count.** When there are many findings, consider adversarially verifying only the high-severity ones, and set a token boundary (with [Chapter 21](#/en/p4-21)'s `budget`).
 
 **Heuristic 4: scripts re-run, numbers trace back.** All three scripts can be re-run with `Workflow({ scriptPath: 'assets/examples/<script>.js' })` (returns asynchronously; on completion `<task-notification>` reports back `usage`/`result`). Every Run ID, agent count, tokens, and wall-clock in this chapter is recorded in `assets/transcripts/examples-r5.md`, checkable one by one. This book later **re-ran these three scripts as-is once** (`wf_ca7aa11f-6fb` / `wf_ccda2a68-fab` / `wf_0771c834-a9f`, recorded in `assets/transcripts/examples-r6.md`), and the result confirms Heuristic 4 exactly: **agent count and orchestration shape reproduce rock-solid** (dead-code was still 2 agents / 2 clean rounds; feedback still 20 agents), while **finding/theme counts drift a little with the target's evolution and clustering granularity** (review-spa 18→14, because `index.html` had already been polished per the first run's findings; feedback 8→6 themes, a clustering-granularity difference). For digit-for-digit reproduction, use resume ([Chapter 22](#/en/p4-22)).
 
@@ -386,14 +386,14 @@ With all three pieces seen, let's boil the "reading method" running through them
 
 ## 29.5 Chapter Summary
 
-- Three "actually-run" application-level pieces, each mapping to one core orchestration shape, all numbers traceable to `assets/transcripts/examples-r5.md`:
+- Three "actually-run" application-level pieces, each mapping to one orchestration shape, all numbers traceable to `assets/transcripts/examples-r5.md`:
   - **§29.1 review-spa** (`wf_97b81e86-a0b`, 22 agents / 991,554 tokens / 395,166ms): pipeline multi-dimension review + adversarial verify, 18 confirmed (bugs 6 / sec 4 / a11y 8). Teaching point: **adversarial verification pulled back the reviewer's exaggerations** (several downgraded to latent, one false sub-claim caught): a finding surviving ≠ taking it wholesale.
   - **§29.2 dead-code-scan** (`wf_2283ab37-710`, 2 agents / 116,344 tokens / 246,496ms): loop-until-dry, 2 rounds all clean, 0 candidates, `DRY_STREAK` termination. Teaching point: **zero findings also terminates correctly**, report-only and hands-off, a loop must have a hard cap.
   - **§29.3 feedback-themes** (`wf_b3febb70-ad9`, 20 agents / 607,307 tokens / 122,391ms): parallel barrier, 18 items→8 themes. Teaching point: **the right scenario for a barrier** (clustering needs the whole set) + **cost trap**: `CLAUDE_CODE_SUBAGENT_MODEL` overrides the script's `model:'haiku'`, 18 "haiku" agents actually ran Opus → 607k tokens in one run.
 - **§29.4 four reading heuristics**: ① tokens ≈ agent count × ~30k per agent (re-reading files pushes it up); ② wall-clock comes down to the critical path, concurrency compresses N into the slowest one (saves wall-clock, not tokens); ③ adversarial verification/fan-out is the token heavyweight; ④ scripts re-run via `Workflow({ scriptPath })`, numbers trace back to `examples-r5.md`.
 
-This chapter assembled the book's parts into a machine that actually runs. You've now seen them run for real. Next, head to the appendix to look up each API's complete signature and boundaries, and settle these intuitions into a reference you can reach for anytime.
+This chapter assembled the book's parts into a system that actually runs. With the real run results presented, the next step is the appendix, which provides each API's complete signature and boundaries, turning these intuitions into a reference available at any time.
 
 > Continue reading: [Appendix A · Complete API Reference](#/en/app-a)
 >
-> Close the loop: whichever of these three you got running smoothly, press `s` to save it as a command (see [The Official Control Panel §6](#/en/p2-ops)), or fold it into your library (see [Chapter 25](#/en/p5-25)).
+> Step back: whichever of these three you got running smoothly, press `s` to save it as a command (see [The Official Control Panel §6](#/en/p2-ops)), or fold it into your library (see [Chapter 25](#/en/p5-25)).

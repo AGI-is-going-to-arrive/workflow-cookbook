@@ -53,7 +53,7 @@
 | Term (EN / 中) | Definition | Locator |
 |---|---|---|
 | **meta** | The metadata constant the script exports, which **must be a pure literal**; `name`/`description` required, `whenToUse`/`phases` optional. | [Ch. 5](#/en/p2-05) |
-| **pure literal / 纯字面量** | A literal value with no variable references, function calls, spread operators, or template interpolation; it's `meta`'s hard requirement (since it gets read statically before execution). | [Ch. 5](#/en/p2-05) |
+| **pure literal / 静态字面量** | A literal value with no variable references, function calls, spread operators, or template interpolation; it's `meta`'s hard requirement (since it gets read statically before execution). | [Ch. 5](#/en/p2-05) |
 | **phase / 阶段** | A progress group. The global `phase(title)` opens a new phase, and the `agent()` calls after it all group under it; the title has to match `meta.phases[].title` exactly. | [Ch. 5](#/en/p2-05) |
 | **phases (meta field)** | `{ title, detail?, model? }[]`, which lists the workflow's phases declaratively. | [Appendix A · A.4](#/en/app-a) |
 | **whenToUse** | An optional `meta` field that spells out when to use it, shown in the workflow list. | [Appendix A · A.4](#/en/app-a) |
@@ -162,6 +162,6 @@ Jump quickly by the English term's first letter (Chinese aliases are in the tabl
 - **V**: VM sync timeout ([D.6](#d6-budget-and-scale))
 - **W**: Workflow ([D.1](#d1-top-level-concepts)), `workflow`/`workflows` keyword ([D.1](#d1-top-level-concepts)), `workflow()` ([D.7](#d7-nesting-and-isolation)), workflow-subagent ([D.5](#d5-agent-options-opts)), `WorkflowInput` / `WorkflowOutput` ([D.2](#d2-input-and-output-workflowinput-workflowoutput)), `WorkflowAgentCapError` / `WorkflowBudgetExceededError` ([D.6](#d6-budget-and-scale)), `whenToUse` ([D.3](#d3-script-metadata-and-phases)), worktree ([D.7](#d7-nesting-and-isolation)), warning ([D.2](#d2-input-and-output-workflowinput-workflowoutput))
 
-> Companion reading: for field semantics see [Appendix A · Full API Reference](#/en/app-a); for pitfalls and troubleshooting see [Appendix B · Pitfalls & Troubleshooting](#/en/app-b); for the positive checklist see [Appendix C · Best Practices](#/en/app-c).
+> Companion reading: for field semantics see [Appendix A · Full API Reference](#/en/app-a); for pitfalls and troubleshooting see [Appendix B · Pitfalls & Troubleshooting](#/en/app-b); for the recommended-practices checklist see [Appendix C · Recommended Practices](#/en/app-c).
 
 > Continue reading: [Appendix E · Sources](#/en/app-e)

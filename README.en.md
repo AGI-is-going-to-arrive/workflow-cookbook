@@ -33,9 +33,9 @@
 
 **Dynamic workflows** is Claude Code's engine for **deterministically orchestrating multiple agents** with a JavaScript script. You turn it on from the "Dynamic workflows" row in `/config`; under the hood that toggle maps to the `CLAUDE_CODE_WORKFLOWS=1` flag, which power users can also set directly. Once it's available, from v2.1.154 you can use `/effort ultracode` to make Claude orchestrate proactively by default for the session. Dynamic workflows stands apart from MCP, Skills, Subagents, and Agent Teams. It is a new kind of engineering pipeline that is **reusable, testable, and shareable**.
 
-This book takes you from zero to one. You understand where Workflow sits among the extension mechanisms, master the full `agent()`/`parallel()`/`pipeline()`/`schema` API, and work through 7 really-run recipes. You then unlock advanced patterns like adversarial verification, loop-until-dry, budget, and resume, benchmark the four major community systems and extract their essence, build your own Workflow library, and master the full author → validate → debug flow from intent to ship.
+This book covers the full path from zero to one: understanding where Workflow sits among the extension mechanisms, mastering the full `agent()`/`parallel()`/`pipeline()`/`schema` API, and working through 7 real-run recipes. It then covers advanced patterns like adversarial verification, loop-until-dry, budget, and resume, benchmarks the four major community systems and extracts their strengths, guides building your own Workflow library, and walks through the complete author, validate, and debug flow from intent to ship.
 
-> **This is a hands-on Cookbook, not API documentation. It stays approachable and grounded in real runs. Recipes that were actually run carry their Run ID and usage; scripts shown only for illustration are clearly marked.**
+> **This is a hands-on Cookbook, not API documentation. Every recipe is grounded in real runs. Recipes that were actually run carry their Run ID and usage; scripts shown only for illustration are clearly marked.**
 
 <details>
 <summary><b>The book at a glance</b></summary>
@@ -46,7 +46,7 @@ This book takes you from zero to one. You understand where Workflow sits among t
 | Volume | Chinese source 140k+ Han characters ｜ `docs/zh` ↔ `docs/en` **38 files mirrored one-to-one** |
 | Real Workflow runs | **23 unique Run IDs** (R4 baseline 17 + R5 application-level 3 + R6 application-level 3; raw logs in [`assets/transcripts/`](assets/transcripts)) |
 | Tested on | Claude Code **v2.1.150 – v2.1.154**, `CLAUDE_CODE_WORKFLOWS=1`, Opus 4.7 / 4.8 (1M) |
-| Bilingual | Full zh/en parity, one-click switch |
+| Bilingual | Full zh/en parity, switch anytime |
 
 </details>
 
