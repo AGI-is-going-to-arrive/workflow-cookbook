@@ -45,7 +45,7 @@
 | 正文章节 | **29 章 + 7 篇附录**（六部 · 认知/基础/食谱/进阶/生态/创作 + 附录 A–G） |
 | 全书篇幅 | 中文正文 14 万+ 汉字 ｜ `docs/zh` ↔ `docs/en` **38 篇逐篇对照** |
 | 真实 Workflow 运行 | **23 个唯一 Run ID**（R4 基线 17 + R5 应用级 3 + R6 应用级 3；原始记录见 [`assets/transcripts/`](assets/transcripts)） |
-| 实测环境 | Claude Code **v2.1.150 – v2.1.154**，`CLAUDE_CODE_WORKFLOWS=1`，Opus 4.7 / 4.8 (1M) |
+| 实测环境 | Claude Code **v2.1.150 – v2.1.160**（核心机制至 v2.1.156，触发词改名于 v2.1.160 复核），`CLAUDE_CODE_WORKFLOWS=1`，Opus 4.7 / 4.8 (1M) |
 | 双语 | 中英完全对照，随时切换 |
 
 </details>
@@ -85,7 +85,7 @@ log(`smoke result: ${JSON.stringify(r)}`)
 return r
 ```
 
-> **如何运行（重要）**：这是一段 **Workflow 脚本**，不是独立的 Node 脚本。`export`/`meta`/`phase`/`agent`/`log` 都是 Workflow 运行时注入的全局符号。**用 `node hello.js` 运行会立刻报 `phase is not defined`（Windows / macOS 均如此）。** 需要在已开启工作流的 Claude Code 会话中运行。官方入口是 `/config` 的 "Dynamic workflows" 这一行；在 macOS / Linux 上，power user 也可以用 `CLAUDE_CODE_WORKFLOWS=1 claude` 启动，Windows 或需要长期生效则写入 `~/.claude/settings.json` 的 `env`，这种 JSON 写法跨平台。开启之后直接让 Claude 执行脚本，例如在消息中带上 `workflow` 关键词（如「跑这个 workflow」），由 Claude 调用内置的 Workflow 工具运行。
+> **如何运行（重要）**：这是一段 **Workflow 脚本**，不是独立的 Node 脚本。`export`/`meta`/`phase`/`agent`/`log` 都是 Workflow 运行时注入的全局符号。**用 `node hello.js` 运行会立刻报 `phase is not defined`（Windows / macOS 均如此）。** 需要在已开启工作流的 Claude Code 会话中运行。官方入口是 `/config` 的 "Dynamic workflows" 这一行；在 macOS / Linux 上，power user 也可以用 `CLAUDE_CODE_WORKFLOWS=1 claude` 启动，Windows 或需要长期生效则写入 `~/.claude/settings.json` 的 `env`，这种 JSON 写法跨平台。开启之后直接让 Claude 执行脚本，例如在消息中带上 `ultracode` 关键词（如「ultracode 跑这个 workflow」），由 Claude 调用内置的 Workflow 工具运行。
 >
 > 真实返回（`schema` 强制结构化，`sum` 为整数 `4` 而非字符串）：`{"message":"…","sum":4,"runtimeConfirmed":true}`（Run `wf_dacbd480-d5d`，1 agent / 26,338 token / 5.5s）。
 

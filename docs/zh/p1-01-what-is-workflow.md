@@ -223,9 +223,9 @@ sequenceDiagram
 
 1. **确认版本**：`claude --version` 得是 **v2.1.154 及以上**（官方最低要求）。
 2. **怎么开**：**所有付费计划**（Pro、Max、Team、Enterprise）都能用，也支持 Anthropic API 以及 Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry。**Pro 计划**要在 `/config` 里找到 **"Dynamic workflows"** 那一行手动打开。其余计划（Max/Team/Enterprise）的默认状态官方未说明，建议在 `/config` 中确认。
-3. **验证方法**：在输入中包含 `workflow` 关键词，如果该词以彩色高亮显示，说明工作流已在当前会话中启用；或者输入 `/effort`，查看菜单中是否有 `ultracode` 选项（见 §1.6）。
+3. **验证方法**：在输入中包含 `ultracode` 关键词，如果该词高亮成**紫罗兰色**，说明工作流已在当前会话中启用；或者输入 `/effort`，查看菜单中是否有 `ultracode` 挡位（见 §1.6）。
 
-不再需要时，**关闭方式**：`/config` 里的开关、`settings.json` 的 `"disableWorkflows": true`、环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`，或在 managed settings 里整组织关闭，四种方式任选其一。关闭后 bundled 命令、`workflow` 关键词、`ultracode` 都会随之失效。这些关闭开关与各自的生效范围，详见[《官方操作面板》](#/zh/p2-ops)。
+不再需要时，**关闭方式**：`/config` 里的开关、`settings.json` 的 `"disableWorkflows": true`、环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`，或在 managed settings 里整组织关闭，四种方式任选其一。关闭后 bundled 命令、`ultracode` 触发关键词、`/effort` 里的 ultracode 挡位都会随之失效。这些关闭开关与各自的生效范围，详见[《官方操作面板》](#/zh/p2-ops)。
 
 **底层 flag（原理层 / power-user，信源=客户端二进制 + 本机 `printenv`）：**
 
@@ -267,24 +267,26 @@ CLAUDE_CODE_WORKFLOWS=1 claude
 
 ### 第二层 · 会用：四种「让 Claude 去编排」的方式
 
-工具启用之后，下面任意一种方式都能触发 Claude 使用它。这是 2.1.154 客户端注入给模型的官方清单，逐条实测自客户端二进制：
+工具启用之后，下面任意一种方式都能触发 Claude 使用它。这是客户端注入给模型的官方清单，逐条实测自客户端二进制：
 
 | 方式 | 触发范围 | 说明 |
 |---|---|---|
-| 消息里带 `workflow` / `workflows` 关键词 | **单次** | 按官方说法，Claude Code 会**高亮**消息里的这个词，然后改去写工作流脚本、而不是逐回合硬扛。最轻的触发。**误触发了？按 `alt+w` 本次忽略**（官方做法）。触发之后完整的命令行操作（运行前审批、观察、暂停续传、保存为命令）见[《官方操作面板》](#/zh/p2-ops)。 |
+| 消息里带 `ultracode` 关键词 | **单次** | 按官方说法，Claude Code 会把消息里的这个词**高亮成紫罗兰色**，然后改去写工作流脚本、而不是逐回合硬扛。最轻的触发（`workflow` 这个词在 2.1.160 起已不再触发，见本节末）。**误触发了？按 `alt+w` 本次忽略**（官方做法）。触发之后完整的命令行操作（运行前审批、观察、暂停续传、保存为命令）见[《官方操作面板》](#/zh/p2-ops)。 |
 | `/effort ultracode` | **本会话常驻** | 让 Claude 默认就给每个像样的任务编排工作流，推理同时提到 xhigh。详见 §1.6。 |
 | 用自己的话直接要求 | 单次 | 比如「跑个 workflow」「并行分发 agent」「用多 agent 编排这件事」。 |
 | 技能 / 斜杠命令 | 单次 | 某些 skill、slash command 的指令里就写了要用工作流，调用它即触发。（注：你或脚本还能**直接调 Workflow 工具**、跑**具名工作流** `{ name: 'xxx' }`，那是程序化发起，不在这份「让模型 opt-in」清单里。） |
 
+> `ultracode` 现在身兼两职：单独打在消息里是**单次**触发（上表第 1 行），用 `/effort ultracode` 设成挡位则**本会话常驻**（第 2 行）。2.1.160 把单次触发词从 `workflow` 改名成 `ultracode` 之后，两者就统一成同一个词了。
+
 <div class="callout warn">
 
-**`ultrawork` 不再是触发词了。** 早期社区流传「在输入框打 `ultrawork` 就能触发」，但在 2.1.154 官方客户端里，`ultrawork` 只作为一个**内部事件名**（`ultrawork_request`）存在，**输入它不会触发任何功能**。现在官方的触发关键词是 `workflow` / `workflows`。（另：第三方系统 oh-my-openagent 确实使用 `ultrawork` 作为入口词，但该实现属于第三方项目，与官方 Claude Code 无关，第 23 章会讲到。）
+**`ultrawork` 不再是触发词了。** 早期社区流传「在输入框打 `ultrawork` 就能触发」，但在 2.1.154 官方客户端里，`ultrawork` 只作为一个**内部事件名**（`ultrawork_request`）存在，**输入它不会触发任何功能**。现在官方的触发关键词是 `ultracode`（2.1.160 起改名；此前是 `workflow` / `workflows`，那个词现在也不再触发了）。（另：第三方系统 oh-my-openagent 确实使用 `ultrawork` 作为入口词，但该实现属于第三方项目，与官方 Claude Code 无关，第 23 章会讲到。）
 
 </div>
 
 ### 版本前提：Claude Code 得够新
 
-官方要求 **v2.1.154 及以上**（动态工作流的最低版本）。本书的实测则横跨 **v2.1.150 到 v2.1.156**：Part I–IV 的基础机制多在 2.1.150 跑通，`/effort` 与 ultracode 这套（§1.6）实测于 **v2.1.154**，R11 又在 **v2.1.156** 把核心不变量整体复核了一遍，结论仍成立（见 `assets/transcripts/examples-r11.md`）。据社区反馈大约 **2.1.148** 前后就有早期形态，但**确切起始版本本书没独立核实**，当个大致下限就行。查你当前版本：
+官方要求 **v2.1.154 及以上**（动态工作流的最低版本）。本书的实测则横跨 **v2.1.150 到 v2.1.160**：Part I–IV 的基础机制多在 2.1.150 跑通，`/effort` 与 ultracode 这套（§1.6）实测于 **v2.1.154**，R11 又在 **v2.1.156** 把核心不变量整体复核了一遍，结论仍成立（见 `assets/transcripts/examples-r11.md`）；**R16（本次）在 v2.1.160 验证了一项行为变化——单次触发关键词从 `workflow` 改名为 `ultracode`，原来的 `workflow` 一词不再触发**（本会话亲测：消息里打 `ultracode` 触发了工作流 opt-in，而同一条消息里照样出现的 `workflow` 没有；并以官方 CHANGELOG 2.1.160 与客户端 `--version` 互证）。据社区反馈大约 **2.1.148** 前后就有早期形态，但**确切起始版本本书没独立核实**，当个大致下限就行。查你当前版本：
 
 ```bash
 claude --version
@@ -372,7 +374,7 @@ if (effort === "ultracode" && workflowsAvailable())
 
 <div class="callout info">
 
-**彩蛋：`ultrathink`。** 它与 `workflow` 关键词使用同一套机制：消息中包含 `ultrathink`，会让 Claude「这一轮想得更深」（官方原文："requesting deeper reasoning on this turn"）。ultrathink 仅影响当轮推理深度，不涉及 workflow 编排，与 ultracode 是不同的功能。
+**彩蛋：`ultrathink`。** 它和 `ultracode` 触发关键词走的是同一套「消息里关键词高亮」机制，但做的事不同：消息中包含 `ultrathink`，只会让 Claude「这一轮想得更深」（官方原文："requesting deeper reasoning on this turn"），不触发工作流编排。
 
 </div>
 
@@ -425,7 +427,7 @@ if (effort === "ultracode" && workflowsAvailable())
 
 ## 1.9 本章小结
 
-- Workflow（官方名**动态工作流 / Dynamic workflows**，research preview）是 Claude Code 内置工具，用**纯 JavaScript 脚本**编排 subagent。分两层用它：**能用**靠官方入口（`/config` 的 "Dynamic workflows" 行，Pro 必走），底层由 `CLAUDE_CODE_WORKFLOWS=1` 加服务端开关共同门控（power-user 可显式 `=1`）；**会用**靠 `workflow`/`workflows` 关键词（误触发按 `alt+w` 忽略）、`/effort ultracode`（本会话常驻）、自然语言或具名工作流触发，`ultrawork` 已不再是触发词。
+- Workflow（官方名**动态工作流 / Dynamic workflows**，research preview）是 Claude Code 内置工具，用**纯 JavaScript 脚本**编排 subagent。分两层用它：**能用**靠官方入口（`/config` 的 "Dynamic workflows" 行，Pro 必走），底层由 `CLAUDE_CODE_WORKFLOWS=1` 加服务端开关共同门控（power-user 可显式 `=1`）；**会用**靠 `ultracode` 关键词（单次；2.1.160 起取代旧的 `workflow`，误触发按 `alt+w` 忽略）、`/effort ultracode`（本会话常驻）、自然语言或具名工作流触发，`ultrawork` 不是触发词。
 - `/effort` 有七挡（low/medium/high/xhigh/max/ultracode/auto）；**ultracode = xhigh 推理 + 默认主动编排（仅本会话）**，论推理深度不如 max，胜在「默认就多开 agent」。
 - 脚本 = **经线**（`meta` 静态字面量 + `phase`）+ **纬线**（`agent` / `parallel` / `pipeline` / `log` / `workflow`）。
 - `agent(prompt, { schema })` 派发 subagent 并返回**已验证的结构化对象**；schema 不匹配会自动重试。

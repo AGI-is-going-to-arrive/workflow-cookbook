@@ -358,14 +358,14 @@ Two layers (**available** vs. **will use**), don't conflate them (details in [Ch
 *The official surface entry (what you should do, source = official docs)*:
 - ① Check the version: `claude --version` ≥ **v2.1.154** (the official minimum);
 - ② Check the account: **available on all paid plans**, with Anthropic API access, and on Amazon Bedrock / Google Cloud Vertex AI / Microsoft Foundry too; **Pro users must turn it on manually from the "Dynamic workflows" row in `/config`.** [Official]
-- ③ **To turn it off** (any one of these persists): toggle it off in `/config`; or add `"disableWorkflows": true` to `~/.claude/settings.json`; or set `CLAUDE_CODE_DISABLE_WORKFLOWS=1` (read at startup). **Org-wide**: set `"disableWorkflows": true` in managed settings, or use the toggle on the Claude Code admin settings page. Once off, bundled commands (like `/deep-research`) are gone, the `workflow` keyword no longer triggers, and `ultracode` disappears from the `/effort` menu. [Official]
+- ③ **To turn it off** (any one of these persists): toggle it off in `/config`; or add `"disableWorkflows": true` to `~/.claude/settings.json`; or set `CLAUDE_CODE_DISABLE_WORKFLOWS=1` (read at startup). **Org-wide**: set `"disableWorkflows": true` in managed settings, or use the toggle on the Claude Code admin settings page. Once off, bundled commands (like `/deep-research`) are gone, the `ultracode` trigger keyword stops firing, and the `ultracode` tier disappears from the `/effort` menu. [Official]
 
 *The underlying flag (mechanism layer / power-user, source = client binary + local `printenv`)*: availability is decided inside the client logic function **`FX5`** by `CLAUDE_CODE_WORKFLOWS` + the server-side flag `tengu_workflows_enabled` + account tier.
 - `CLAUDE_CODE_WORKFLOWS=1` is an explicit power-user switch (this book's session `printenv` measured `=1` with the tool available); `=0` forces off; unset falls back to the server-side flag.
 - **Be clear about the layering**: this is the **under-the-hood mechanism** read out of the client binary, and **the official user-facing entry is `/config`**, not "only enabled once you set `=1`." Both coexist, with the official surface taking priority; `=1` is just the more direct switch at the underlying layer, handy for CI / power-users to lock things in explicitly.
 
-**Layer 2 · Will use (get Claude to orchestrate this turn / this session)**, the official opt-in list (injected into the model by the client, each item verified against the binary):
-- ① a message containing the `workflow` / `workflows` keyword (**this turn**);
+**Layer 2 · Will use (get Claude to orchestrate this turn / this session)**, the official opt-in list (injected into the model by the client, each item verified against the binary; the trigger keyword in ① was renamed from `workflow` to `ultracode` in 2.1.160 — that claim is sourced from the CHANGELOG 2.1.160 and R16 testing, not the 2.1.154 binary; see §1.5):
+- ① a message containing the `ultracode` keyword (**this turn**);
 - ② `/effort ultracode` (**standing, this session** + reasoning bumped to xhigh; details in [Chapter 01 §1.6](#/en/p1-01));
 - ③ the user asking in their own words ("run a workflow" / "fan out agents" / "orchestrate this with subagents");
 - ④ a skill / slash command (whose instructions call for Workflow). (Note: a **direct Workflow-tool call** `Workflow({ scriptPath })` and a **named workflow** `{ name }` are programmatic launches, not part of this "model opt-in" injected list.)
@@ -374,7 +374,7 @@ Two layers (**available** vs. **will use**), don't conflate them (details in [Ch
 
 <div class="callout warn">
 
-**`ultrawork` is no longer a trigger.** In the official 2.1.154 binary `ultrawork` exists only as the internal event name `ultrawork_request` (the `normalizeAttachmentForAPI` type whitelist); typing it as a user **triggers nothing.** The official trigger keywords are now `workflow` / `workflows`. Evidence in [`assets/transcripts/effort-ultracode-r10.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/effort-ultracode-r10.md). (The third-party oh-my-openagent does use `ultrawork`/`ulw`, but that's its own implementation, unrelated to official Claude Code.)
+**`ultrawork` is no longer a trigger.** In the official 2.1.154 binary `ultrawork` exists only as the internal event name `ultrawork_request` (the `normalizeAttachmentForAPI` type whitelist); typing it as a user **triggers nothing** (evidence for this in [`assets/transcripts/effort-ultracode-r10.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/effort-ultracode-r10.md)). The official trigger keyword is now `ultracode` (renamed from `workflow` in 2.1.160; that claim is sourced from the CHANGELOG 2.1.160 and R16 testing, see [Appendix E](#/en/app-e)). (The third-party oh-my-openagent does use `ultrawork`/`ulw`, but that's its own implementation, unrelated to official Claude Code.)
 
 </div>
 

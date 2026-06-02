@@ -129,7 +129,7 @@ const results = await pipeline(
 >
 > | 项 | 值 |
 > |---|---|
-> | Claude Code 版本 | **v2.1.154+（官方最低）**；本书实测跨 **v2.1.150 → v2.1.156**，核心不变量已在 v2.1.156 复核（见 [`assets/transcripts/examples-r11.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r11.md)） |
+> | Claude Code 版本 | **v2.1.154+（官方最低）**；本书实测跨 **v2.1.150 → v2.1.156**，核心不变量已在 v2.1.156 复核（见 [`assets/transcripts/examples-r11.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r11.md)）；触发关键词改名（`workflow`→`ultracode`）在 **v2.1.160** 复核（R16） |
 > | 功能标志 | `CLAUDE_CODE_WORKFLOWS=1`（本会话 `printenv` 实测已确认存在；官方面向用户的入口是 `/config`） |
 > | effort 体系 | `/effort` 七挡 `low/medium/high/xhigh/max/ultracode/auto`；**ultracode = xhigh + 主动编排（仅本会话）**；本会话锁在 `CLAUDE_CODE_EFFORT_LEVEL=max` |
 > | 主模型 | **Opus 4.8（1M）** |

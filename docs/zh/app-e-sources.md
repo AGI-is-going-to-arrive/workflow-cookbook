@@ -29,7 +29,7 @@
 
 | 信源 | 状态 | 用途（书中据此对齐的事实） |
 |---|---|---|
-| [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)（"Orchestrate subagents at scale with dynamic workflows"） | 特性定名 **Dynamic workflows**，状态 **research preview**；本轮抓取于 2026-05-29 | 版本要求 **v2.1.154+**；**所有付费档可用**（含 Anthropic API、Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry），**Pro 在 `/config` 的 "Dynamic workflows" 行手动开启**；触发关键词 `workflow`/`workflows`（误触发按 `alt+w`）；`/effort ultracode`（xhigh + 自动编排）；运行时与限制（运行中不能插入输入、脚本无直接 fs/shell 访问、最多 16 并发、单 run 1000 agent）；续传限同一会话（`/workflows` 里按 `p`）、**退出 Claude Code 后下个会话从头重跑**（"the next session starts the workflow fresh"）；**bundled 只有 `/deep-research`**（需 WebSearch 可用） |
+| [`code.claude.com/docs/en/workflows`](https://code.claude.com/docs/en/workflows)（"Orchestrate subagents at scale with dynamic workflows"） | 特性定名 **Dynamic workflows**，状态 **research preview**；本轮抓取于 2026-05-29 | 版本要求 **v2.1.154+**；**所有付费档可用**（含 Anthropic API、Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry），**Pro 在 `/config` 的 "Dynamic workflows" 行手动开启**；触发关键词（该次 2026-05-29 抓取记的是 `workflow`/`workflows`；2.1.160 起改名为 `ultracode`，依据见下方 CHANGELOG 2.1.160 note，误触发按 `alt+w`）；`/effort ultracode`（xhigh + 自动编排）；运行时与限制（运行中不能插入输入、脚本无直接 fs/shell 访问、最多 16 并发、单 run 1000 agent）；续传限同一会话（`/workflows` 里按 `p`）、**退出 Claude Code 后下个会话从头重跑**（"the next session starts the workflow fresh"）；**bundled 只有 `/deep-research`**（需 WebSearch 可用） |
 
 <div class="callout info">
 
@@ -39,7 +39,9 @@
 
 > 关于官方「续传」段落的两条已确证点：① **续传限同一会话**（停掉的 run 在 `/workflows` 里选中按 `p` 续传，已完成的 agent 返回缓存结果、其余实跑）；② **退出 Claude Code 后，下个会话会从头重新开始这个 workflow**（官方原文 "the next session starts the workflow fresh"），即续传不跨会话存活。
 
-> **官方记录的关闭方式（个人三法 + 组织级）**：① 在 `/config` 里关掉「Dynamic workflows」；② 在 `~/.claude/settings.json` 写 `"disableWorkflows": true`；③ 设环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`（启动时读取）。三者任选其一即可，都会一直生效。整个团队/组织一起关：在 managed settings 里写 `"disableWorkflows": true`，或用 Claude Code 管理后台的开关。关掉之后，bundled 命令（如 `/deep-research`）用不了、prompt 里的 `workflow` 关键词不再触发、`ultracode` 也会从 `/effort` 菜单里消失。
+> **官方记录的关闭方式（个人三法 + 组织级）**：① 在 `/config` 里关掉「Dynamic workflows」；② 在 `~/.claude/settings.json` 写 `"disableWorkflows": true`；③ 设环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`（启动时读取）。三者任选其一即可，都会一直生效。整个团队/组织一起关：在 managed settings 里写 `"disableWorkflows": true`，或用 Claude Code 管理后台的开关。关掉之后，bundled 命令（如 `/deep-research`）用不了、prompt 里的 `ultracode` 触发关键词失效、`/effort` 菜单里的 ultracode 挡位也会消失。
+
+> **触发关键词改名（2.1.160 · R16 实测确认）**：官方 CHANGELOG 在 **2.1.160** 记了一条——"Renamed the dynamic-workflow trigger keyword from `workflow` to `ultracode`"，并说明 `workflow` 一词不再触发、用自己的话要求仍然有效、关键词在输入框里高亮成**紫罗兰色**。本书 R16 在 v2.1.160 实测复核：同一条消息里打 `ultracode` 触发了工作流 opt-in、而照样出现的 `workflow` 没有，并以 `claude --version`（=2.1.160）与客户端注入的系统提示互证。这条改名是本轮统一全书触发关键词表述的依据。
 
 ---
 

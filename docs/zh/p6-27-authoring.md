@@ -332,7 +332,7 @@ flowchart LR
 校验通过后，正式真跑。三件事需要注意：
 
 1. **门控**：先确认 Workflow 工具可用。官方正式入口是 `/config` 里的「Dynamic workflows」行（所有付费档都可用，Pro 必须从这里手动开；Max/Team/Enterprise 是否默认开官方未声明，以自己 `/config` 那一行的开关状态为准）。`CLAUDE_CODE_WORKFLOWS=1` 是 power-user 的底层显式开关，**不取代** `/config`（详见 [第 01 章 §1.5](#/zh/p1-01)）。
-2. **怎么调**：脚本保存到磁盘后用 `Workflow({ scriptPath: '...' })` 触发（`scriptPath` 的优先级高于内联 `script` 和具名 `name`）。也可以在消息里带个 `workflow`/`workflows` 关键词来触发（`ultrawork` 已不再是触发词，见 [第 01 章 §1.5](#/zh/p1-01)）。
+2. **怎么调**：脚本保存到磁盘后用 `Workflow({ scriptPath: '...' })` 触发（`scriptPath` 的优先级高于内联 `script` 和具名 `name`）。也可以在消息里带个 `ultracode` 关键词来触发（`workflow` 这个词在 2.1.160 起已不再触发，见 [第 01 章 §1.5](#/zh/p1-01)）。
 3. **返回是异步的**：Workflow 工具**立即返回** `taskId` 和 `runId`（形如 `wf_...`），**不阻塞**。真正跑完时，由 `<task-notification>` 回传 `usage` 和 `result`。
 
 ```bash

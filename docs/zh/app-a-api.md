@@ -358,14 +358,14 @@ const n = input.n ?? 1   // 现在可安全读字段
 *官方正式入口（你该怎么做，信源=官方文档）*：
 - ① 确认版本：`claude --version` ≥ **v2.1.154**（官方最低要求）；
 - ② 确认账户：**所有付费档都可用**，Anthropic API 以及 Amazon Bedrock / Google Cloud Vertex AI / Microsoft Foundry 上也都可用；**Pro 用户需在 `/config` 里找到 "Dynamic workflows" 这一行手动打开**。【官方】
-- ③ **想关掉**（下面任选一种，都会一直生效）：在 `/config` 里关掉；或在 `~/.claude/settings.json` 写 `"disableWorkflows": true`；或设环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`（启动时读取）。**整个团队/组织一起关**：在 managed settings 里写 `"disableWorkflows": true`，或用 Claude Code 管理后台的开关。关掉之后，bundled 命令（如 `/deep-research`）用不了，prompt 里的 `workflow` 关键词不再触发，`ultracode` 也会从 `/effort` 菜单里消失。【官方】
+- ③ **想关掉**（下面任选一种，都会一直生效）：在 `/config` 里关掉；或在 `~/.claude/settings.json` 写 `"disableWorkflows": true`；或设环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`（启动时读取）。**整个团队/组织一起关**：在 managed settings 里写 `"disableWorkflows": true`，或用 Claude Code 管理后台的开关。关掉之后，bundled 命令（如 `/deep-research`）用不了，prompt 里的 `ultracode` 触发关键词失效，`/effort` 菜单里的 ultracode 挡位也会消失。【官方】
 
 *底层 flag（原理层 / power-user，信源=客户端二进制 + 本机 `printenv`）*：可用性在客户端逻辑函数 **`FX5`** 里由 `CLAUDE_CODE_WORKFLOWS` + 服务端 flag `tengu_workflows_enabled` + 账户类型共同决定。
 - `CLAUDE_CODE_WORKFLOWS=1` 是 power-user 的显式开关（本书会话 `printenv` 实测 `=1` 且工具可用）；`=0` 强制关；不设则看服务端 flag。
 - **务必看清分层**：这是从客户端二进制读出来的**底层机制**，**官方面向用户的入口是 `/config`**，并不是「设了 `=1` 才算开」。两者并存、官方入口优先；`=1` 只是底层那一把更直接的开关，方便 CI / power-user 显式锁定。
 
-**第二层 · 会用（让 Claude 这次／本会话去编排）**，下面是官方 opt-in 清单（客户端注入给模型，逐条实测自二进制）：
-- ① 消息含 `workflow` / `workflows` 关键词（**单次**）；
+**第二层 · 会用（让 Claude 这次／本会话去编排）**，下面是官方 opt-in 清单（客户端注入给模型，逐条实测自二进制；其中触发关键词 ① 在 2.1.160 由 `workflow` 改名为 `ultracode`，这条依据是 CHANGELOG 2.1.160 与 R16 实测、不是 2.1.154 二进制，见 §1.5）：
+- ① 消息含 `ultracode` 关键词（**单次**）；
 - ② `/effort ultracode`（**本会话常驻** + 推理提到 xhigh；详见 [第 01 章 §1.6](#/zh/p1-01)）；
 - ③ 用户用自己的话直接要求（"run a workflow" / "fan out agents" / "orchestrate this with subagents"）；
 - ④ 技能 / 斜杠命令（其指令要求用 Workflow）。（注：**直接调 Workflow 工具** `Workflow({ scriptPath })` 与**具名工作流** `{ name }` 属程序化发起，不在这份「让模型 opt-in」注入清单内。）
@@ -374,7 +374,7 @@ const n = input.n ?? 1   // 现在可安全读字段
 
 <div class="callout warn">
 
-**`ultrawork` 已不是触发词。** 2.1.154 官方二进制里 `ultrawork` 仅作内部事件名 `ultrawork_request` 存在（`normalizeAttachmentForAPI` 类型白名单），用户输入它**不触发任何东西**，现官方触发关键词是 `workflow` / `workflows`。证据见 [`assets/transcripts/effort-ultracode-r10.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/effort-ultracode-r10.md)。（第三方 oh-my-openagent 用 `ultrawork`/`ulw` 是其自有实现，与官方无关。）
+**`ultrawork` 已不是触发词。** 2.1.154 官方二进制里 `ultrawork` 仅作内部事件名 `ultrawork_request` 存在（`normalizeAttachmentForAPI` 类型白名单），用户输入它**不触发任何东西**（这条证据见 [`assets/transcripts/effort-ultracode-r10.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/effort-ultracode-r10.md)）。现官方触发关键词是 `ultracode`（2.1.160 由 `workflow` 改名，这条依据是 CHANGELOG 2.1.160 与 R16 实测，见 [附录 E](#/zh/app-e)）。（第三方 oh-my-openagent 用 `ultrawork`/`ulw` 是其自有实现，与官方无关。）
 
 </div>
 

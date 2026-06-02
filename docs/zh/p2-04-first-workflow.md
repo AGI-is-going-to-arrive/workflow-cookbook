@@ -8,12 +8,12 @@
 
 第 01 章 §1.5 把这件事拆成了「能用 / 会用」两层。开始之前，先确认「能用」这层。
 
-**开启与关闭。** Dynamic workflows 目前是 research preview（研究预览），需要 Claude Code v2.1.154 或更高版本。本书实测用的是 v2.1.156。运行 `claude --version` 确认版本，低于要求则先升级。本书的运行跨 v2.1.150 到 v2.1.156，v2.1.156 上复核仍然成立。所有付费计划都能用，也支持 Anthropic API 以及 Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry。
+**开启与关闭。** Dynamic workflows 目前是 research preview（研究预览），需要 Claude Code v2.1.154 或更高版本。本书核心实测在 v2.1.156（触发词改名一项在 v2.1.160 复核）。运行 `claude --version` 确认版本，低于要求则先升级。本书的运行跨 v2.1.150 到 v2.1.160，v2.1.156 上复核仍然成立。所有付费计划都能用，也支持 Anthropic API 以及 Amazon Bedrock、Google Cloud Vertex AI、Microsoft Foundry。
 
 - **怎么开**：**所有付费计划**（Pro、Max、Team、Enterprise）都能用。**Pro 计划**要在 `/config` 里找到「Dynamic workflows」那一行手动打开。官方文档**没说其余计划（Max/Team/Enterprise）默认是开还是关**，不要假设它们已经开好了，到 `/config` 里看同一个开关确认。
 - **怎么关**（下面任选一种，都会一直生效）：在 `/config` 里关掉；或在 `~/.claude/settings.json` 写 `"disableWorkflows": true`；或设环境变量 `CLAUDE_CODE_DISABLE_WORKFLOWS=1`（启动时读取）。
 - **整个团队/组织一起关**：在 managed settings 里写 `"disableWorkflows": true`，或用 Claude Code 管理后台的开关。
-- 关掉之后：bundled 命令（如 `/deep-research`）用不了，prompt 里的 `workflow` 关键词不再触发，`ultracode` 也会从 `/effort` 菜单里消失。
+- 关掉之后：bundled 命令（如 `/deep-research`）用不了，prompt 里的 `ultracode` 触发关键词失效，`/effort` 菜单里的 ultracode 挡位也会消失。
 
 <div class="callout info">
 
@@ -27,7 +27,7 @@ CLAUDE_CODE_WORKFLOWS = 1
 
 <div class="callout tip">
 
-**两个零成本的确认方法。** 第一个：在对话里输入「跑个最小 workflow 确认运行时」。消息中包含 `workflow` 一词，Claude 会调用 Workflow 工具——如果已开启则正常运行，未开启则会提示工具不可用。第二个：输入 `/effort`，查看选项中是否存在 `ultracode` 一格，存在则说明 workflow 已经「能用」（原理见 §1.6）。
+**两个零成本的确认方法。** 第一个：在对话里输入「ultracode：跑个最小 workflow 确认运行时」。消息中包含 `ultracode` 一词，Claude 会调用 Workflow 工具——如果已开启则正常运行，未开启则会提示工具不可用。第二个：输入 `/effort`，查看选项中是否存在 `ultracode` 一格，存在则说明 workflow 已经「能用」（原理见 §1.6）。
 
 </div>
 
@@ -35,7 +35,7 @@ CLAUDE_CODE_WORKFLOWS = 1
 
 <div class="callout tip">
 
-**「写脚本」不需要手动编写，Claude 会代为生成。** 用自然语言描述一个带 `workflow` 的需求，例如「跑个 workflow 把这仓库的 TODO 扫一遍归类」，Claude 会生成编排脚本。运行前会弹出一次审批提示，确认即可；不确定时点 `View raw script` 查看原文。运行完成且满意后，按一个键即可**存成一条 `/` 命令**，下次直接复用。本章下面的脚本只需**读懂**，实际操作时由 Claude 生成、你审核、你保存。终端操作细节（审批的 4 个选项、按 `s` 存命令）在[《官方操作面板》](#/zh/p2-ops)有完整演示；本章专注「脚本本身的结构、怎么读懂它、怎么迭代它」。
+**「写脚本」不需要手动编写，Claude 会代为生成。** 用自然语言把需求说清楚就行，例如「跑个 workflow 把这仓库的 TODO 扫一遍归类」，Claude 会生成编排脚本；要更明确地点名让它编排，就在消息里带上 `ultracode` 关键词。运行前会弹出一次审批提示，确认即可；不确定时点 `View raw script` 查看原文。运行完成且满意后，按一个键即可**存成一条 `/` 命令**，下次直接复用。本章下面的脚本只需**读懂**，实际操作时由 Claude 生成、你审核、你保存。终端操作细节（审批的 4 个选项、按 `s` 存命令）在[《官方操作面板》](#/zh/p2-ops)有完整演示；本章专注「脚本本身的结构、怎么读懂它、怎么迭代它」。
 
 </div>
 
@@ -86,7 +86,7 @@ return r
 
 <div class="callout warn">
 
-**这是 Workflow 脚本，不是 Node 脚本——新手最常踩的第一个坑。** `meta`/`phase`/`agent`/`log`/`budget`/`args` 都是 Workflow **运行时注入的全局符号**（`_grounding.md` B 节：「运行时注入，无需 import」）。如果把这段代码保存为 `hello.js` 再用 `node hello.js` 执行，Node 没有这些全局符号，会直接抛出 `ReferenceError: phase is not defined`。**Windows、macOS、Linux 三平台表现一致**：这与操作系统无关，原因是 Node 没有 Workflow 运行时层。脚本只能在**工作流可用的 Claude Code 会话里**运行，由 Claude 调用内置 Workflow 工具执行。如何确认「可用」以及官方开启方式，见 §4.1 和 [第 01 章 §1.5](#/zh/p1-01)。触发方式：消息中包含 `workflow` 一词即可（见 §4.1）。本书实测以此方式跑通：runtime 确认、schema 强制 `sum=4` 为**数字**、约 2.6 万 token / 约 5.5 秒（真实回执和用量见 4.3、4.4）。
+**这是 Workflow 脚本，不是 Node 脚本——新手最常踩的第一个坑。** `meta`/`phase`/`agent`/`log`/`budget`/`args` 都是 Workflow **运行时注入的全局符号**（`_grounding.md` B 节：「运行时注入，无需 import」）。如果把这段代码保存为 `hello.js` 再用 `node hello.js` 执行，Node 没有这些全局符号，会直接抛出 `ReferenceError: phase is not defined`。**Windows、macOS、Linux 三平台表现一致**：这与操作系统无关，原因是 Node 没有 Workflow 运行时层。脚本只能在**工作流可用的 Claude Code 会话里**运行，由 Claude 调用内置 Workflow 工具执行。如何确认「可用」以及官方开启方式，见 §4.1 和 [第 01 章 §1.5](#/zh/p1-01)。触发方式：消息中包含 `ultracode` 一词即可（见 §4.1）。本书实测以此方式跑通：runtime 确认、schema 强制 `sum=4` 为**数字**、约 2.6 万 token / 约 5.5 秒（真实回执和用量见 4.3、4.4）。
 
 </div>
 

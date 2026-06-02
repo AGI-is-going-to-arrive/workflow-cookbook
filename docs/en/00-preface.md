@@ -129,7 +129,7 @@ The fundamental difference between this book and the many "AI-generated tutorial
 >
 > | Item | Value |
 > |---|---|
-> | Claude Code version | **v2.1.154+ (official minimum)**; this book tested across **v2.1.150 → v2.1.156**, with the core invariants re-verified on v2.1.156 (see [`assets/transcripts/examples-r11.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r11.md)) |
+> | Claude Code version | **v2.1.154+ (official minimum)**; this book tested across **v2.1.150 → v2.1.156**, with the core invariants re-verified on v2.1.156 (see [`assets/transcripts/examples-r11.md`](https://github.com/AGI-is-going-to-arrive/workflow-cookbook/blob/main/assets/transcripts/examples-r11.md)); the trigger-keyword rename (`workflow`→`ultracode`) was re-checked on **v2.1.160** (R16) |
 > | Feature flag | `CLAUDE_CODE_WORKFLOWS=1` (confirmed present this session via `printenv`; the official user-facing entry is `/config`) |
 > | effort system | `/effort`'s seven settings `low/medium/high/xhigh/max/ultracode/auto`; **ultracode = xhigh + proactive orchestration (this session only)**; this session is locked at `CLAUDE_CODE_EFFORT_LEVEL=max` |
 > | Main model | **Opus 4.8 (1M context)** |

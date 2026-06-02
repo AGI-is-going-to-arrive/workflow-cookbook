@@ -223,9 +223,9 @@ For whether the tool is enabled in your environment, **the official user-facing 
 
 1. **Check your version**: `claude --version` must be **v2.1.154 or later** (the official minimum).
 2. **To turn on**: workflows are **available on all paid plans** (Pro, Max, Team, Enterprise), plus the Anthropic API and Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry. On **Pro**, you switch them on from the **Dynamic workflows** row in `/config`. The default state for the other plans (Max/Team/Enterprise) is not stated in the official docs; check the same toggle in your own `/config` to confirm.
-3. **Verification**: include the `workflow` keyword in your input; if the word appears highlighted in color, workflows are enabled in your current session. Alternatively, type `/effort` and check whether the menu offers an `ultracode` setting (see section 1.6).
+3. **Verification**: include the `ultracode` keyword in your input; if the word appears **highlighted in violet**, workflows are enabled in your current session. Alternatively, type `/effort` and check whether the menu offers an `ultracode` setting (see section 1.6).
 
-No longer needed? **To turn off**, use any one of four switches: the toggle in `/config`, `"disableWorkflows": true` in `settings.json`, the `CLAUDE_CODE_DISABLE_WORKFLOWS=1` environment variable, or `"disableWorkflows": true` in managed settings to turn it off org-wide. Once off, bundled commands, the `workflow` keyword, and `ultracode` all stop working. For these disable switches and the scope each one covers, see [The Official Control Panel](#/en/p2-ops).
+No longer needed? **To turn off**, use any one of four switches: the toggle in `/config`, `"disableWorkflows": true` in `settings.json`, the `CLAUDE_CODE_DISABLE_WORKFLOWS=1` environment variable, or `"disableWorkflows": true` in managed settings to turn it off org-wide. Once off, bundled commands, the `ultracode` trigger keyword, and the `ultracode` setting in `/effort` all stop working. For these disable switches and the scope each one covers, see [The Official Control Panel](#/en/p2-ops).
 
 **The underlying flag (mechanics layer / power-user; source: client binary + local `printenv`):**
 
@@ -267,24 +267,26 @@ CLAUDE_CODE_WORKFLOWS=1 claude
 
 ### Layer 2 · Will use: four ways to get Claude to orchestrate
 
-Once the tool is enabled, any one of the following triggers Claude to use it. This is the official list the 2.1.154 client injects into the model (each item confirmed against the client binary):
+Once the tool is enabled, any one of the following triggers Claude to use it. This is the official list the client injects into the model (each item confirmed against the client binary):
 
 | Way | Scope | Notes |
 |---|---|---|
-| Include the `workflow` / `workflows` keyword in your message | **This turn** | Per the official docs, Claude Code **highlights the word** in your message and switches to writing a workflow script instead of working through it turn by turn. The lightest trigger. **Triggered it by accident? Press `alt+w` to ignore it for this prompt** (the official move). For the full command-line operation once triggered (pre-run approval, watching, pause/resume, saving as a command), see [The Official Control Panel](#/en/p2-ops). |
+| Include the `ultracode` keyword in your message | **This turn** | Per the official docs, Claude Code **highlights the word in violet** in your message and switches to writing a workflow script instead of working through it turn by turn. The lightest trigger (the word `workflow` no longer triggers as of 2.1.160; see the end of this section). **Triggered it by accident? Press `alt+w` to ignore it for this prompt** (the official move). For the full command-line operation once triggered (pre-run approval, watching, pause/resume, saving as a command), see [The Official Control Panel](#/en/p2-ops). |
 | `/effort ultracode` | **Standing, this session** | Makes Claude orchestrate a workflow by default on every substantive task, with reasoning bumped to xhigh at the same time. See section 1.6. |
 | Ask in your own words | This turn | e.g. "run a workflow," "fan out agents," "orchestrate this with subagents." |
 | Skill / slash command | This turn | Some skills' or slash commands' instructions already say to use a workflow, so invoking one triggers it. (Note: you or a script can also **call the Workflow tool directly** or run a **named workflow** `{ name: 'xxx' }`; that is a programmatic launch, not part of this "model opt-in" list.) |
 
+> `ultracode` now pulls double duty: dropped into a message on its own it is a **single-turn** trigger (row 1 above); set as an effort tier with `/effort ultracode` it is **standing for the session** (row 2). After 2.1.160 renamed the single-turn trigger keyword from `workflow` to `ultracode`, the two became the same word.
+
 <div class="callout warn">
 
-**`ultrawork` is no longer a trigger.** Early community lore said "type `ultrawork` in the box and it triggers," but in the official 2.1.154 client `ultrawork` exists only as an **internal event name** (`ultrawork_request`), and **typing it triggers nothing.** The official trigger keywords are now `workflow` / `workflows`. (Separately: the third-party system oh-my-openagent does use `ultrawork` as an entry word, but that implementation belongs to a third-party project, unrelated to official Claude Code; Chapter 23 covers it.)
+**`ultrawork` is no longer a trigger.** Early community lore said "type `ultrawork` in the box and it triggers," but in the official 2.1.154 client `ultrawork` exists only as an **internal event name** (`ultrawork_request`), and **typing it triggers nothing.** The official trigger keyword is now `ultracode` (renamed in 2.1.160; it used to be `workflow` / `workflows`, and that word no longer triggers either). (Separately: the third-party system oh-my-openagent does use `ultrawork` as an entry word, but that implementation belongs to a third-party project, unrelated to official Claude Code; Chapter 23 covers it.)
 
 </div>
 
 ### Version prerequisite: Claude Code has to be new enough
 
-The official requirement is **v2.1.154 or later** (dynamic workflows' minimum version). This book's testing spans **v2.1.150 through v2.1.156**: the foundational mechanics in Parts I-IV mostly ran on 2.1.150, `/effort` and ultracode (section 1.6) were tested on **v2.1.154**, and R11 re-verified the core invariants on **v2.1.156**, where they still hold (see `assets/transcripts/examples-r11.md`). Per community reports an early form showed up around **2.1.148**, but **this book has not independently verified the exact starting version**, so treat that as a rough lower bound. Check your version:
+The official requirement is **v2.1.154 or later** (dynamic workflows' minimum version). This book's testing spans **v2.1.150 through v2.1.160**: the foundational mechanics in Parts I-IV mostly ran on 2.1.150, `/effort` and ultracode (section 1.6) were tested on **v2.1.154**, and R11 re-verified the core invariants on **v2.1.156**, where they still hold (see `assets/transcripts/examples-r11.md`); **R16 (this round) verified one behavior change on v2.1.160 — the single-turn trigger keyword was renamed from `workflow` to `ultracode`, and the word `workflow` no longer triggers** (tested first-hand this session: typing `ultracode` in a message fired the workflow opt-in, while `workflow` appearing in the same message did not; cross-checked against the official CHANGELOG 2.1.160 and the client `--version`). Per community reports an early form showed up around **2.1.148**, but **this book has not independently verified the exact starting version**, so treat that as a rough lower bound. Check your version:
 
 ```bash
 claude --version
@@ -373,7 +375,7 @@ When a task is best solved by a single agent thinking deeply, `max` is usually t
 
 <div class="callout info">
 
-**Easter egg: `ultrathink`.** It uses the same mechanism as the `workflow` keyword: include `ultrathink` in your message and Claude will "reason more deeply on this turn" (official wording: "requesting deeper reasoning on this turn"). ultrathink only affects reasoning depth for the current turn and does not involve workflow orchestration; it is a different feature from ultracode.
+**Easter egg: `ultrathink`.** It uses the same "keyword highlight in your message" mechanism as the `ultracode` trigger keyword, but does something different: include `ultrathink` in your message and Claude will only "reason more deeply on this turn" (official wording: "requesting deeper reasoning on this turn"), without triggering workflow orchestration.
 
 </div>
 
@@ -426,7 +428,7 @@ If the task can be drawn as a flowchart of "what first, what next, which steps r
 
 ## 1.9 Chapter Summary
 
-- Workflow (officially **Dynamic workflows**, research preview) is a built-in Claude Code tool that uses a **pure-JavaScript script** to orchestrate subagents. Use it in two layers. **Available**: the official entry is the "Dynamic workflows" row in `/config` (mandatory for Pro), with the underlying gate being `CLAUDE_CODE_WORKFLOWS=1` plus the server-side flag (power users can set `=1` explicitly). **Will use**: triggered by the `workflow`/`workflows` keyword (press `alt+w` to ignore an accidental trigger), `/effort ultracode` (standing, this session), natural language, or a named workflow; `ultrawork` is no longer a trigger.
+- Workflow (officially **Dynamic workflows**, research preview) is a built-in Claude Code tool that uses a **pure-JavaScript script** to orchestrate subagents. Use it in two layers. **Available**: the official entry is the "Dynamic workflows" row in `/config` (mandatory for Pro), with the underlying gate being `CLAUDE_CODE_WORKFLOWS=1` plus the server-side flag (power users can set `=1` explicitly). **Will use**: triggered by the `ultracode` keyword (single-turn; replaced the old `workflow` in 2.1.160, press `alt+w` to ignore an accidental trigger), `/effort ultracode` (standing, this session), natural language, or a named workflow; `ultrawork` is not a trigger.
 - `/effort` has seven settings (low/medium/high/xhigh/max/ultracode/auto); **ultracode = xhigh reasoning + proactive orchestration by default (this session only)**, shallower than max on reasoning depth, but it wins on "orchestrating with more agents by default."
 - A script = **warp** (`meta` pure literal + `phase`) + **weft** (`agent` / `parallel` / `pipeline` / `log` / `workflow`).
 - `agent(prompt, { schema })` dispatches a subagent and returns a **validated structured object**; a schema mismatch triggers an automatic retry.

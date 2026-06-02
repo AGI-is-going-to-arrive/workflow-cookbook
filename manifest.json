@@ -7,7 +7,7 @@
       "en": "A Hands-on Guide to Multi-Agent Orchestration in Claude Code"
     },
     "repo": "https://github.com/AGI-is-going-to-arrive/workflow-cookbook",
-    "env": "Claude Code v2.1.156 · CLAUDE_CODE_WORKFLOWS=1 · Opus 4.8 (1M)"
+    "env": "Claude Code v2.1.150–v2.1.160 · CLAUDE_CODE_WORKFLOWS=1 · Opus 4.8 (1M)"
   },
   "parts": [
     {

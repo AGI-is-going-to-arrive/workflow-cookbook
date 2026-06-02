@@ -8,12 +8,12 @@
 
 Chapter 01 §1.5 split this into two layers: **available** vs. **will use.** Before starting, confirm the **available** layer.
 
-**Turning it on and off.** Dynamic workflows are in research preview and need Claude Code v2.1.154 or later. This book was tested on v2.1.156. Run `claude --version` to confirm the version and upgrade if below the requirement. The book's runs span v2.1.150 to v2.1.156, with the core mechanics re-verified on v2.1.156. They work on every paid plan, plus the Anthropic API and Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry.
+**Turning it on and off.** Dynamic workflows are in research preview and need Claude Code v2.1.154 or later. This book's core testing was on v2.1.156 (the trigger-keyword rename was re-checked on v2.1.160). Run `claude --version` to confirm the version and upgrade if below the requirement. The book's runs span v2.1.150 to v2.1.160, with the core mechanics re-verified on v2.1.156. They work on every paid plan, plus the Anthropic API and Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry.
 
 - **To turn on**: they're available on **all paid plans** (Pro, Max, Team, Enterprise). On **Pro**, you switch them on from the **Dynamic workflows** row in `/config`. The official docs **don't state a default for the other plans** (Max/Team/Enterprise), so check that same toggle in your own `/config` rather than assuming they're already on.
 - **To turn off** (any one of these, and they all persist): toggle it off in `/config`; or add `"disableWorkflows": true` to `~/.claude/settings.json`; or set `CLAUDE_CODE_DISABLE_WORKFLOWS=1` (read at startup).
 - **Org-wide**: set `"disableWorkflows": true` in managed settings, or use the toggle on the Claude Code admin settings page.
-- Once off: bundled commands (like `/deep-research`) are gone, the `workflow` keyword no longer triggers, and `ultracode` disappears from the `/effort` menu.
+- Once off: bundled commands (like `/deep-research`) are gone, the `ultracode` trigger keyword stops firing, and the `ultracode` tier disappears from the `/effort` menu.
 
 <div class="callout info">
 
@@ -27,7 +27,7 @@ CLAUDE_CODE_WORKFLOWS = 1
 
 <div class="callout tip">
 
-**Two zero-cost confirmation methods.** First: type in the conversation, "run a minimal workflow to confirm the runtime." The message contains the word `workflow`, so Claude invokes the Workflow tool. If enabled, it runs; if not, it reports that the tool is unavailable. Second: type `/effort` and check whether the picker includes an `ultracode` slot. If present, workflows are already **available** (the reasoning is in §1.6).
+**Two zero-cost confirmation methods.** First: type in the conversation, "ultracode: run a minimal workflow to confirm the runtime." The message contains the word `ultracode`, so Claude invokes the Workflow tool. If enabled, it runs; if not, it reports that the tool is unavailable. Second: type `/effort` and check whether the picker includes an `ultracode` slot. If present, workflows are already **available** (the reasoning is in §1.6).
 
 </div>
 
@@ -35,7 +35,7 @@ As for **will use**: if you want Claude to **orchestrate proactively by default*
 
 <div class="callout tip">
 
-**"Script" does not mean manual coding: Claude generates the script.** Describe the requirement in natural language with the word `workflow`, e.g. "run a workflow to sweep this repo's TODOs and group them." Claude generates the orchestration script. Before it runs, an approval prompt appears; when unsure, select `View raw script` to read the source. After a successful run, one keypress **saves it as a `/` command** for instant reuse. The scripts below are for **reading and understanding**; in practice, Claude generates, you review, you save. The terminal mechanics (the 4 approval options, pressing `s` to save) are walked through in [The Official Control Panel](#/en/p2-ops); this chapter focuses on "the script's structure, how to read it, and how to iterate it."
+**"Script" does not mean manual coding: Claude generates the script.** Describe the requirement in natural language, e.g. "run a workflow to sweep this repo's TODOs and group them," and Claude generates the orchestration script; to name it explicitly, include the `ultracode` keyword in your message. Before it runs, an approval prompt appears; when unsure, select `View raw script` to read the source. After a successful run, one keypress **saves it as a `/` command** for instant reuse. The scripts below are for **reading and understanding**; in practice, Claude generates, you review, you save. The terminal mechanics (the 4 approval options, pressing `s` to save) are walked through in [The Official Control Panel](#/en/p2-ops); this chapter focuses on "the script's structure, how to read it, and how to iterate it."
 
 </div>
 
@@ -86,7 +86,7 @@ Line by line (echoing Chapter 01's "warp and weft"):
 
 <div class="callout warn">
 
-**This is a Workflow script, not a Node script -- a common first mistake for beginners.** `meta`/`phase`/`agent`/`log`/`budget`/`args` are all globals **injected by the Workflow runtime** (`_grounding.md` section B: "injected at runtime, no import needed"). Saving this as `hello.js` and running `node hello.js` produces an immediate `ReferenceError: phase is not defined` because Node has none of these globals. **This behavior is identical on Windows, macOS, and Linux**: it has nothing to do with the OS. Node simply has no Workflow runtime layer. The script only runs inside a Claude Code session where workflows are available, executed by Claude through the built-in Workflow tool. How to confirm availability and the official enable path are in §4.1 and [Chapter 01 §1.5](#/en/p1-01). Triggering: include the word `workflow` in the message (see §4.1). This book's testing used exactly this approach: runtime confirmed, schema forced `sum=4` as a **number**, ~26k tokens / ~5.5 seconds (real receipt and usage in §4.3 and §4.4).
+**This is a Workflow script, not a Node script -- a common first mistake for beginners.** `meta`/`phase`/`agent`/`log`/`budget`/`args` are all globals **injected by the Workflow runtime** (`_grounding.md` section B: "injected at runtime, no import needed"). Saving this as `hello.js` and running `node hello.js` produces an immediate `ReferenceError: phase is not defined` because Node has none of these globals. **This behavior is identical on Windows, macOS, and Linux**: it has nothing to do with the OS. Node simply has no Workflow runtime layer. The script only runs inside a Claude Code session where workflows are available, executed by Claude through the built-in Workflow tool. How to confirm availability and the official enable path are in §4.1 and [Chapter 01 §1.5](#/en/p1-01). Triggering: include the word `ultracode` in the message (see §4.1). This book's testing used exactly this approach: runtime confirmed, schema forced `sum=4` as a **number**, ~26k tokens / ~5.5 seconds (real receipt and usage in §4.3 and §4.4).
 
 </div>
 

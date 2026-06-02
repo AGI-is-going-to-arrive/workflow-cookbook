@@ -333,7 +333,7 @@ This chapter covers this step in a single sentence: **the full list of validatio
 With validation passed, do the real run. Three things to keep in mind:
 
 1. **Gated**: first make sure the Workflow tool is available. The official entry is the "Dynamic workflows" row in `/config` (available on all paid plans; on Pro you must turn it on there; the docs don't state whether Max/Team/Enterprise default on or off, so go by the toggle state on that row in your own `/config`); `CLAUDE_CODE_WORKFLOWS=1` is a power-user low-level switch that **doesn't replace** `/config` (see [Chapter 01 §1.5](#/en/p1-01)).
-2. **How to call**: once the script is on disk, trigger it with `Workflow({ scriptPath: '...' })` (`scriptPath` takes priority over inline `script` and named `name`). You can also trigger it by dropping the `workflow`/`workflows` keyword into a message (`ultrawork` is no longer a trigger, see [Chapter 01 §1.5](#/en/p1-01)).
+2. **How to call**: once the script is on disk, trigger it with `Workflow({ scriptPath: '...' })` (`scriptPath` takes priority over inline `script` and named `name`). You can also trigger it by dropping the `ultracode` keyword into a message (the word `workflow` no longer triggers as of 2.1.160, see [Chapter 01 §1.5](#/en/p1-01)).
 3. **The return is async**: the Workflow tool **returns immediately** with `taskId` and `runId` (shaped like `wf_...`), **non-blocking**. On actual completion, a `<task-notification>` returns `usage` and `result`.
 
 ```bash

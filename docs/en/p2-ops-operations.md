@@ -10,19 +10,19 @@
 
 No specific commands need to be memorized. **Describe the intent in the conversation.** The official surface provides the following entry points:
 
-**1. Keyword trigger.** When a message contains the word `workflow` or `workflows`, Claude Code **highlights that word**, indicating it will generate a workflow script. Claude then switches to orchestrating with a script instead of proceeding turn by turn.
+**1. Keyword trigger.** When a message contains the word `ultracode`, Claude Code **highlights it in violet**, indicating it will generate a workflow script. Claude then switches to orchestrating with a script instead of proceeding turn by turn.
 
 For example, you type:
 
 ```text
-Run a workflow that sweeps every TODO in this repo and groups them by theme
+ultracode sweep every TODO in this repo and group them by theme
 ```
 
-"workflow" gets highlighted, and Claude proceeds to write the script for you and hand it to the runtime.
+"ultracode" gets highlighted in violet, and Claude proceeds to write the script for you and hand it to the runtime.
 
 <div class="callout tip">
 
-**Triggered it by accident? Press `alt+w`.** Sometimes a mention of "the design of this workflow" is only incidental, not an intent to run one. The keyword gets highlighted and Claude prepares to write a script. Press **`alt+w`** to **dismiss the trigger for this turn**, letting Claude treat it as an ordinary message. This is a "skip this time" shortcut.
+**Triggered it by accident? Press `alt+w`.** Sometimes you're just discussing the word `ultracode` itself (say, explaining how it works), not intending to run one. The keyword gets highlighted and Claude prepares to write a script. Press **`alt+w`** to **dismiss the trigger for this turn**, letting Claude treat it as an ordinary message. This is a "skip this time" shortcut.
 
 </div>
 
@@ -32,7 +32,7 @@ The three entry points compared:
 
 | Entry point | What you do | Good for |
 |---|---|---|
-| Keyword `workflow`/`workflows` | Naturally include the word in your message | Explicitly running a workflow this once |
+| Keyword `ultracode` | Naturally include the word in your message | Explicitly running a workflow this once |
 | `alt+w` | Press it when triggered by accident | Only mentioned it, no intent to run now |
 | `/effort ultracode` | Type it once, stays on all session | Wanting Claude to orchestrate proactively by default |
 
@@ -229,7 +229,7 @@ This section lists boundaries that arise in practice. Knowing them in advance re
 - **Per-machine**: toggle it off on the **Dynamic workflows** row in `/config`; or add `"disableWorkflows": true` to your `settings.json`; or set the environment variable `CLAUDE_CODE_DISABLE_WORKFLOWS=1` (read at startup; the per-OS form matches the enable side: macOS/Linux run `CLAUDE_CODE_DISABLE_WORKFLOWS=1 claude`, Windows CMD `set CLAUDE_CODE_DISABLE_WORKFLOWS=1` then run `claude`, PowerShell `$env:CLAUDE_CODE_DISABLE_WORKFLOWS="1"; claude`; for a persistent cross-platform setting put it in the `env` block of `settings.json`).
 - **Org-wide**: set `"disableWorkflows": true` in your organization's **managed settings**, or use the toggle on the Claude Code **admin settings page**.
 
-Once disabled, three things change that you'll notice immediately: the **bundled commands are gone** (e.g. `/deep-research` no longer exists), the **`workflow` keyword goes inert** (typing it no longer highlights or switches Claude into orchestration), and **`ultracode` is removed from the `/effort` menu**. If `/deep-research` vanished or the keyword stopped triggering, a disable switch is the first thing to check.
+Once disabled, three things change that you'll notice immediately: the **bundled commands are gone** (e.g. `/deep-research` no longer exists), the **`ultracode` trigger keyword goes inert** (typing it no longer highlights or switches Claude into orchestration), and the **`ultracode` tier is removed from the `/effort` menu**. If `/deep-research` vanished or the keyword stopped triggering, a disable switch is the first thing to check.
 
 </div>
 
@@ -247,7 +247,7 @@ This is **general terminal knowledge**, not an official guarantee specific to Dy
 
 ## Chapter Summary
 
-- **Trigger**: include `workflow`/`workflows` in your message (it gets highlighted); dismiss an accidental trigger with `alt+w`; to have Claude orchestrate proactively by default, use `/effort ultracode`.
+- **Trigger**: include `ultracode` in your message (it gets highlighted in violet); dismiss an accidental trigger with `alt+w`; to have Claude orchestrate proactively by default, use `/effort ultracode`.
 - **Approval**: before launch, 4 options: `Yes, run it` / `Yes, and don't ask again for <name> in <path>` (no more asking within this project) / `View raw script` (read first, recommended) / `No`; on the prompt, `Tab` cycles options and `Ctrl+G` opens the script in your editor.
 - **Permission modes**: Default/acceptEdits prompt every run (unless don't-ask-again); Auto prompts only first launch (skipped entirely under `ultracode`); Bypass / `claude -p` / Agent SDK never prompt. **Subagents always run `acceptEdits` and inherit your allowlist** regardless of session mode: file edits auto-approved (first-hand confirmed, Run `wf_b1d45b4c-445`), but non-allowlisted shell/web/MCP can still prompt mid-run. In the Desktop app it's an approval card (name + phases + token caution; Once/Always/Deny) with progress in the Background tasks pane.
 - **Watch**: `/workflows` opens the progress view (per phase: agent count / tokens / elapsed, drill-in supported), and the task panel below the input box shows a one-line progress; the keys `up/down Enter/right Esc j/k p x r s` are all in the Section 4 table.
@@ -255,7 +255,7 @@ This is **general terminal knowledge**, not an official guarantee specific to Dy
 - **Save as command**: happy with it, press `s`, and the workflow joins `/` autocomplete alongside the bundled commands.
 - **Bundled workflow**: only `/deep-research <question>` (multi-angle search, cross-check, vote, cited and filtered report), needs WebSearch available.
 - **Availability**: all paid plans (Pro/Max/Team/Enterprise) + Anthropic API + Bedrock + Vertex AI + Microsoft Foundry; Pro enables via the `/config` row, no documented default for the others.
-- **Disable**: `/config` toggle / `"disableWorkflows": true` in settings.json / `CLAUDE_CODE_DISABLE_WORKFLOWS=1` / managed settings or admin page (org-wide). When off: bundled commands gone, `workflow` keyword inert, `ultracode` removed from `/effort`.
+- **Disable**: `/config` toggle / `"disableWorkflows": true` in settings.json / `CLAUDE_CODE_DISABLE_WORKFLOWS=1` / managed settings or admin page (org-wide). When off: bundled commands gone, `ultracode` trigger keyword inert, the `ultracode` tier removed from `/effort`.
 - **Usage**: tokens consumed by workflows count toward your plan usage and rate limits.
 - **Boundaries**: research preview (UX may change); no input injection mid-run; the script has no fs/shell; at most 16 concurrent / 1000 agents per run; TUI keys are cross-platform consistent, except `alt+w` may need Option set as Meta in some macOS terminals.
 
